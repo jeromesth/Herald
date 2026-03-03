@@ -1,0 +1,272 @@
+import type { DatabaseAdapter } from "./adapter.js";
+import type { HeraldPlugin } from "./plugin.js";
+import type { ChannelType, NotificationWorkflow, WorkflowAdapter } from "./workflow.js";
+
+/**
+ * The single, comprehensive configuration object for Herald.
+ * Inspired by better-auth's `betterAuth()` options pattern.
+ */
+export interface HeraldOptions {
+	/**
+	 * Application name, used in notification templates.
+	 */
+	appName?: string;
+
+	/**
+	 * Base URL for API endpoints.
+	 * @default "/api/notifications"
+	 */
+	basePath?: string;
+
+	/**
+	 * Database adapter — bring your own ORM.
+	 * Use `herald/prisma`, `herald/drizzle`, etc.
+	 */
+	database: DatabaseAdapter;
+
+	/**
+	 * Workflow engine adapter — bring your own workflow system.
+	 * Use `herald/inngest`, `herald/temporal`, etc.
+	 */
+	workflow: WorkflowAdapter;
+
+	/**
+	 * Notification workflows defined for this application.
+	 */
+	workflows?: NotificationWorkflow[];
+
+	/**
+	 * Channel configurations for delivery.
+	 */
+	channels?: ChannelConfig;
+
+	/**
+	 * Plugins to extend Herald functionality.
+	 */
+	plugins?: HeraldPlugin[];
+
+	/**
+	 * Default preferences for all subscribers.
+	 */
+	defaultPreferences?: DefaultPreferences;
+
+	/**
+	 * Subscriber configuration.
+	 */
+	subscriber?: {
+		/** Additional custom fields to store on subscriber records. */
+		additionalFields?: Record<string, { type: "string" | "number" | "boolean" | "json" }>;
+	};
+
+	/**
+	 * Advanced configuration options.
+	 */
+	advanced?: {
+		/** Generate unique IDs. Defaults to crypto.randomUUID(). */
+		generateId?: () => string;
+	};
+}
+
+/**
+ * Channel provider configuration.
+ */
+export interface ChannelConfig {
+	email?: EmailChannelConfig;
+	inApp?: InAppChannelConfig;
+	sms?: SmsChannelConfig;
+	push?: PushChannelConfig;
+}
+
+export interface EmailChannelConfig {
+	provider: "sendgrid" | "resend" | "postmark" | "ses" | "smtp" | "custom";
+	from: string;
+	apiKey?: string;
+	send?: (args: {
+		to: string;
+		subject: string;
+		body: string;
+		from: string;
+	}) => Promise<void>;
+}
+
+export interface InAppChannelConfig {
+	enabled?: boolean;
+}
+
+export interface SmsChannelConfig {
+	provider: "twilio" | "vonage" | "custom";
+	from: string;
+	apiKey?: string;
+	send?: (args: { to: string; body: string; from: string }) => Promise<void>;
+}
+
+export interface PushChannelConfig {
+	provider: "fcm" | "apns" | "expo" | "custom";
+	credentials?: Record<string, unknown>;
+	send?: (args: {
+		token: string;
+		title: string;
+		body: string;
+		data?: Record<string, unknown>;
+	}) => Promise<void>;
+}
+
+/**
+ * Default notification preferences.
+ */
+export interface DefaultPreferences {
+	channels?: Partial<Record<ChannelType, boolean>>;
+}
+
+/**
+ * The internal Herald context, available to plugins and handlers.
+ */
+export interface HeraldContext {
+	options: HeraldOptions;
+	db: DatabaseAdapter;
+	workflow: WorkflowAdapter;
+	generateId: () => string;
+}
+
+/**
+ * The Herald instance returned from `herald()`.
+ */
+export interface Herald {
+	/**
+	 * HTTP handler for notification API endpoints.
+	 * Mount this in your framework: `app.all("/api/notifications/*", herald.handler)`.
+	 */
+	handler: (request: Request) => Promise<Response>;
+
+	/**
+	 * Programmatic API for server-side usage.
+	 */
+	api: HeraldAPI;
+
+	/**
+	 * The underlying workflow handler, if the adapter requires one.
+	 * Mount this alongside your workflow engine (e.g., Inngest serve).
+	 */
+	workflowHandler: (() => Promise<Response>) | null;
+
+	/**
+	 * Raw context for advanced usage.
+	 */
+	$context: HeraldContext;
+}
+
+/**
+ * Programmatic server-side API.
+ */
+export interface HeraldAPI {
+	/** Trigger a notification workflow. */
+	trigger: (args: {
+		workflowId: string;
+		to: string | string[];
+		payload: Record<string, unknown>;
+		actor?: string;
+		tenant?: string;
+		transactionId?: string;
+	}) => Promise<{ transactionId: string }>;
+
+	/** Create or update a subscriber. */
+	upsertSubscriber: (args: {
+		externalId: string;
+		email?: string;
+		phone?: string;
+		firstName?: string;
+		lastName?: string;
+		avatar?: string;
+		locale?: string;
+		timezone?: string;
+		data?: Record<string, unknown>;
+	}) => Promise<{ id: string }>;
+
+	/** Get a subscriber by external ID. */
+	getSubscriber: (externalId: string) => Promise<SubscriberRecord | null>;
+
+	/** Delete a subscriber. */
+	deleteSubscriber: (externalId: string) => Promise<void>;
+
+	/** List notifications for a subscriber (in-app inbox). */
+	getNotifications: (args: {
+		subscriberId: string;
+		limit?: number;
+		offset?: number;
+		read?: boolean;
+		seen?: boolean;
+		archived?: boolean;
+	}) => Promise<{ notifications: NotificationRecord[]; totalCount: number }>;
+
+	/** Mark notifications as read/seen/archived. */
+	markNotifications: (args: {
+		ids: string[];
+		action: "read" | "seen" | "archived";
+	}) => Promise<void>;
+
+	/** Get subscriber preferences. */
+	getPreferences: (subscriberId: string) => Promise<PreferenceRecord>;
+
+	/** Update subscriber preferences. */
+	updatePreferences: (
+		subscriberId: string,
+		preferences: Partial<PreferenceRecord>,
+	) => Promise<PreferenceRecord>;
+
+	/** Add subscribers to a topic. */
+	addToTopic: (args: {
+		topicKey: string;
+		subscriberIds: string[];
+	}) => Promise<void>;
+
+	/** Remove subscribers from a topic. */
+	removeFromTopic: (args: {
+		topicKey: string;
+		subscriberIds: string[];
+	}) => Promise<void>;
+}
+
+// ---- Record types for API responses ----
+
+export interface SubscriberRecord {
+	id: string;
+	externalId: string;
+	email?: string;
+	phone?: string;
+	firstName?: string;
+	lastName?: string;
+	avatar?: string;
+	locale?: string;
+	timezone?: string;
+	data?: Record<string, unknown>;
+	createdAt: Date;
+	updatedAt: Date;
+}
+
+export interface NotificationRecord {
+	id: string;
+	subscriberId: string;
+	workflowId: string;
+	channel: string;
+	subject?: string;
+	body: string;
+	actionUrl?: string;
+	avatar?: string;
+	data?: Record<string, unknown>;
+	read: boolean;
+	seen: boolean;
+	archived: boolean;
+	deliveryStatus: string;
+	transactionId: string;
+	createdAt: Date;
+	readAt?: Date;
+	seenAt?: Date;
+	archivedAt?: Date;
+}
+
+export interface PreferenceRecord {
+	subscriberId: string;
+	channels?: Partial<Record<string, boolean>>;
+	workflows?: Partial<Record<string, boolean>>;
+	categories?: Partial<Record<string, boolean>>;
+}
