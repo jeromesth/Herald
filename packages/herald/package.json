@@ -1,0 +1,75 @@
+{
+  "name": "herald-notification",
+  "version": "0.1.0",
+  "description": "Open-source headless notification system for TypeScript. Build notification workflows on your own infrastructure.",
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    },
+    "./prisma": {
+      "types": "./dist/adapters/database/prisma.d.mts",
+      "default": "./dist/adapters/database/prisma.mjs"
+    },
+    "./inngest": {
+      "types": "./dist/adapters/workflow/inngest.d.mts",
+      "default": "./dist/adapters/workflow/inngest.mjs"
+    },
+    "./api": {
+      "types": "./dist/api/index.d.mts",
+      "default": "./dist/api/index.mjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.4.0",
+    "typescript": "^5.7.0",
+    "@prisma/client": "^6.0.0",
+    "inngest": "^3.0.0"
+  },
+  "peerDependencies": {
+    "@prisma/client": ">=5.0.0",
+    "inngest": ">=3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@prisma/client": {
+      "optional": true
+    },
+    "inngest": {
+      "optional": true
+    }
+  },
+  "keywords": [
+    "notifications",
+    "workflow",
+    "typescript",
+    "inngest",
+    "headless",
+    "prisma",
+    "novu-alternative",
+    "knock-alternative"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jeromesth/inngest-notifications"
+  }
+}
