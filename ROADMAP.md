@@ -17,11 +17,11 @@ This document outlines planned features and the development roadmap for Herald. 
 
 Priority: **High** | Comparable: Novu Integrations, Knock Channels
 
-- [ ] **Email delivery** — integrate with SendGrid, Resend, Postmark, Amazon SES
-- [ ] **In-app real-time** — WebSocket/SSE support for live notification feeds
-- [ ] **Channel provider interface** — standardized `send()` contract for all channels
-- [ ] **Template rendering** — Liquid/Handlebars template engine for notification content
-- [ ] **Email layouts** — reusable HTML email layouts with variable interpolation
+- [x] **Email delivery** — integrate with SendGrid, Resend, Postmark, Amazon SES
+- [x] **In-app real-time** — SSE support for live notification feeds
+- [x] **Channel provider interface** — standardized `send()` contract for all channels
+- [x] **Template rendering** — Handlebars-style template engine for notification content
+- [x] **Email layouts** — reusable HTML email layouts with variable interpolation
 
 ## v0.3 — Workflow Steps
 

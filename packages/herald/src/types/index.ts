@@ -55,3 +55,23 @@ export type {
 	NotificationRecord,
 	PreferenceRecord,
 } from "./config.js";
+
+export type {
+	ChannelProvider,
+	ChannelProviderMessage,
+	ChannelProviderResult,
+} from "../channels/provider.js";
+
+export type {
+	TemplateFilter,
+	TemplateContext,
+} from "../templates/engine.js";
+
+export type {
+	EmailLayout,
+	RenderedEmail,
+} from "../templates/layouts.js";
+
+export type {
+	SSEEvent,
+} from "../realtime/sse.js";

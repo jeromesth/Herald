@@ -5,6 +5,7 @@ import { notificationRoutes } from "./routes/notifications.js";
 import { preferenceRoutes } from "./routes/preferences.js";
 import { topicRoutes } from "./routes/topics.js";
 import { triggerRoutes } from "./routes/trigger.js";
+import { realtimeRoutes } from "./routes/realtime.js";
 
 interface Route {
 	method: string;
@@ -27,6 +28,7 @@ export function createRouter(
 		...notificationRoutes,
 		...preferenceRoutes,
 		...topicRoutes,
+		...realtimeRoutes,
 	];
 
 	// Add plugin routes

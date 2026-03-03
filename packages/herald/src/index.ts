@@ -4,6 +4,17 @@ export { herald } from "./core/herald.js";
 // Schema
 export { coreSchema, mergeSchemas } from "./db/schema.js";
 
+// Channels
+export { ChannelRegistry } from "./channels/provider.js";
+export { InAppProvider } from "./channels/in-app.js";
+
+// Templates
+export { renderTemplate, compileTemplate } from "./templates/engine.js";
+export { renderEmail, defaultEmailLayout, LayoutRegistry } from "./templates/layouts.js";
+
+// Real-time
+export { SSEManager } from "./realtime/sse.js";
+
 // Types — re-export everything
 export type {
 	// Adapter types
@@ -54,4 +65,16 @@ export type {
 	SubscriberRecord,
 	NotificationRecord,
 	PreferenceRecord,
+	// Channel provider types
+	ChannelProvider,
+	ChannelProviderMessage,
+	ChannelProviderResult,
+	// Template types
+	TemplateFilter,
+	TemplateContext,
+	// Email layout types
+	EmailLayout,
+	RenderedEmail,
+	// Real-time types
+	SSEEvent,
 } from "./types/index.js";
