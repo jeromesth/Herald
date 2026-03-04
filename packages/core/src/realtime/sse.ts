@@ -21,6 +21,7 @@ export class SSEManager {
 	private connections = new Map<string, Set<SSEConnection>>();
 	private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 	private heartbeatMs: number;
+	private encoder = new TextEncoder();
 
 	constructor(options?: { heartbeatMs?: number }) {
 		this.heartbeatMs = options?.heartbeatMs ?? 30_000;
@@ -31,6 +32,8 @@ export class SSEManager {
 	 * Returns a standard Response with a ReadableStream body.
 	 */
 	connect(subscriberId: string): Response {
+		let connectionRef: SSEConnection | null = null;
+
 		const stream = new ReadableStream({
 			start: (controller) => {
 				const connection: SSEConnection = {
@@ -38,6 +41,7 @@ export class SSEManager {
 					controller,
 					createdAt: new Date(),
 				};
+				connectionRef = connection;
 
 				if (!this.connections.has(subscriberId)) {
 					this.connections.set(subscriberId, new Set());
@@ -57,7 +61,7 @@ export class SSEManager {
 			},
 			cancel: () => {
 				// Clean up on disconnect
-				this.removeConnection(subscriberId);
+				this.removeConnection(subscriberId, connectionRef);
 			},
 		});
 
@@ -155,22 +159,20 @@ export class SSEManager {
 	}
 
 	private sendToController(controller: ReadableStreamDefaultController, event: SSEEvent): void {
-		const encoder = new TextEncoder();
 		const data = JSON.stringify(event.data);
 		const message = `event: ${event.type}\ndata: ${data}\n\n`;
-		controller.enqueue(encoder.encode(message));
+		controller.enqueue(this.encoder.encode(message));
 	}
 
-	private removeConnection(subscriberId: string): void {
+	private removeConnection(
+		subscriberId: string,
+		connection: SSEConnection | null,
+	): void {
 		const connections = this.connections.get(subscriberId);
 		if (!connections) return;
 
-		// Remove the first connection for this subscriber
-		for (const conn of connections) {
-			if (conn.subscriberId === subscriberId) {
-				connections.delete(conn);
-				break;
-			}
+		if (connection) {
+			connections.delete(connection);
 		}
 
 		if (connections.size === 0) {

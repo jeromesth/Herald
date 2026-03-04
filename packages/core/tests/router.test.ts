@@ -20,6 +20,7 @@ const testWorkflow: NotificationWorkflow = {
 
 describe("HTTP Router", () => {
 	let app: Herald;
+	const origin = "https://herald.test";
 	const basePath = "/api/notifications";
 
 	function makeRequest(
@@ -27,7 +28,7 @@ describe("HTTP Router", () => {
 		path: string,
 		body?: unknown,
 	): Request {
-		return new Request(`http://localhost${basePath}${path}`, {
+		return new Request(`${origin}${basePath}${path}`, {
 			method,
 			headers: { "Content-Type": "application/json" },
 			body: body ? JSON.stringify(body) : undefined,
@@ -67,6 +68,17 @@ describe("HTTP Router", () => {
 				makeRequest("POST", "/trigger", { to: "user-1" }),
 			);
 
+			expect(res.status).toBe(400);
+		});
+
+		it("returns 400 for invalid JSON body", async () => {
+			const req = new Request(`${origin}${basePath}/trigger`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: "{invalid",
+			});
+
+			const res = await app.handler(req);
 			expect(res.status).toBe(400);
 		});
 	});

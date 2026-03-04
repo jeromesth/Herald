@@ -222,5 +222,16 @@ describe("memoryAdapter", () => {
 			});
 			expect(results).toHaveLength(2);
 		});
+
+		it("supports OR connector semantics", async () => {
+			const results = await db.findMany({
+				model: "item",
+				where: [
+					{ field: "value", value: 10, connector: "OR" },
+					{ field: "value", value: 30, connector: "OR" },
+				],
+			});
+			expect(results).toHaveLength(2);
+		});
 	});
 });

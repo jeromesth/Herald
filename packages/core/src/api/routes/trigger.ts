@@ -23,6 +23,7 @@ export const triggerRoutes = [
 			}
 
 			const transactionId = body.transactionId ?? ctx.generateId();
+			ctx.transactionWorkflowMap.set(transactionId, body.workflowId);
 
 			// Run plugin beforeTrigger hooks
 			if (ctx.options.plugins) {
@@ -82,6 +83,20 @@ export const triggerRoutes = [
 			const results = await Promise.all(
 				body.events.map(async (event) => {
 					const transactionId = ctx.generateId();
+					ctx.transactionWorkflowMap.set(transactionId, event.workflowId);
+
+					if (ctx.options.plugins) {
+						for (const plugin of ctx.options.plugins) {
+							if (plugin.hooks?.beforeTrigger) {
+								await plugin.hooks.beforeTrigger({
+									workflowId: event.workflowId,
+									to: event.to,
+									payload: event.payload ?? {},
+								});
+							}
+						}
+					}
+
 					await ctx.workflow.trigger({
 						workflowId: event.workflowId,
 						to: event.to,
@@ -90,6 +105,17 @@ export const triggerRoutes = [
 						tenant: event.tenant,
 						transactionId,
 					});
+
+					if (ctx.options.plugins) {
+						for (const plugin of ctx.options.plugins) {
+							if (plugin.hooks?.afterTrigger) {
+								await plugin.hooks.afterTrigger({
+									workflowId: event.workflowId,
+									transactionId,
+								});
+							}
+						}
+					}
 					return { transactionId, workflowId: event.workflowId, status: "triggered" as const };
 				}),
 			);
@@ -101,7 +127,7 @@ export const triggerRoutes = [
 		method: "DELETE",
 		pattern: "/trigger/:transactionId",
 		handler: async (
-			_request: Request,
+			request: Request,
 			ctx: HeraldContext,
 			params: Record<string, string>,
 		) => {
@@ -110,18 +136,27 @@ export const triggerRoutes = [
 				return jsonResponse({ error: "transactionId is required" }, 400);
 			}
 
-			// Find associated notifications to determine the workflow
-			const notifications = await ctx.db.findMany<{ workflowId: string }>({
-				model: "notification",
-				where: [{ field: "transactionId", value: transactionId }],
-				limit: 1,
-			});
+			const url = new URL(request.url);
+			const workflowIdFromQuery = url.searchParams.get("workflowId");
+			const workflowIdFromMemory = ctx.transactionWorkflowMap.get(transactionId);
 
-			if (notifications.length > 0 && notifications[0]) {
+			let workflowId = workflowIdFromQuery ?? workflowIdFromMemory;
+			if (!workflowId) {
+				// Fallback to persisted notifications for transactions created by older versions.
+				const notifications = await ctx.db.findMany<{ workflowId: string }>({
+					model: "notification",
+					where: [{ field: "transactionId", value: transactionId }],
+					limit: 1,
+				});
+				workflowId = notifications[0]?.workflowId;
+			}
+
+			if (workflowId) {
 				await ctx.workflow.cancel({
-					workflowId: notifications[0].workflowId,
+					workflowId,
 					transactionId,
 				});
+				ctx.transactionWorkflowMap.delete(transactionId);
 			}
 
 			return jsonResponse({ status: "cancelled" });

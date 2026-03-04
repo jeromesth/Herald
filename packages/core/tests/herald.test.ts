@@ -147,6 +147,23 @@ describe("herald.api — trigger", () => {
 
 		expect(result.transactionId).toBe("custom-tx-123");
 	});
+
+	it("executes channel delivery from workflow steps", async () => {
+		const { id: subscriberId } = await app.api.upsertSubscriber({
+			externalId: "user-1",
+			email: "alice@example.com",
+		});
+
+		await app.api.trigger({
+			workflowId: "welcome",
+			to: "user-1",
+			payload: { appName: "TestApp" },
+		});
+
+		const notifications = await app.api.getNotifications({ subscriberId });
+		expect(notifications.totalCount).toBe(1);
+		expect(notifications.notifications[0]!.subject).toBe("Welcome!");
+	});
 });
 
 describe("herald.api — preferences", () => {

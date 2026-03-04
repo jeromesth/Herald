@@ -70,6 +70,7 @@ type InngestHandler = (args: {
 }) => Promise<unknown>;
 
 type InngestFunction = unknown;
+type InngestAdapter = WorkflowAdapter & { __functions?: InngestFunction[] };
 
 /**
  * Serve function type — we accept any serve implementation.
@@ -122,14 +123,10 @@ export function inngestAdapter(config: InngestAdapterConfig): WorkflowAdapter {
 	} = config;
 
 	const registeredFunctions: InngestFunction[] = [];
-	const workflowMap = new Map<string, NotificationWorkflow>();
-
-	return {
+	const adapter: InngestAdapter = {
 		adapterId: "inngest",
 
 		registerWorkflow(workflow: NotificationWorkflow): void {
-			workflowMap.set(workflow.id, workflow);
-
 			const eventName = `${eventPrefix}/workflow.${workflow.id}`;
 
 			const fn = client.createFunction(
@@ -146,7 +143,15 @@ export function inngestAdapter(config: InngestAdapterConfig): WorkflowAdapter {
 				},
 				{ event: eventName },
 				async ({ event, step }) => {
-					const payload = (event.data.payload ?? {}) as Record<string, unknown>;
+					const payload = {
+						...((event.data.payload ?? {}) as Record<string, unknown>),
+						_herald: {
+							transactionId: event.data.transactionId as string,
+							workflowId: workflow.id,
+							actor: event.data.actor,
+							tenant: event.data.tenant,
+						},
+					};
 					const recipients = event.data.recipients as string[];
 
 					// Execute workflow steps for each recipient
@@ -278,6 +283,9 @@ export function inngestAdapter(config: InngestAdapterConfig): WorkflowAdapter {
 			};
 		},
 	};
+
+	adapter.__functions = registeredFunctions;
+	return adapter;
 }
 
 /**
@@ -288,6 +296,6 @@ export function getInngestFunctions(adapter: WorkflowAdapter): InngestFunction[]
 	if (adapter.adapterId !== "inngest") {
 		throw new Error("getInngestFunctions can only be used with the Inngest adapter");
 	}
-	// Access internal state via the adapter's getHandler which creates functions
-	return [];
+
+	return (adapter as Partial<InngestAdapter>).__functions ?? [];
 }

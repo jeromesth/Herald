@@ -165,7 +165,7 @@ await notifications.api.upsertSubscriber({
 
 // Get notifications (in-app inbox)
 const { notifications: items, totalCount } = await notifications.api.getNotifications({
-  subscriberId: "sub-internal-id",
+  subscriberId: "user-123",
   read: false,
   limit: 20,
 });
@@ -177,7 +177,7 @@ await notifications.api.markNotifications({
 });
 
 // Update preferences
-await notifications.api.updatePreferences("sub-internal-id", {
+await notifications.api.updatePreferences("user-123", {
   channels: { email: false },
   workflows: { "marketing-digest": false },
 });

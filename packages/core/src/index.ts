@@ -4,6 +4,9 @@ export { herald } from "./core/herald.js";
 // Schema
 export { coreSchema, mergeSchemas } from "./db/schema.js";
 
+// Testing / local development adapters
+export { memoryAdapter, memoryWorkflowAdapter } from "./adapters/memory.js";
+
 // Channels
 export { ChannelRegistry } from "./channels/provider.js";
 export { InAppProvider } from "./channels/in-app.js";

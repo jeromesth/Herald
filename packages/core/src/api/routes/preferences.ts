@@ -28,9 +28,9 @@ export const preferenceRoutes = [
 			return jsonResponse(
 				pref ?? {
 					subscriberId: subscriber.id,
-					channels: {},
-					workflows: {},
-					categories: {},
+					channels: { ...(ctx.options.defaultPreferences?.channels ?? {}) },
+					workflows: { ...(ctx.options.defaultPreferences?.workflows ?? {}) },
+					categories: { ...(ctx.options.defaultPreferences?.categories ?? {}) },
 				},
 			);
 		},
@@ -86,12 +86,15 @@ export const preferenceRoutes = [
 			}
 
 			const id = ctx.generateId();
+			const defaultChannels = ctx.options.defaultPreferences?.channels ?? {};
+			const defaultWorkflows = ctx.options.defaultPreferences?.workflows ?? {};
+			const defaultCategories = ctx.options.defaultPreferences?.categories ?? {};
 			const newPref = {
 				id,
 				subscriberId: subscriber.id,
-				channels: body.channels ?? {},
-				workflows: body.workflows ?? {},
-				categories: body.categories ?? {},
+				channels: { ...defaultChannels, ...(body.channels ?? {}) },
+				workflows: { ...defaultWorkflows, ...(body.workflows ?? {}) },
+				categories: { ...defaultCategories, ...(body.categories ?? {}) },
 				updatedAt: now,
 			};
 

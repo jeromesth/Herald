@@ -5,6 +5,7 @@ export default defineConfig({
 		index: "src/index.ts",
 		"adapters/database/prisma": "src/adapters/database/prisma.ts",
 		"adapters/workflow/inngest": "src/adapters/workflow/inngest.ts",
+		"adapters/memory": "src/adapters/memory.ts",
 		"api/index": "src/api/index.ts",
 		"channels/index": "src/channels/index.ts",
 		"channels/email/index": "src/channels/email/index.ts",

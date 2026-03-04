@@ -15,7 +15,7 @@ export function memoryAdapter(): DatabaseAdapter {
 	}
 
 	function matchesWhere(record: Record<string, unknown>, where: Where[]): boolean {
-		return where.every((clause) => {
+		const evaluateClause = (clause: Where): boolean => {
 			const value = record[clause.field];
 			const operator = clause.operator ?? "eq";
 
@@ -45,7 +45,15 @@ export function memoryAdapter(): DatabaseAdapter {
 				default:
 					return false;
 			}
-		});
+		};
+
+		const andClauses = where.filter((clause) => clause.connector !== "OR");
+		const orClauses = where.filter((clause) => clause.connector === "OR");
+
+		const andMatch = andClauses.every(evaluateClause);
+		const orMatch = orClauses.length === 0 || orClauses.some(evaluateClause);
+
+		return andMatch && orMatch;
 	}
 
 	function applySelect(

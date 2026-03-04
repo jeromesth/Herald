@@ -59,7 +59,7 @@ export interface StepContext {
  */
 export interface StepResult {
 	subject?: string;
-	body: string;
+	body?: string;
 	data?: Record<string, unknown>;
 	actionUrl?: string;
 	avatar?: string;

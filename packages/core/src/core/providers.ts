@@ -8,23 +8,30 @@ import { resendProvider } from "../channels/email/resend.js";
 import { postmarkProvider } from "../channels/email/postmark.js";
 import { sesProvider } from "../channels/email/ses.js";
 
+function requireApiKey(config: EmailChannelConfig, providerName: string): string {
+	if (!config.apiKey) {
+		throw new Error(`${providerName} provider requires an apiKey`);
+	}
+	return config.apiKey;
+}
+
 export function buildEmailProvider(config: EmailChannelConfig): ChannelProvider | null {
 	switch (config.provider) {
 		case "sendgrid":
 			return sendgridProvider({
-				apiKey: config.apiKey!,
+				apiKey: requireApiKey(config, "SendGrid"),
 				from: config.from,
 			});
 
 		case "resend":
 			return resendProvider({
-				apiKey: config.apiKey!,
+				apiKey: requireApiKey(config, "Resend"),
 				from: config.from,
 			});
 
 		case "postmark":
 			return postmarkProvider({
-				serverToken: config.apiKey!,
+				serverToken: requireApiKey(config, "Postmark"),
 				from: config.from,
 			});
 

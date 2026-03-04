@@ -13,9 +13,14 @@ import { ChannelRegistry } from "../channels/provider.js";
 import { InAppProvider } from "../channels/in-app.js";
 import { SSEManager } from "../realtime/sse.js";
 import { LayoutRegistry } from "../templates/layouts.js";
-import { renderTemplate, HandlebarsEngine } from "../templates/engine.js";
+import { HandlebarsEngine } from "../templates/engine.js";
 import type { TemplateEngine } from "../templates/types.js";
 import { buildEmailProvider } from "./providers.js";
+import { initializePlugins } from "./plugins.js";
+import { wrapWorkflow } from "./workflow-runtime.js";
+import { defaultPreferenceRecord } from "./preferences.js";
+import { resolveSubscriberInternalId } from "./subscriber.js";
+import { sendThroughProvider } from "./send.js";
 
 /**
  * Create a Herald notification system instance.
@@ -88,59 +93,53 @@ export function herald(options: HeraldOptions): Herald {
 		}
 	}
 
+	// Merge plugin schemas
+	const pluginSchemas = options.plugins?.map((p) => p.schema);
+	const fullSchema = mergeSchemas(coreSchema, ...(pluginSchemas ?? []));
+
 	const ctx: HeraldContext = {
 		options,
 		db: options.database,
 		workflow: options.workflow,
 		generateId,
 		channels,
+		layouts: layoutRegistry,
 		templateEngine,
+		schema: fullSchema,
+		transactionWorkflowMap: new Map<string, string>(),
 		sse,
 	};
 
-	// Merge plugin schemas
-	const pluginSchemas = options.plugins?.map((p) => p.schema);
-	const _fullSchema = mergeSchemas(coreSchema, ...pluginSchemas ?? []);
+	const pluginsReady = initializePlugins(ctx, options.plugins);
 
-	// Register workflows with the workflow adapter
+	// Register workflows with wrapped handlers that can execute channel delivery.
 	if (options.workflows) {
 		for (const workflow of options.workflows) {
-			options.workflow.registerWorkflow(workflow);
+			options.workflow.registerWorkflow(wrapWorkflow(workflow, ctx));
 		}
 	}
 
-	// Initialize plugins
-	if (options.plugins) {
-		for (const plugin of options.plugins) {
-			if (plugin.init) {
-				// Fire-and-forget initialization — plugins can mutate context
-				Promise.resolve(plugin.init(ctx)).catch((err) => {
-					console.error(`[herald] Plugin "${plugin.id}" init failed:`, err);
-				});
-			}
-		}
-	}
-
-	const api = createAPI(ctx);
-	const router = createRouter(ctx, options.plugins);
+	const api = createAPI(ctx, pluginsReady);
+	const router = createRouter(ctx, options.plugins, pluginsReady);
 	const workflowHandlerInfo = options.workflow.getHandler();
 
 	return {
 		handler: router,
 		api,
-		workflowHandler: workflowHandlerInfo
-			? () => workflowHandlerInfo.handler(new Request(workflowHandlerInfo.path))
-			: null,
+		workflow: workflowHandlerInfo,
+		workflowHandler: workflowHandlerInfo ? workflowHandlerInfo.handler : null,
 		$context: ctx,
 	};
 }
 
-function createAPI(ctx: HeraldContext): HeraldAPI {
+function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 	const { db, workflow, generateId } = ctx;
 
 	return {
 		async trigger(args) {
+			await pluginsReady;
 			const transactionId = args.transactionId ?? generateId();
+			ctx.transactionWorkflowMap.set(transactionId, args.workflowId);
 
 			// Run beforeTrigger hooks
 			if (ctx.options.plugins) {
@@ -176,6 +175,7 @@ function createAPI(ctx: HeraldContext): HeraldAPI {
 		},
 
 		async upsertSubscriber(args) {
+			await pluginsReady;
 			const now = new Date();
 			const existing = await db.findOne<SubscriberRecord>({
 				model: "subscriber",
@@ -206,6 +206,7 @@ function createAPI(ctx: HeraldContext): HeraldAPI {
 		},
 
 		async getSubscriber(externalId) {
+			await pluginsReady;
 			return db.findOne<SubscriberRecord>({
 				model: "subscriber",
 				where: [{ field: "externalId", value: externalId }],
@@ -213,6 +214,7 @@ function createAPI(ctx: HeraldContext): HeraldAPI {
 		},
 
 		async deleteSubscriber(externalId) {
+			await pluginsReady;
 			await db.delete({
 				model: "subscriber",
 				where: [{ field: "externalId", value: externalId }],
@@ -220,8 +222,11 @@ function createAPI(ctx: HeraldContext): HeraldAPI {
 		},
 
 		async getNotifications(args) {
+			await pluginsReady;
+			const subscriberId = await resolveSubscriberInternalId(db, args.subscriberId) ?? args.subscriberId;
+
 			const where: { field: string; value: unknown }[] = [
-				{ field: "subscriberId", value: args.subscriberId },
+				{ field: "subscriberId", value: subscriberId },
 			];
 
 			if (args.read !== undefined) {
@@ -249,6 +254,7 @@ function createAPI(ctx: HeraldContext): HeraldAPI {
 		},
 
 		async markNotifications(args) {
+			await pluginsReady;
 			const now = new Date();
 			const updates: Record<string, unknown> = {};
 
@@ -277,24 +283,29 @@ function createAPI(ctx: HeraldContext): HeraldAPI {
 		},
 
 		async getPreferences(subscriberId) {
+			await pluginsReady;
+			const internalSubscriberId = await resolveSubscriberInternalId(db, subscriberId) ?? subscriberId;
+
 			const pref = await db.findOne<PreferenceRecord>({
 				model: "preference",
-				where: [{ field: "subscriberId", value: subscriberId }],
+				where: [{ field: "subscriberId", value: internalSubscriberId }],
 			});
 
-			return pref ?? { subscriberId, channels: {}, workflows: {}, categories: {} };
+			return pref ?? defaultPreferenceRecord(ctx, internalSubscriberId);
 		},
 
 		async updatePreferences(subscriberId, preferences) {
+			await pluginsReady;
+			const internalSubscriberId = await resolveSubscriberInternalId(db, subscriberId) ?? subscriberId;
 			const now = new Date();
 			const existing = await db.findOne<PreferenceRecord>({
 				model: "preference",
-				where: [{ field: "subscriberId", value: subscriberId }],
+				where: [{ field: "subscriberId", value: internalSubscriberId }],
 			});
 
 			if (existing) {
 				const merged: PreferenceRecord = {
-					subscriberId,
+					subscriberId: internalSubscriberId,
 					channels: { ...existing.channels, ...preferences.channels },
 					workflows: { ...existing.workflows, ...preferences.workflows },
 					categories: { ...existing.categories, ...preferences.categories },
@@ -302,7 +313,7 @@ function createAPI(ctx: HeraldContext): HeraldAPI {
 
 				await db.update({
 					model: "preference",
-					where: [{ field: "subscriberId", value: subscriberId }],
+					where: [{ field: "subscriberId", value: internalSubscriberId }],
 					update: { ...merged, updatedAt: now },
 				});
 
@@ -310,11 +321,12 @@ function createAPI(ctx: HeraldContext): HeraldAPI {
 			}
 
 			const id = ctx.generateId();
+			const defaults = defaultPreferenceRecord(ctx, internalSubscriberId);
 			const newPref: PreferenceRecord = {
-				subscriberId,
-				channels: preferences.channels ?? {},
-				workflows: preferences.workflows ?? {},
-				categories: preferences.categories ?? {},
+				subscriberId: internalSubscriberId,
+				channels: { ...defaults.channels, ...preferences.channels },
+				workflows: { ...defaults.workflows, ...preferences.workflows },
+				categories: { ...defaults.categories, ...preferences.categories },
 			};
 
 			await db.create({
@@ -326,6 +338,7 @@ function createAPI(ctx: HeraldContext): HeraldAPI {
 		},
 
 		async addToTopic(args) {
+			await pluginsReady;
 			const now = new Date();
 
 			// Ensure topic exists
@@ -377,6 +390,7 @@ function createAPI(ctx: HeraldContext): HeraldAPI {
 		},
 
 		async removeFromTopic(args) {
+			await pluginsReady;
 			const topic = (await db.findOne({
 				model: "topic",
 				where: [{ field: "key", value: args.topicKey }],
@@ -396,47 +410,8 @@ function createAPI(ctx: HeraldContext): HeraldAPI {
 		},
 
 		async send(args) {
-			const provider = ctx.channels.get(args.channel);
-			if (!provider) {
-				throw new Error(`No provider registered for channel "${args.channel}"`);
-			}
-
-			// Run beforeSend hooks
-			if (ctx.options.plugins) {
-				for (const plugin of ctx.options.plugins) {
-					if (plugin.hooks?.beforeSend) {
-						await plugin.hooks.beforeSend({
-							subscriberId: args.subscriberId,
-							channel: args.channel,
-							content: { subject: args.subject, body: args.body, ...args.data },
-						});
-					}
-				}
-			}
-
-			const result = await provider.send({
-				subscriberId: args.subscriberId,
-				to: args.to,
-				subject: args.subject,
-				body: args.body,
-				actionUrl: args.actionUrl,
-				data: args.data,
-			});
-
-			// Run afterSend hooks
-			if (ctx.options.plugins) {
-				for (const plugin of ctx.options.plugins) {
-					if (plugin.hooks?.afterSend) {
-						await plugin.hooks.afterSend({
-							subscriberId: args.subscriberId,
-							channel: args.channel,
-							messageId: result.messageId,
-							status: result.status,
-						});
-					}
-				}
-			}
-
+			await pluginsReady;
+			const result = await sendThroughProvider(ctx, args);
 			return { messageId: result.messageId, status: result.status };
 		},
 
