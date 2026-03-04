@@ -9,20 +9,31 @@ import type {
 } from "../types/config.js";
 import { coreSchema, mergeSchemas } from "../db/schema.js";
 import { createRouter } from "../api/router.js";
+import { ChannelRegistry } from "../channels/provider.js";
+import { InAppProvider } from "../channels/in-app.js";
+import { SSEManager } from "../realtime/sse.js";
+import { LayoutRegistry } from "../templates/layouts.js";
+import { renderTemplate, HandlebarsEngine } from "../templates/engine.js";
+import type { TemplateEngine } from "../templates/types.js";
+import { buildEmailProvider } from "./providers.js";
 
 /**
  * Create a Herald notification system instance.
  *
  * @example
  * ```ts
- * import { herald } from "herald-notification";
- * import { prismaAdapter } from "herald-notification/prisma";
- * import { inngestAdapter } from "herald-notification/inngest";
+ * import { herald } from "@herald/core";
+ * import { prismaAdapter } from "@herald/core/prisma";
+ * import { inngestAdapter } from "@herald/core/inngest";
  *
  * const notifications = herald({
  *   database: prismaAdapter(prisma),
  *   workflow: inngestAdapter({ client: inngest }),
  *   workflows: [commentWorkflow, mentionWorkflow],
+ *   channels: {
+ *     email: { provider: "resend", from: "noreply@example.com", apiKey: "re_..." },
+ *   },
+ *   realtime: true,
  * });
  *
  * // Mount the HTTP handler
@@ -32,11 +43,59 @@ import { createRouter } from "../api/router.js";
 export function herald(options: HeraldOptions): Herald {
 	const generateId = options.advanced?.generateId ?? (() => crypto.randomUUID());
 
+	// Set up channel registry
+	const channels = new ChannelRegistry();
+
+	// Set up SSE if enabled
+	let sse: SSEManager | undefined;
+	if (options.realtime) {
+		const sseOpts = typeof options.realtime === "object" ? options.realtime : {};
+		sse = new SSEManager(sseOpts);
+	}
+
+	// Register in-app provider (always available)
+	const inAppEnabled = options.channels?.inApp?.enabled !== false;
+	if (inAppEnabled) {
+		channels.register(
+			new InAppProvider({ db: options.database, generateId, sse }),
+		);
+	}
+
+	// Register email provider from config
+	if (options.channels?.email) {
+		const emailProvider = buildEmailProvider(options.channels.email);
+		if (emailProvider) {
+			channels.register(emailProvider);
+		}
+	}
+
+	// Register custom providers
+	if (options.providers) {
+		for (const provider of options.providers) {
+			channels.register(provider);
+		}
+	}
+
+	// Set up template engine (pluggable, defaults to Handlebars)
+	const templateEngine: TemplateEngine =
+		options.templateEngine ?? new HandlebarsEngine(options.templateFilters);
+
+	// Set up layout registry
+	const layoutRegistry = new LayoutRegistry();
+	if (options.layouts) {
+		for (const layout of options.layouts) {
+			layoutRegistry.register(layout);
+		}
+	}
+
 	const ctx: HeraldContext = {
 		options,
 		db: options.database,
 		workflow: options.workflow,
 		generateId,
+		channels,
+		templateEngine,
+		sse,
 	};
 
 	// Merge plugin schemas
@@ -161,7 +220,7 @@ function createAPI(ctx: HeraldContext): HeraldAPI {
 		},
 
 		async getNotifications(args) {
-			const where: { field: string; value: unknown; operator?: string }[] = [
+			const where: { field: string; value: unknown }[] = [
 				{ field: "subscriberId", value: args.subscriberId },
 			];
 
@@ -334,6 +393,59 @@ function createAPI(ctx: HeraldContext): HeraldAPI {
 					],
 				});
 			}
+		},
+
+		async send(args) {
+			const provider = ctx.channels.get(args.channel);
+			if (!provider) {
+				throw new Error(`No provider registered for channel "${args.channel}"`);
+			}
+
+			// Run beforeSend hooks
+			if (ctx.options.plugins) {
+				for (const plugin of ctx.options.plugins) {
+					if (plugin.hooks?.beforeSend) {
+						await plugin.hooks.beforeSend({
+							subscriberId: args.subscriberId,
+							channel: args.channel,
+							content: { subject: args.subject, body: args.body, ...args.data },
+						});
+					}
+				}
+			}
+
+			const result = await provider.send({
+				subscriberId: args.subscriberId,
+				to: args.to,
+				subject: args.subject,
+				body: args.body,
+				actionUrl: args.actionUrl,
+				data: args.data,
+			});
+
+			// Run afterSend hooks
+			if (ctx.options.plugins) {
+				for (const plugin of ctx.options.plugins) {
+					if (plugin.hooks?.afterSend) {
+						await plugin.hooks.afterSend({
+							subscriberId: args.subscriberId,
+							channel: args.channel,
+							messageId: result.messageId,
+							status: result.status,
+						});
+					}
+				}
+			}
+
+			return { messageId: result.messageId, status: result.status };
+		},
+
+		renderTemplate(args) {
+			return ctx.templateEngine.render(args.template, {
+				subscriber: args.subscriber,
+				payload: args.payload,
+				app: { name: ctx.options.appName },
+			});
 		},
 	};
 }

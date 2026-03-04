@@ -1,6 +1,6 @@
 {
-  "name": "herald-notification",
-  "version": "0.1.0",
+  "name": "@herald/core",
+  "version": "0.2.0",
   "description": "Open-source headless notification system for TypeScript. Build notification workflows on your own infrastructure.",
   "type": "module",
   "main": "./dist/index.mjs",
@@ -22,6 +22,18 @@
     "./api": {
       "types": "./dist/api/index.d.mts",
       "default": "./dist/api/index.mjs"
+    },
+    "./channels": {
+      "types": "./dist/channels/index.d.mts",
+      "default": "./dist/channels/index.mjs"
+    },
+    "./channels/email": {
+      "types": "./dist/channels/email/index.d.mts",
+      "default": "./dist/channels/email/index.mjs"
+    },
+    "./templates": {
+      "types": "./dist/templates/index.d.mts",
+      "default": "./dist/templates/index.mjs"
     }
   },
   "files": [
@@ -65,7 +77,15 @@
     "headless",
     "prisma",
     "novu-alternative",
-    "knock-alternative"
+    "knock-alternative",
+    "email",
+    "sendgrid",
+    "resend",
+    "postmark",
+    "ses",
+    "sse",
+    "real-time",
+    "templates"
   ],
   "license": "MIT",
   "repository": {

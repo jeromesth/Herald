@@ -1,6 +1,11 @@
 import type { DatabaseAdapter } from "./adapter.js";
 import type { HeraldPlugin } from "./plugin.js";
 import type { ChannelType, NotificationWorkflow, WorkflowAdapter } from "./workflow.js";
+import type { ChannelProvider, ChannelRegistry } from "../channels/provider.js";
+import type { SSEManager } from "../realtime/sse.js";
+import type { EmailLayout } from "../templates/layouts.js";
+import type { TemplateFilter } from "../templates/engine.js";
+import type { TemplateEngine } from "../templates/types.js";
 
 /**
  * The single, comprehensive configuration object for Herald.
@@ -57,6 +62,34 @@ export interface HeraldOptions {
 		/** Additional custom fields to store on subscriber records. */
 		additionalFields?: Record<string, { type: "string" | "number" | "boolean" | "json" }>;
 	};
+
+	/**
+	 * Email layout configuration.
+	 */
+	layouts?: EmailLayout[];
+
+	/**
+	 * Custom template filters available in all templates.
+	 * Only used by the built-in HandlebarsEngine.
+	 */
+	templateFilters?: Record<string, TemplateFilter>;
+
+	/**
+	 * Custom template engine. Defaults to the built-in HandlebarsEngine.
+	 * Implement the `TemplateEngine` interface to use React Email, MJML, etc.
+	 */
+	templateEngine?: TemplateEngine;
+
+	/**
+	 * Enable real-time in-app notifications via SSE.
+	 */
+	realtime?: boolean | { heartbeatMs?: number };
+
+	/**
+	 * Custom channel providers (alternative to channels config).
+	 * Directly provide ChannelProvider instances.
+	 */
+	providers?: ChannelProvider[];
 
 	/**
 	 * Advanced configuration options.
@@ -126,6 +159,9 @@ export interface HeraldContext {
 	db: DatabaseAdapter;
 	workflow: WorkflowAdapter;
 	generateId: () => string;
+	channels: ChannelRegistry;
+	templateEngine: TemplateEngine;
+	sse?: SSEManager;
 }
 
 /**
@@ -224,6 +260,24 @@ export interface HeraldAPI {
 		topicKey: string;
 		subscriberIds: string[];
 	}) => Promise<void>;
+
+	/** Send a notification directly through a channel provider. */
+	send: (args: {
+		channel: string;
+		subscriberId: string;
+		to: string;
+		subject?: string;
+		body: string;
+		actionUrl?: string;
+		data?: Record<string, unknown>;
+	}) => Promise<{ messageId: string; status: string }>;
+
+	/** Render a template with the given context. */
+	renderTemplate: (args: {
+		template: string;
+		subscriber: Record<string, unknown>;
+		payload: Record<string, unknown>;
+	}) => string;
 }
 
 // ---- Record types for API responses ----

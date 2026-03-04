@@ -17,11 +17,11 @@ This document outlines planned features and the development roadmap for Herald. 
 
 Priority: **High** | Comparable: Novu Integrations, Knock Channels
 
-- [ ] **Email delivery** — integrate with SendGrid, Resend, Postmark, Amazon SES
-- [ ] **In-app real-time** — WebSocket/SSE support for live notification feeds
-- [ ] **Channel provider interface** — standardized `send()` contract for all channels
-- [ ] **Template rendering** — Liquid/Handlebars template engine for notification content
-- [ ] **Email layouts** — reusable HTML email layouts with variable interpolation
+- [x] **Email delivery** — integrate with SendGrid, Resend, Postmark, Amazon SES
+- [x] **In-app real-time** — SSE support for live notification feeds
+- [x] **Channel provider interface** — standardized `send()` contract for all channels
+- [x] **Template rendering** — Handlebars-style template engine for notification content
+- [x] **Email layouts** — reusable HTML email layouts with variable interpolation
 
 ## v0.3 — Workflow Steps
 
@@ -37,11 +37,11 @@ Priority: **High** | Comparable: Novu Digest/Delay, Knock Function Steps
 
 Priority: **High** | Unique to Herald
 
-- [ ] **Drizzle database adapter** — `herald-notification/drizzle`
-- [ ] **Upstash Workflow adapter** — `herald-notification/upstash`
-- [ ] **Trigger.dev adapter** — `herald-notification/trigger`
-- [ ] **Kysely database adapter** — `herald-notification/kysely`
-- [ ] **MongoDB adapter** — `herald-notification/mongo`
+- [ ] **Drizzle database adapter** — `@herald/core/drizzle`
+- [ ] **Upstash Workflow adapter** — `@herald/core/upstash`
+- [ ] **Trigger.dev adapter** — `@herald/core/trigger`
+- [ ] **Kysely database adapter** — `@herald/core/kysely`
+- [ ] **MongoDB adapter** — `@herald/core/mongo`
 
 ## v0.5 — Advanced Preferences
 

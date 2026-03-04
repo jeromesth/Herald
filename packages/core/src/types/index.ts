@@ -1,23 +1,19 @@
-// Core
-export { herald } from "./core/herald.js";
-
-// Schema
-export { coreSchema, mergeSchemas } from "./db/schema.js";
-
-// Types — re-export everything
 export type {
-	// Adapter types
 	DatabaseAdapter,
 	Where,
 	WhereOperator,
 	SortBy,
-	// Schema types
+} from "./adapter.js";
+
+export type {
 	FieldType,
 	FieldAttribute,
 	ModelDefinition,
 	HeraldDBSchema,
 	HeraldPluginDBSchema,
-	// Workflow types
+} from "./schema.js";
+
+export type {
 	ChannelType,
 	DeliveryStatus,
 	StepType,
@@ -36,11 +32,15 @@ export type {
 	TriggerResult,
 	CancelArgs,
 	WorkflowHandler,
-	// Plugin types
+} from "./workflow.js";
+
+export type {
 	HeraldPlugin,
 	PluginEndpoint,
 	PluginInitResult,
-	// Config types
+} from "./plugin.js";
+
+export type {
 	HeraldOptions,
 	HeraldContext,
 	Herald,
@@ -54,4 +54,28 @@ export type {
 	SubscriberRecord,
 	NotificationRecord,
 	PreferenceRecord,
-} from "./types/index.js";
+} from "./config.js";
+
+export type {
+	ChannelProvider,
+	ChannelProviderMessage,
+	ChannelProviderResult,
+} from "../channels/provider.js";
+
+export type {
+	TemplateFilter,
+	TemplateContext,
+} from "../templates/engine.js";
+
+export type {
+	TemplateEngine,
+} from "../templates/types.js";
+
+export type {
+	EmailLayout,
+	RenderedEmail,
+} from "../templates/layouts.js";
+
+export type {
+	SSEEvent,
+} from "../realtime/sse.js";
