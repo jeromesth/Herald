@@ -86,7 +86,7 @@ function isChannelStep(stepType: string): stepType is ChannelType {
 	);
 }
 
-function conditionsPass(
+export function conditionsPass(
 	conditions: StepCondition[] | undefined,
 	context: StepContext,
 ): boolean {
