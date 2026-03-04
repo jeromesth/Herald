@@ -1,10 +1,11 @@
 import type { HeraldContext } from "../types/config.js";
+import type { ChannelType } from "../types/workflow.js";
 import type { TemplateContext } from "../templates/types.js";
 import { renderEmail } from "../templates/layouts.js";
 import { resolveSubscriberByAnyId } from "./subscriber.js";
 
 export interface ProviderSendArgs {
-	channel: string;
+	channel: ChannelType;
 	subscriberId: string;
 	to: string;
 	subject?: string;
@@ -114,6 +115,11 @@ export async function sendThroughProvider(
 	}
 
 	const subscriber = await resolveSubscriberByAnyId(ctx.db, message.subscriberId);
+	if (!subscriber) {
+		console.warn(
+			`[herald] Subscriber "${message.subscriberId}" not found. Template rendering will use limited context.`,
+		);
+	}
 	const templateContext: TemplateContext = {
 		subscriber: (subscriber ?? {
 			id: message.subscriberId,

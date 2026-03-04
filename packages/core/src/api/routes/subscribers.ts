@@ -1,6 +1,13 @@
 import type { HeraldContext, SubscriberRecord } from "../../types/config.js";
 import { jsonResponse, parseJsonBody } from "../router.js";
 
+const typeValidators: Record<string, (v: unknown) => boolean> = {
+	string: (v) => typeof v === "string",
+	number: (v) => typeof v === "number",
+	boolean: (v) => typeof v === "boolean",
+	json: (v) => v != null && typeof v === "object",
+};
+
 function pickConfiguredSubscriberFields(
 	ctx: HeraldContext,
 	body: Record<string, unknown>,
@@ -9,9 +16,12 @@ function pickConfiguredSubscriberFields(
 	if (!configured) return {};
 
 	const result: Record<string, unknown> = {};
-	for (const fieldName of Object.keys(configured)) {
+	for (const [fieldName, fieldConfig] of Object.entries(configured)) {
 		if (fieldName in body) {
-			result[fieldName] = body[fieldName];
+			const validator = typeValidators[fieldConfig.type];
+			if (validator && validator(body[fieldName])) {
+				result[fieldName] = body[fieldName];
+			}
 		}
 	}
 	return result;

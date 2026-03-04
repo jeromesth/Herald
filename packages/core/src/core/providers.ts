@@ -15,7 +15,7 @@ function requireApiKey(config: EmailChannelConfig, providerName: string): string
 	return config.apiKey;
 }
 
-export function buildEmailProvider(config: EmailChannelConfig): ChannelProvider | null {
+export function buildEmailProvider(config: EmailChannelConfig): ChannelProvider {
 	switch (config.provider) {
 		case "sendgrid":
 			return sendgridProvider({
@@ -54,7 +54,9 @@ export function buildEmailProvider(config: EmailChannelConfig): ChannelProvider 
 			return createCustomEmailProvider(config);
 
 		default:
-			return null;
+			throw new Error(
+				`Unknown email provider "${config.provider}". Supported providers: sendgrid, resend, postmark, ses, custom`,
+			);
 	}
 }
 

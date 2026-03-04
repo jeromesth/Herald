@@ -68,10 +68,7 @@ export function herald(options: HeraldOptions): Herald {
 
 	// Register email provider from config
 	if (options.channels?.email) {
-		const emailProvider = buildEmailProvider(options.channels.email);
-		if (emailProvider) {
-			channels.register(emailProvider);
-		}
+		channels.register(buildEmailProvider(options.channels.email));
 	}
 
 	// Register custom providers

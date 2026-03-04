@@ -77,8 +77,8 @@ export function createRouter(
 					if (error instanceof HTTPError) {
 						return jsonResponse({ error: error.message }, error.status);
 					}
-					const message = error instanceof Error ? error.message : "Internal server error";
-					return jsonResponse({ error: message }, 500);
+					console.error(`[herald] Unhandled route error:`, error);
+					return jsonResponse({ error: "Internal server error" }, 500);
 				}
 			}
 		}

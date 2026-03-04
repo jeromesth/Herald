@@ -58,7 +58,7 @@ export interface HeraldPlugin {
 }
 
 export interface PluginInitResult {
-	context?: Partial<HeraldContext>;
+	context?: Record<string, unknown>;
 }
 
 export interface PluginEndpoint {

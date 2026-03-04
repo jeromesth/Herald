@@ -86,7 +86,7 @@ export const triggerRoutes = [
 				return jsonResponse({ error: "events array is required" }, 400);
 			}
 
-			const results = await Promise.all(
+			const settled = await Promise.allSettled(
 				body.events.map(async (event) => {
 					const transactionId = ctx.generateId();
 					ctx.transactionWorkflowMap.set(transactionId, event.workflowId);
@@ -127,6 +127,15 @@ export const triggerRoutes = [
 				}),
 			);
 
+			const results = settled.map((result, index) => {
+				if (result.status === "fulfilled") return result.value;
+				return {
+					workflowId: body.events[index]!.workflowId,
+					status: "failed" as const,
+					error: result.reason instanceof Error ? result.reason.message : "Unknown error",
+				};
+			});
+
 			return jsonResponse({ results });
 		},
 	},
@@ -158,13 +167,18 @@ export const triggerRoutes = [
 				workflowId = notifications[0]?.workflowId;
 			}
 
-			if (workflowId) {
-				await ctx.workflow.cancel({
-					workflowId,
-					transactionId,
-				});
-				ctx.transactionWorkflowMap.delete(transactionId);
+			if (!workflowId) {
+				return jsonResponse(
+					{ error: "Could not resolve workflowId for this transaction. Provide workflowId as a query parameter." },
+					404,
+				);
 			}
+
+			await ctx.workflow.cancel({
+				workflowId,
+				transactionId,
+			});
+			ctx.transactionWorkflowMap.delete(transactionId);
 
 			return jsonResponse({ status: "cancelled" });
 		},

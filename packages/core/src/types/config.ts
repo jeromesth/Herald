@@ -277,7 +277,7 @@ export interface HeraldAPI {
 
 	/** Send a notification directly through a channel provider. */
 	send: (args: {
-		channel: string;
+		channel: ChannelType;
 		subscriberId: string;
 		to: string;
 		subject?: string;

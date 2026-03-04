@@ -86,9 +86,11 @@ export class SSEManager {
 		for (const conn of connections) {
 			try {
 				this.sendToController(conn.controller, event);
-			} catch {
-				// Connection is dead, clean it up
+			} catch (err) {
 				connections.delete(conn);
+				if (!(err instanceof TypeError)) {
+					console.error(`[herald] SSE emit failed for subscriber ${subscriberId}:`, err);
+				}
 			}
 		}
 
@@ -117,8 +119,10 @@ export class SSEManager {
 		for (const conn of connections) {
 			try {
 				conn.controller.close();
-			} catch {
-				// Already closed
+			} catch (err) {
+				if (!(err instanceof TypeError)) {
+					console.error(`[herald] Unexpected error closing SSE connection:`, err);
+				}
 			}
 		}
 
