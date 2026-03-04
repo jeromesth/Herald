@@ -117,19 +117,17 @@ export const subscriberRoutes = [
 				return jsonResponse({ error: "Subscriber not found" }, 404);
 			}
 
-			const updateBody: Record<string, unknown> = {
-				email: typeof body.email === "string" ? body.email : undefined,
-				phone: typeof body.phone === "string" ? body.phone : undefined,
-				firstName: typeof body.firstName === "string" ? body.firstName : undefined,
-				lastName: typeof body.lastName === "string" ? body.lastName : undefined,
-				avatar: typeof body.avatar === "string" ? body.avatar : undefined,
-				locale: typeof body.locale === "string" ? body.locale : undefined,
-				timezone: typeof body.timezone === "string" ? body.timezone : undefined,
-				data: typeof body.data === "object" && body.data != null && !Array.isArray(body.data)
-					? (body.data as Record<string, unknown>)
-					: undefined,
-				...pickConfiguredSubscriberFields(ctx, body),
-			};
+			const updateBody: Record<string, unknown> = {};
+			const stringFields = ["email", "phone", "firstName", "lastName", "avatar", "locale", "timezone"] as const;
+			for (const field of stringFields) {
+				if (field in body && typeof body[field] === "string") {
+					updateBody[field] = body[field];
+				}
+			}
+			if ("data" in body && typeof body.data === "object" && body.data != null && !Array.isArray(body.data)) {
+				updateBody.data = body.data as Record<string, unknown>;
+			}
+			Object.assign(updateBody, pickConfiguredSubscriberFields(ctx, body));
 
 			await ctx.db.update({
 				model: "subscriber",
