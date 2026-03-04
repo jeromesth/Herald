@@ -1,5 +1,5 @@
 {
-  "name": "herald-notification",
+  "name": "@herald/core",
   "version": "0.2.0",
   "description": "Open-source headless notification system for TypeScript. Build notification workflows on your own infrastructure.",
   "type": "module",

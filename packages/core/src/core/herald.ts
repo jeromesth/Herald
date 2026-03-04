@@ -22,9 +22,9 @@ import { buildEmailProvider } from "./providers.js";
  *
  * @example
  * ```ts
- * import { herald } from "herald-notification";
- * import { prismaAdapter } from "herald-notification/prisma";
- * import { inngestAdapter } from "herald-notification/inngest";
+ * import { herald } from "@herald/core";
+ * import { prismaAdapter } from "@herald/core/prisma";
+ * import { inngestAdapter } from "@herald/core/inngest";
  *
  * const notifications = herald({
  *   database: prismaAdapter(prisma),

@@ -37,11 +37,11 @@ Priority: **High** | Comparable: Novu Digest/Delay, Knock Function Steps
 
 Priority: **High** | Unique to Herald
 
-- [ ] **Drizzle database adapter** — `herald-notification/drizzle`
-- [ ] **Upstash Workflow adapter** — `herald-notification/upstash`
-- [ ] **Trigger.dev adapter** — `herald-notification/trigger`
-- [ ] **Kysely database adapter** — `herald-notification/kysely`
-- [ ] **MongoDB adapter** — `herald-notification/mongo`
+- [ ] **Drizzle database adapter** — `@herald/core/drizzle`
+- [ ] **Upstash Workflow adapter** — `@herald/core/upstash`
+- [ ] **Trigger.dev adapter** — `@herald/core/trigger`
+- [ ] **Kysely database adapter** — `@herald/core/kysely`
+- [ ] **MongoDB adapter** — `@herald/core/mongo`
 
 ## v0.5 — Advanced Preferences
 
