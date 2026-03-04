@@ -159,6 +159,12 @@ export async function sendThroughProvider(
 		data: message.data,
 	});
 
+	if (result.status === "failed") {
+		console.error(
+			`[herald] Provider "${provider.providerId}" failed to send to ${message.to}: ${result.error ?? "unknown error"}`,
+		);
+	}
+
 	// Run afterSend hooks
 	if (ctx.options.plugins) {
 		for (const plugin of ctx.options.plugins) {

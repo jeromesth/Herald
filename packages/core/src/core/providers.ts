@@ -63,21 +63,13 @@ function createCustomEmailProvider(config: EmailChannelConfig): ChannelProvider 
 		providerId: "custom",
 		channelType: "email",
 		async send(message: ChannelProviderMessage): Promise<ChannelProviderResult> {
-			try {
-				await config.send!({
-					to: message.to,
-					subject: message.subject ?? "",
-					body: message.body,
-					from: config.from,
-				});
-				return { messageId: crypto.randomUUID(), status: "sent" };
-			} catch (err) {
-				return {
-					messageId: "",
-					status: "failed",
-					error: err instanceof Error ? err.message : "Send failed",
-				};
-			}
+			await config.send!({
+				to: message.to,
+				subject: message.subject ?? "",
+				body: message.body,
+				from: config.from,
+			});
+			return { messageId: crypto.randomUUID(), status: "sent" };
 		},
 	};
 }

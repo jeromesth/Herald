@@ -41,11 +41,17 @@ function wrapStep(
 
 			const subscriber = await resolveSubscriberForStep(ctx, context.subscriber);
 			if (!subscriber) {
+				console.warn(
+					`[herald] Workflow "${workflowId}" step "${step.stepId}": subscriber "${context.subscriber.externalId}" not found, skipping delivery`,
+				);
 				return result;
 			}
 
 			const recipient = resolveRecipient(step.type, subscriber);
 			if (!recipient) {
+				console.warn(
+					`[herald] Workflow "${workflowId}" step "${step.stepId}": subscriber "${subscriber.externalId}" has no recipient for channel "${step.type}", skipping delivery`,
+				);
 				return result;
 			}
 
