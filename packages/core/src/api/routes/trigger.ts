@@ -59,6 +59,12 @@ export const triggerRoutes = [
 				}
 			}
 
+			// Clean up transaction map after trigger completes (memory adapter
+			// executes synchronously, so the workflow is done at this point).
+			// For async adapters like Inngest, the cancel endpoint also accepts
+			// workflowId as a query param, so the map entry is not required.
+			ctx.transactionWorkflowMap.delete(transactionId);
+
 			return jsonResponse({ transactionId, status: "triggered" });
 		},
 	},
@@ -116,6 +122,7 @@ export const triggerRoutes = [
 							}
 						}
 					}
+					ctx.transactionWorkflowMap.delete(transactionId);
 					return { transactionId, workflowId: event.workflowId, status: "triggered" as const };
 				}),
 			);

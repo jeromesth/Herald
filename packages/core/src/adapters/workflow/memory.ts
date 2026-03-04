@@ -40,15 +40,7 @@ export function memoryWorkflowAdapter(): WorkflowAdapter & {
 		async trigger(args: TriggerArgs): Promise<TriggerResult> {
 			const transactionId = args.transactionId ?? crypto.randomUUID();
 			const recipients = Array.isArray(args.to) ? args.to : [args.to];
-			const handlerPayload = {
-				...args.payload,
-				_herald: {
-					transactionId,
-					workflowId: args.workflowId,
-					actor: args.actor,
-					tenant: args.tenant,
-				},
-			};
+			const handlerPayload = { ...args.payload };
 
 			events.push({
 				workflowId: args.workflowId,

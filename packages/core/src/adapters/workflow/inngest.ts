@@ -143,15 +143,7 @@ export function inngestAdapter(config: InngestAdapterConfig): WorkflowAdapter {
 				},
 				{ event: eventName },
 				async ({ event, step }) => {
-					const payload = {
-						...((event.data.payload ?? {}) as Record<string, unknown>),
-						_herald: {
-							transactionId: event.data.transactionId as string,
-							workflowId: workflow.id,
-							actor: event.data.actor,
-							tenant: event.data.tenant,
-						},
-					};
+					const payload = (event.data.payload ?? {}) as Record<string, unknown>;
 					const recipients = event.data.recipients as string[];
 
 					// Execute workflow steps for each recipient
