@@ -5,6 +5,7 @@ import type { ChannelProvider, ChannelRegistry } from "../channels/provider.js";
 import type { SSEManager } from "../realtime/sse.js";
 import type { EmailLayout } from "../templates/layouts.js";
 import type { TemplateFilter } from "../templates/engine.js";
+import type { TemplateEngine } from "../templates/types.js";
 
 /**
  * The single, comprehensive configuration object for Herald.
@@ -69,8 +70,15 @@ export interface HeraldOptions {
 
 	/**
 	 * Custom template filters available in all templates.
+	 * Only used by the built-in HandlebarsEngine.
 	 */
 	templateFilters?: Record<string, TemplateFilter>;
+
+	/**
+	 * Custom template engine. Defaults to the built-in HandlebarsEngine.
+	 * Implement the `TemplateEngine` interface to use React Email, MJML, etc.
+	 */
+	templateEngine?: TemplateEngine;
 
 	/**
 	 * Enable real-time in-app notifications via SSE.
@@ -152,6 +160,7 @@ export interface HeraldContext {
 	workflow: WorkflowAdapter;
 	generateId: () => string;
 	channels: ChannelRegistry;
+	templateEngine: TemplateEngine;
 	sse?: SSEManager;
 }
 

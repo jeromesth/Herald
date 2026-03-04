@@ -13,7 +13,8 @@ import { ChannelRegistry } from "../channels/provider.js";
 import { InAppProvider } from "../channels/in-app.js";
 import { SSEManager } from "../realtime/sse.js";
 import { LayoutRegistry } from "../templates/layouts.js";
-import { renderTemplate } from "../templates/engine.js";
+import { renderTemplate, HandlebarsEngine } from "../templates/engine.js";
+import type { TemplateEngine } from "../templates/types.js";
 import { buildEmailProvider } from "./providers.js";
 
 /**
@@ -75,6 +76,10 @@ export function herald(options: HeraldOptions): Herald {
 		}
 	}
 
+	// Set up template engine (pluggable, defaults to Handlebars)
+	const templateEngine: TemplateEngine =
+		options.templateEngine ?? new HandlebarsEngine(options.templateFilters);
+
 	// Set up layout registry
 	const layoutRegistry = new LayoutRegistry();
 	if (options.layouts) {
@@ -89,6 +94,7 @@ export function herald(options: HeraldOptions): Herald {
 		workflow: options.workflow,
 		generateId,
 		channels,
+		templateEngine,
 		sse,
 	};
 
@@ -435,11 +441,11 @@ function createAPI(ctx: HeraldContext): HeraldAPI {
 		},
 
 		renderTemplate(args) {
-			return renderTemplate(args.template, {
+			return ctx.templateEngine.render(args.template, {
 				subscriber: args.subscriber,
 				payload: args.payload,
 				app: { name: ctx.options.appName },
-			}, ctx.options.templateFilters);
+			});
 		},
 	};
 }

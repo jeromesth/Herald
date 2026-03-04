@@ -68,6 +68,10 @@ export type {
 } from "../templates/engine.js";
 
 export type {
+	TemplateEngine,
+} from "../templates/types.js";
+
+export type {
 	EmailLayout,
 	RenderedEmail,
 } from "../templates/layouts.js";

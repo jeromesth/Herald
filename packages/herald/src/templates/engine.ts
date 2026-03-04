@@ -12,12 +12,9 @@
  *   {{ payload.amount | uppercase }}       — pipe filters
  */
 
-export interface TemplateContext {
-	subscriber: Record<string, unknown>;
-	payload: Record<string, unknown>;
-	app?: Record<string, unknown>;
-	[key: string]: unknown;
-}
+import type { TemplateEngine, TemplateContext } from "./types.js";
+
+export type { TemplateContext } from "./types.js";
 
 export type TemplateFilter = (value: unknown, ...args: string[]) => string;
 
@@ -163,4 +160,26 @@ export function compileTemplate(
 	customFilters?: Record<string, TemplateFilter>,
 ): (context: TemplateContext) => string {
 	return (context: TemplateContext) => renderTemplate(template, context, customFilters);
+}
+
+/**
+ * Built-in Handlebars-style template engine.
+ *
+ * Implements the pluggable `TemplateEngine` interface so it can be swapped
+ * for React Email, MJML, or any other rendering approach.
+ */
+export class HandlebarsEngine implements TemplateEngine {
+	private filters: Record<string, TemplateFilter>;
+
+	constructor(customFilters?: Record<string, TemplateFilter>) {
+		this.filters = { ...customFilters };
+	}
+
+	render(template: string, context: TemplateContext): string {
+		return renderTemplate(template, context, this.filters);
+	}
+
+	compile(template: string): (context: TemplateContext) => string {
+		return compileTemplate(template, this.filters);
+	}
 }

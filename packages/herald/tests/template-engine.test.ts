@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderTemplate, compileTemplate } from "../src/templates/engine.js";
+import { renderTemplate, compileTemplate, HandlebarsEngine } from "../src/templates/engine.js";
 import type { TemplateContext } from "../src/templates/engine.js";
 
 const baseContext: TemplateContext = {
@@ -159,5 +159,83 @@ describe("Template Engine — compileTemplate", () => {
 			subscriber: { firstName: "Bob" },
 			payload: {},
 		})).toBe("Hello Bob!");
+	});
+});
+
+// ---------------------------------------------------------------------------
+// HandlebarsEngine class tests
+// ---------------------------------------------------------------------------
+
+describe("HandlebarsEngine", () => {
+	it("renders templates via the render() method", () => {
+		const engine = new HandlebarsEngine();
+		const result = engine.render("Hello {{ subscriber.firstName }}!", baseContext);
+		expect(result).toBe("Hello Alice!");
+	});
+
+	it("supports custom filters passed to the constructor", () => {
+		const engine = new HandlebarsEngine({
+			reverse: (v) => String(v ?? "").split("").reverse().join(""),
+		});
+		const result = engine.render("{{ subscriber.firstName | reverse }}", baseContext);
+		expect(result).toBe("ecilA");
+	});
+
+	it("compile() returns a reusable render function", () => {
+		const engine = new HandlebarsEngine();
+		const render = engine.compile("Hello {{ subscriber.firstName }}!");
+		expect(render(baseContext)).toBe("Hello Alice!");
+		expect(render({ subscriber: { firstName: "Bob" }, payload: {} })).toBe("Hello Bob!");
+	});
+
+	it("compile() preserves custom filters", () => {
+		const engine = new HandlebarsEngine({
+			shout: (v) => `${String(v ?? "").toUpperCase()}!!!`,
+		});
+		const render = engine.compile("{{ payload.appName | shout }}");
+		expect(render(baseContext)).toBe("TESTAPP!!!");
+	});
+
+	it("handles block helpers through the class interface", () => {
+		const engine = new HandlebarsEngine();
+		const result = engine.render(
+			"{{#if subscriber.firstName}}Hi {{ subscriber.firstName }}{{else}}Hi there{{/if}}",
+			baseContext,
+		);
+		expect(result).toBe("Hi Alice");
+	});
+
+	it("handles each blocks through the class interface", () => {
+		const ctx: TemplateContext = {
+			subscriber: {},
+			payload: { users: [{ name: "Alice" }, { name: "Bob" }] },
+		};
+		const engine = new HandlebarsEngine();
+		const result = engine.render(
+			"{{#each payload.users}}{{ name }} {{/each}}",
+			ctx,
+		);
+		expect(result).toBe("Alice Bob ");
+	});
+
+	it("HTML-escapes by default in double braces", () => {
+		const engine = new HandlebarsEngine();
+		const ctx: TemplateContext = {
+			subscriber: {},
+			payload: { html: "<script>alert('xss')</script>" },
+		};
+		const result = engine.render("{{ payload.html }}", ctx);
+		expect(result).not.toContain("<script>");
+		expect(result).toContain("&lt;script&gt;");
+	});
+
+	it("does not escape triple braces", () => {
+		const engine = new HandlebarsEngine();
+		const ctx: TemplateContext = {
+			subscriber: {},
+			payload: { html: "<b>bold</b>" },
+		};
+		const result = engine.render("{{{ payload.html }}}", ctx);
+		expect(result).toBe("<b>bold</b>");
 	});
 });

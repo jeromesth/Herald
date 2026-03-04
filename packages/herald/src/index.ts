@@ -9,7 +9,7 @@ export { ChannelRegistry } from "./channels/provider.js";
 export { InAppProvider } from "./channels/in-app.js";
 
 // Templates
-export { renderTemplate, compileTemplate } from "./templates/engine.js";
+export { renderTemplate, compileTemplate, HandlebarsEngine } from "./templates/engine.js";
 export { renderEmail, defaultEmailLayout, LayoutRegistry } from "./templates/layouts.js";
 
 // Real-time
@@ -70,6 +70,7 @@ export type {
 	ChannelProviderMessage,
 	ChannelProviderResult,
 	// Template types
+	TemplateEngine,
 	TemplateFilter,
 	TemplateContext,
 	// Email layout types
