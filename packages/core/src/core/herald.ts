@@ -168,6 +168,7 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 				}
 			}
 
+			ctx.transactionWorkflowMap.delete(transactionId);
 			return { transactionId };
 		},
 

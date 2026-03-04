@@ -91,39 +91,42 @@ export const triggerRoutes = [
 					const transactionId = ctx.generateId();
 					ctx.transactionWorkflowMap.set(transactionId, event.workflowId);
 
-					if (ctx.options.plugins) {
-						for (const plugin of ctx.options.plugins) {
-							if (plugin.hooks?.beforeTrigger) {
-								await plugin.hooks.beforeTrigger({
-									workflowId: event.workflowId,
-									to: event.to,
-									payload: event.payload ?? {},
-								});
+					try {
+						if (ctx.options.plugins) {
+							for (const plugin of ctx.options.plugins) {
+								if (plugin.hooks?.beforeTrigger) {
+									await plugin.hooks.beforeTrigger({
+										workflowId: event.workflowId,
+										to: event.to,
+										payload: event.payload ?? {},
+									});
+								}
 							}
 						}
-					}
 
-					await ctx.workflow.trigger({
-						workflowId: event.workflowId,
-						to: event.to,
-						payload: event.payload ?? {},
-						actor: event.actor,
-						tenant: event.tenant,
-						transactionId,
-					});
+						await ctx.workflow.trigger({
+							workflowId: event.workflowId,
+							to: event.to,
+							payload: event.payload ?? {},
+							actor: event.actor,
+							tenant: event.tenant,
+							transactionId,
+						});
 
-					if (ctx.options.plugins) {
-						for (const plugin of ctx.options.plugins) {
-							if (plugin.hooks?.afterTrigger) {
-								await plugin.hooks.afterTrigger({
-									workflowId: event.workflowId,
-									transactionId,
-								});
+						if (ctx.options.plugins) {
+							for (const plugin of ctx.options.plugins) {
+								if (plugin.hooks?.afterTrigger) {
+									await plugin.hooks.afterTrigger({
+										workflowId: event.workflowId,
+										transactionId,
+									});
+								}
 							}
 						}
+						return { transactionId, workflowId: event.workflowId, status: "triggered" as const };
+					} finally {
+						ctx.transactionWorkflowMap.delete(transactionId);
 					}
-					ctx.transactionWorkflowMap.delete(transactionId);
-					return { transactionId, workflowId: event.workflowId, status: "triggered" as const };
 				}),
 			);
 

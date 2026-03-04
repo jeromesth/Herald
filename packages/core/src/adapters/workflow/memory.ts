@@ -53,6 +53,12 @@ export function memoryWorkflowAdapter(): WorkflowAdapter & {
 
 			// Execute steps synchronously for testing
 			const workflow = workflows.get(args.workflowId);
+			if (!workflow) {
+				console.warn(
+					`[herald] Memory adapter: no workflow registered with id "${args.workflowId}". ` +
+					`Registered: [${[...workflows.keys()].join(", ")}]`,
+				);
+			}
 			if (workflow) {
 				for (const recipient of recipients) {
 					for (const step of workflow.steps) {
