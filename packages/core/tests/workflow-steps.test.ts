@@ -260,7 +260,7 @@ describe("memory adapter — workflow steps", () => {
 						handler: async ({ step }) => {
 							const r = await step.throttle({ key: "t", limit: 2, window: 1, unit: "hours" });
 							if (r.throttled) {
-								return { body: "throttled", data: { _throttled: true } };
+								return { body: "throttled", _internal: { throttled: true } };
 							}
 							return { body: "ok" };
 						},
@@ -302,7 +302,7 @@ describe("memory adapter — workflow steps", () => {
 							const r = await step.throttle({ key: "t", limit: 1, window: 1, unit: "hours" });
 							stepsCalled.push("throttle-1");
 							if (r.throttled) {
-								return { body: "throttled", data: { _throttled: true } };
+								return { body: "throttled", _internal: { throttled: true } };
 							}
 							return { body: "ok" };
 						},
@@ -361,7 +361,7 @@ describe("memory adapter — workflow steps", () => {
 						handler: async ({ step }) => {
 							const result = await step.fetch({ url: "https://api.example.com/user/1" });
 							fetchResult = result;
-							return { body: "", data: { _fetchResult: result.data } };
+							return { body: "", _internal: { fetchResult: result.data } };
 						},
 					},
 				],
@@ -392,7 +392,7 @@ describe("memory adapter — workflow steps", () => {
 						type: "fetch",
 						handler: async ({ step }) => {
 							const result = await step.fetch({ url: "https://api.example.com/user/1" });
-							return { body: "", data: { _fetchResult: result.data } };
+							return { body: "", _internal: { fetchResult: result.data } };
 						},
 					},
 					{
@@ -458,7 +458,7 @@ describe("memory adapter — workflow steps", () => {
 						handler: async ({ step }) => {
 							const result = await step.fetch({ url: "https://api.example.com/template" });
 							stepsCalled.push("fetch-1");
-							return { body: "", data: { _fetchResult: result.data } };
+							return { body: "", _internal: { fetchResult: result.data } };
 						},
 					},
 					{

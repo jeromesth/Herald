@@ -99,17 +99,13 @@ export function memoryWorkflowAdapter(heraldCtx?: HeraldContext): WorkflowAdapte
 							},
 						});
 
-						if (step.type === "throttle" && result.data?._throttled) {
+						if (step.type === "throttle" && result._internal?.throttled) {
 							break;
 						}
 
-						if (step.type === "fetch" && result.data) {
-							const { _fetchResult, ...rest } = result.data;
-							if (_fetchResult && typeof _fetchResult === "object") {
-								Object.assign(handlerPayload, _fetchResult);
-							}
-							if (Object.keys(rest).length > 0) {
-								Object.assign(handlerPayload, rest);
+						if (step.type === "fetch" && result._internal?.fetchResult != null) {
+							if (typeof result._internal.fetchResult === "object") {
+								Object.assign(handlerPayload, result._internal.fetchResult);
 							}
 						}
 					}

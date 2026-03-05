@@ -105,6 +105,11 @@ export interface StepResult {
 	data?: Record<string, unknown>;
 	actionUrl?: string;
 	avatar?: string;
+	/** Internal control-flow metadata for adapters. Not user-facing. */
+	_internal?: {
+		throttled?: boolean;
+		fetchResult?: unknown;
+	};
 }
 
 /**

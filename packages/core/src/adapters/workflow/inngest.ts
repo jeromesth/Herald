@@ -253,7 +253,7 @@ export function inngestAdapter(config: InngestAdapterConfig): WorkflowAdapter {
 									},
 								);
 
-								if (result?.data?._throttled) {
+								if (result?._internal?.throttled) {
 									return { status: "throttled", workflowId: workflow.id };
 								}
 								continue;
@@ -271,8 +271,11 @@ export function inngestAdapter(config: InngestAdapterConfig): WorkflowAdapter {
 									},
 								);
 
-								if (result?.data?._fetchResult && typeof result.data._fetchResult === "object") {
-									Object.assign(handlerPayload, result.data._fetchResult);
+								if (
+									result?._internal?.fetchResult != null &&
+									typeof result._internal.fetchResult === "object"
+								) {
+									Object.assign(handlerPayload, result._internal.fetchResult);
 								}
 								continue;
 							}
