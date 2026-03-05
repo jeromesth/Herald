@@ -12,6 +12,8 @@ function makeContext(
 		step: {
 			delay: async () => {},
 			digest: async () => [],
+			throttle: async (c) => ({ throttled: false, count: 0, limit: c.limit }),
+			fetch: async () => ({ status: 200, data: null, headers: {} }),
 		},
 	};
 }
@@ -24,16 +26,12 @@ describe("conditionsPass", () => {
 
 	describe("eq operator", () => {
 		it("passes when values are equal", () => {
-			const conditions: StepCondition[] = [
-				{ field: "payload.plan", operator: "eq", value: "pro" },
-			];
+			const conditions: StepCondition[] = [{ field: "payload.plan", operator: "eq", value: "pro" }];
 			expect(conditionsPass(conditions, makeContext({ plan: "pro" }))).toBe(true);
 		});
 
 		it("fails when values differ", () => {
-			const conditions: StepCondition[] = [
-				{ field: "payload.plan", operator: "eq", value: "pro" },
-			];
+			const conditions: StepCondition[] = [{ field: "payload.plan", operator: "eq", value: "pro" }];
 			expect(conditionsPass(conditions, makeContext({ plan: "free" }))).toBe(false);
 		});
 	});
@@ -47,25 +45,19 @@ describe("conditionsPass", () => {
 		});
 
 		it("fails when values are equal", () => {
-			const conditions: StepCondition[] = [
-				{ field: "payload.plan", operator: "ne", value: "pro" },
-			];
+			const conditions: StepCondition[] = [{ field: "payload.plan", operator: "ne", value: "pro" }];
 			expect(conditionsPass(conditions, makeContext({ plan: "pro" }))).toBe(false);
 		});
 	});
 
 	describe("gt operator", () => {
 		it("passes when actual > expected", () => {
-			const conditions: StepCondition[] = [
-				{ field: "payload.score", operator: "gt", value: 50 },
-			];
+			const conditions: StepCondition[] = [{ field: "payload.score", operator: "gt", value: 50 }];
 			expect(conditionsPass(conditions, makeContext({ score: 100 }))).toBe(true);
 		});
 
 		it("fails when actual <= expected", () => {
-			const conditions: StepCondition[] = [
-				{ field: "payload.score", operator: "gt", value: 50 },
-			];
+			const conditions: StepCondition[] = [{ field: "payload.score", operator: "gt", value: 50 }];
 			expect(conditionsPass(conditions, makeContext({ score: 50 }))).toBe(false);
 			expect(conditionsPass(conditions, makeContext({ score: 10 }))).toBe(false);
 		});
@@ -73,16 +65,12 @@ describe("conditionsPass", () => {
 
 	describe("lt operator", () => {
 		it("passes when actual < expected", () => {
-			const conditions: StepCondition[] = [
-				{ field: "payload.score", operator: "lt", value: 50 },
-			];
+			const conditions: StepCondition[] = [{ field: "payload.score", operator: "lt", value: 50 }];
 			expect(conditionsPass(conditions, makeContext({ score: 10 }))).toBe(true);
 		});
 
 		it("fails when actual >= expected", () => {
-			const conditions: StepCondition[] = [
-				{ field: "payload.score", operator: "lt", value: 50 },
-			];
+			const conditions: StepCondition[] = [{ field: "payload.score", operator: "lt", value: 50 }];
 			expect(conditionsPass(conditions, makeContext({ score: 50 }))).toBe(false);
 		});
 	});
@@ -174,9 +162,7 @@ describe("conditionsPass", () => {
 		});
 
 		it("resolves bare field names from payload", () => {
-			const conditions: StepCondition[] = [
-				{ field: "plan", operator: "eq", value: "pro" },
-			];
+			const conditions: StepCondition[] = [{ field: "plan", operator: "eq", value: "pro" }];
 			expect(conditionsPass(conditions, makeContext({ plan: "pro" }))).toBe(true);
 		});
 	});
@@ -188,6 +174,33 @@ describe("conditionsPass", () => {
 				{ field: "payload.active", operator: "eq", value: true },
 			];
 			expect(conditionsPass(conditions, makeContext({ plan: "pro", active: true }))).toBe(true);
+			expect(conditionsPass(conditions, makeContext({ plan: "pro", active: false }))).toBe(false);
+		});
+	});
+
+	describe("conditionMode: any", () => {
+		it("passes when at least one condition matches", () => {
+			const conditions: StepCondition[] = [
+				{ field: "payload.plan", operator: "eq", value: "pro" },
+				{ field: "payload.plan", operator: "eq", value: "enterprise" },
+			];
+			expect(conditionsPass(conditions, makeContext({ plan: "enterprise" }), "any")).toBe(true);
+		});
+
+		it("fails when no conditions match", () => {
+			const conditions: StepCondition[] = [
+				{ field: "payload.plan", operator: "eq", value: "pro" },
+				{ field: "payload.plan", operator: "eq", value: "enterprise" },
+			];
+			expect(conditionsPass(conditions, makeContext({ plan: "free" }), "any")).toBe(false);
+		});
+
+		it("defaults to all mode when not specified", () => {
+			const conditions: StepCondition[] = [
+				{ field: "payload.plan", operator: "eq", value: "pro" },
+				{ field: "payload.active", operator: "eq", value: true },
+			];
+			// Only one matches — "all" mode should fail
 			expect(conditionsPass(conditions, makeContext({ plan: "pro", active: false }))).toBe(false);
 		});
 	});

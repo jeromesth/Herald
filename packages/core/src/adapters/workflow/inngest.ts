@@ -61,6 +61,10 @@ interface InngestStepTools {
 	sleep: (id: string, duration: string) => Promise<void>;
 	sleepUntil: (id: string, date: string | Date) => Promise<void>;
 	sendEvent: (id: string, event: InngestEvent | InngestEvent[]) => Promise<unknown>;
+	waitForEvent: (
+		id: string,
+		opts: { event: string; timeout: string; if?: string },
+	) => Promise<InngestEvent | null>;
 }
 
 type InngestHandler = (args: {
@@ -115,18 +119,15 @@ export interface InngestAdapterConfig {
  * Create a Herald workflow adapter backed by Inngest.
  */
 export function inngestAdapter(config: InngestAdapterConfig): WorkflowAdapter {
-	const {
-		client,
-		servePath = "/api/inngest",
-		eventPrefix = "herald",
-		retries = 3,
-	} = config;
+	const { client, servePath = "/api/inngest", eventPrefix = "herald", retries = 3 } = config;
 
 	const registeredFunctions: InngestFunction[] = [];
+	const workflows = new Map<string, NotificationWorkflow>();
 	const adapter: InngestAdapter = {
 		adapterId: "inngest",
 
 		registerWorkflow(workflow: NotificationWorkflow): void {
+			workflows.set(workflow.id, workflow);
 			const eventName = `${eventPrefix}/workflow.${workflow.id}`;
 
 			const fn = client.createFunction(
@@ -137,7 +138,7 @@ export function inngestAdapter(config: InngestAdapterConfig): WorkflowAdapter {
 					cancelOn: [
 						{
 							event: `${eventPrefix}/workflow.cancel`,
-							if: `async.data.transactionId == event.data.transactionId`,
+							if: "async.data.transactionId == event.data.transactionId",
 						},
 					],
 				},
@@ -146,25 +147,36 @@ export function inngestAdapter(config: InngestAdapterConfig): WorkflowAdapter {
 					const payload = (event.data.payload ?? {}) as Record<string, unknown>;
 					const recipients = event.data.recipients as string[];
 
+					const handlerPayload = { ...payload };
+
 					// Execute workflow steps for each recipient
 					for (const subscriberId of recipients) {
 						for (const workflowStep of workflow.steps) {
+							const subscriberCtx = { id: subscriberId, externalId: subscriberId };
+							const noopStep = {
+								delay: async () => {},
+								digest: async () => [] as { payload: Record<string, unknown>; timestamp: Date }[],
+								throttle: async (c: { limit: number }) => ({
+									throttled: false as boolean,
+									count: 0,
+									limit: c.limit,
+								}),
+								fetch: async () => ({
+									status: 200 as number,
+									data: null as unknown,
+									headers: {} as Record<string, string>,
+								}),
+							};
+
 							if (workflowStep.type === "delay") {
 								const delayConfig = await step.run(
 									`${workflowStep.stepId}-config-${subscriberId}`,
 									async () => {
-										const result = await workflowStep.handler({
-											subscriber: {
-												id: subscriberId,
-												externalId: subscriberId,
-											},
-											payload,
-											step: {
-												delay: async (c) => c as unknown as void,
-												digest: async () => [],
-											},
+										return workflowStep.handler({
+											subscriber: subscriberCtx,
+											payload: handlerPayload,
+											step: { ...noopStep, delay: async (c) => c as unknown as undefined },
 										});
-										return result;
 									},
 								);
 
@@ -176,37 +188,116 @@ export function inngestAdapter(config: InngestAdapterConfig): WorkflowAdapter {
 								continue;
 							}
 
-							await step.run(
-								`${workflowStep.stepId}-${subscriberId}`,
-								async () => {
-									const result = await workflowStep.handler({
-										subscriber: {
-											id: subscriberId,
-											externalId: subscriberId,
-										},
-										payload,
-										step: {
-											delay: async () => {},
-											digest: async () => [],
-										},
-									});
+							if (workflowStep.type === "digest") {
+								const digestConfig = await step.run(
+									`${workflowStep.stepId}-config-${subscriberId}`,
+									async () => {
+										let capturedConfig: { window?: number; unit?: string } = {};
+										await workflowStep.handler({
+											subscriber: subscriberCtx,
+											payload: handlerPayload,
+											step: {
+												...noopStep,
+												digest: async (c) => {
+													capturedConfig = c;
+													return [];
+												},
+											},
+										});
+										return capturedConfig;
+									},
+								);
 
-									// Emit a step completion event for tracking
-									await client.send({
-										name: `${eventPrefix}/step.completed`,
-										data: {
-											workflowId: workflow.id,
-											stepId: workflowStep.stepId,
-											subscriberId,
-											channel: workflowStep.type,
-											result,
-											transactionId: event.data.transactionId as string,
-										},
-									});
+								const timeout = `${digestConfig.window ?? 5} ${digestConfig.unit ?? "minutes"}`;
+								const digestEventName = `${eventPrefix}/digest.${workflow.id}.${workflowStep.stepId}`;
 
-									return result;
-								},
-							);
+								// Collect events during the digest window
+								const collected: InngestEvent[] = [];
+								let incoming: InngestEvent | null = null;
+								do {
+									incoming = await step.waitForEvent(
+										`${workflowStep.stepId}-wait-${subscriberId}-${collected.length}`,
+										{
+											event: digestEventName,
+											timeout,
+											if: `async.data.subscriberId == '${subscriberId}'`,
+										},
+									);
+									if (incoming) collected.push(incoming);
+								} while (incoming);
+
+								// Re-run handler with collected events
+								await step.run(`${workflowStep.stepId}-process-${subscriberId}`, async () => {
+									const events = collected.map((e) => ({
+										payload: (e.data.payload ?? {}) as Record<string, unknown>,
+										timestamp: new Date((e.data.timestamp as string) ?? Date.now()),
+									}));
+									return workflowStep.handler({
+										subscriber: subscriberCtx,
+										payload: handlerPayload,
+										step: { ...noopStep, digest: async () => events },
+									});
+								});
+								continue;
+							}
+
+							if (workflowStep.type === "throttle") {
+								const result = await step.run(
+									`${workflowStep.stepId}-${subscriberId}`,
+									async () => {
+										return workflowStep.handler({
+											subscriber: subscriberCtx,
+											payload: handlerPayload,
+											step: noopStep,
+										});
+									},
+								);
+
+								if (result?.data?._throttled) {
+									return { status: "throttled", workflowId: workflow.id };
+								}
+								continue;
+							}
+
+							if (workflowStep.type === "fetch") {
+								const result = await step.run(
+									`${workflowStep.stepId}-${subscriberId}`,
+									async () => {
+										return workflowStep.handler({
+											subscriber: subscriberCtx,
+											payload: handlerPayload,
+											step: noopStep,
+										});
+									},
+								);
+
+								if (result?.data?._fetchResult && typeof result.data._fetchResult === "object") {
+									Object.assign(handlerPayload, result.data._fetchResult);
+								}
+								continue;
+							}
+
+							await step.run(`${workflowStep.stepId}-${subscriberId}`, async () => {
+								const result = await workflowStep.handler({
+									subscriber: subscriberCtx,
+									payload: handlerPayload,
+									step: noopStep,
+								});
+
+								await client.send({
+									name: `${eventPrefix}/step.completed`,
+									data: {
+										workflowId: workflow.id,
+										stepId: workflowStep.stepId,
+										subscriberId,
+										channel: workflowStep.type,
+										result,
+										transactionId: event.data.transactionId as string,
+									},
+								});
+
+								return result;
+							});
 						}
 					}
 
@@ -222,19 +313,42 @@ export function inngestAdapter(config: InngestAdapterConfig): WorkflowAdapter {
 			const recipients = Array.isArray(args.to) ? args.to : [args.to];
 			const eventName = `${eventPrefix}/workflow.${args.workflowId}`;
 
-			await client.send({
-				name: eventName,
-				data: {
-					workflowId: args.workflowId,
-					recipients,
-					payload: args.payload,
-					actor: args.actor,
-					tenant: args.tenant,
-					transactionId,
-					overrides: args.overrides,
+			const eventsToSend: InngestEvent[] = [
+				{
+					name: eventName,
+					data: {
+						workflowId: args.workflowId,
+						recipients,
+						payload: args.payload,
+						actor: args.actor,
+						tenant: args.tenant,
+						transactionId,
+						overrides: args.overrides,
+					},
+					id: transactionId,
 				},
-				id: transactionId,
-			});
+			];
+
+			// Route digest events for workflows with digest steps
+			const workflow = workflows.get(args.workflowId);
+			if (workflow) {
+				for (const ws of workflow.steps) {
+					if (ws.type === "digest") {
+						for (const subscriberId of recipients) {
+							eventsToSend.push({
+								name: `${eventPrefix}/digest.${args.workflowId}.${ws.stepId}`,
+								data: {
+									subscriberId,
+									payload: args.payload,
+									timestamp: new Date().toISOString(),
+								},
+							});
+						}
+					}
+				}
+			}
+
+			await client.send(eventsToSend);
 
 			return {
 				transactionId,
@@ -264,11 +378,12 @@ export function inngestAdapter(config: InngestAdapterConfig): WorkflowAdapter {
 				path: servePath,
 				handler: async (request: Request) => {
 					const method = request.method.toUpperCase();
-					const handlerFn = method === "GET"
-						? serveResult.GET
-						: method === "PUT"
-							? serveResult.PUT
-							: serveResult.POST;
+					const handlerFn =
+						method === "GET"
+							? serveResult.GET
+							: method === "PUT"
+								? serveResult.PUT
+								: serveResult.POST;
 
 					return (handlerFn as (req: Request) => Promise<Response>)(request);
 				},

@@ -19,6 +19,10 @@ export type {
 	StepType,
 	DelayConfig,
 	DigestConfig,
+	ThrottleConfig,
+	ThrottleResult,
+	FetchConfig,
+	FetchResult,
 	WorkflowStep,
 	StepContext,
 	StepResult,
@@ -67,15 +71,11 @@ export type {
 	TemplateContext,
 } from "../templates/engine.js";
 
-export type {
-	TemplateEngine,
-} from "../templates/types.js";
+export type { TemplateEngine } from "../templates/types.js";
 
 export type {
 	EmailLayout,
 	RenderedEmail,
 } from "../templates/layouts.js";
 
-export type {
-	SSEEvent,
-} from "../realtime/sse.js";
+export type { SSEEvent } from "../realtime/sse.js";

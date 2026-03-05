@@ -13,7 +13,7 @@ export type DeliveryStatus = "queued" | "sent" | "delivered" | "bounced" | "fail
 /**
  * Step types within a notification workflow.
  */
-export type StepType = ChannelType | "delay" | "digest" | "branch";
+export type StepType = ChannelType | "delay" | "digest" | "branch" | "throttle" | "fetch";
 
 /**
  * Delay step configuration.
@@ -33,6 +33,45 @@ export interface DigestConfig {
 }
 
 /**
+ * Throttle step configuration.
+ */
+export interface ThrottleConfig {
+	key: string;
+	limit: number;
+	window: number;
+	unit: "seconds" | "minutes" | "hours";
+}
+
+/**
+ * Throttle step result.
+ */
+export interface ThrottleResult {
+	throttled: boolean;
+	count: number;
+	limit: number;
+}
+
+/**
+ * Fetch step configuration.
+ */
+export interface FetchConfig {
+	url: string;
+	method?: "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
+	headers?: Record<string, string>;
+	body?: unknown;
+	timeout?: number;
+}
+
+/**
+ * Fetch step result.
+ */
+export interface FetchResult {
+	status: number;
+	data: unknown;
+	headers: Record<string, string>;
+}
+
+/**
  * A single step in a notification workflow.
  */
 export interface WorkflowStep {
@@ -40,6 +79,7 @@ export interface WorkflowStep {
 	type: StepType;
 	handler: (context: StepContext) => Promise<StepResult>;
 	conditions?: StepCondition[];
+	conditionMode?: "all" | "any";
 }
 
 /**
@@ -51,6 +91,8 @@ export interface StepContext {
 	step: {
 		delay: (config: DelayConfig) => Promise<void>;
 		digest: (config: DigestConfig) => Promise<DigestedEvent[]>;
+		throttle: (config: ThrottleConfig) => Promise<ThrottleResult>;
+		fetch: (config: FetchConfig) => Promise<FetchResult>;
 	};
 }
 
@@ -101,9 +143,7 @@ export interface SubscriberData {
 /**
  * Full notification workflow definition.
  */
-export interface NotificationWorkflow<
-	TPayload extends z.ZodType = z.ZodType,
-> {
+export interface NotificationWorkflow<TPayload extends z.ZodType = z.ZodType> {
 	id: string;
 	name: string;
 	description?: string;

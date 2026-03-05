@@ -1,3 +1,11 @@
+import { createRouter } from "../api/router.js";
+import { InAppProvider } from "../channels/in-app.js";
+import { ChannelRegistry } from "../channels/provider.js";
+import { coreSchema, mergeSchemas } from "../db/schema.js";
+import { SSEManager } from "../realtime/sse.js";
+import { HandlebarsEngine } from "../templates/engine.js";
+import { LayoutRegistry } from "../templates/layouts.js";
+import type { TemplateEngine } from "../templates/types.js";
 import type {
 	Herald,
 	HeraldAPI,
@@ -7,20 +15,12 @@ import type {
 	PreferenceRecord,
 	SubscriberRecord,
 } from "../types/config.js";
-import { coreSchema, mergeSchemas } from "../db/schema.js";
-import { createRouter } from "../api/router.js";
-import { ChannelRegistry } from "../channels/provider.js";
-import { InAppProvider } from "../channels/in-app.js";
-import { SSEManager } from "../realtime/sse.js";
-import { LayoutRegistry } from "../templates/layouts.js";
-import { HandlebarsEngine } from "../templates/engine.js";
-import type { TemplateEngine } from "../templates/types.js";
-import { buildEmailProvider } from "./providers.js";
 import { initializePlugins } from "./plugins.js";
-import { wrapWorkflow } from "./workflow-runtime.js";
 import { defaultPreferenceRecord } from "./preferences.js";
-import { resolveSubscriberInternalId } from "./subscriber.js";
+import { buildEmailProvider } from "./providers.js";
 import { sendThroughProvider } from "./send.js";
+import { resolveSubscriberInternalId } from "./subscriber.js";
+import { wrapWorkflow } from "./workflow-runtime.js";
 
 /**
  * Create a Herald notification system instance.
@@ -61,9 +61,7 @@ export function herald(options: HeraldOptions): Herald {
 	// Register in-app provider (always available)
 	const inAppEnabled = options.channels?.inApp?.enabled !== false;
 	if (inAppEnabled) {
-		channels.register(
-			new InAppProvider({ db: options.database, generateId, sse }),
-		);
+		channels.register(new InAppProvider({ db: options.database, generateId, sse }));
 	}
 
 	// Register email provider from config
@@ -104,6 +102,7 @@ export function herald(options: HeraldOptions): Herald {
 		templateEngine,
 		schema: fullSchema,
 		transactionWorkflowMap: new Map<string, string>(),
+		throttleState: new Map(),
 		sse,
 	};
 
@@ -221,7 +220,8 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 
 		async getNotifications(args) {
 			await pluginsReady;
-			const subscriberId = await resolveSubscriberInternalId(db, args.subscriberId) ?? args.subscriberId;
+			const subscriberId =
+				(await resolveSubscriberInternalId(db, args.subscriberId)) ?? args.subscriberId;
 
 			const where: { field: string; value: unknown }[] = [
 				{ field: "subscriberId", value: subscriberId },
@@ -282,7 +282,8 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 
 		async getPreferences(subscriberId) {
 			await pluginsReady;
-			const internalSubscriberId = await resolveSubscriberInternalId(db, subscriberId) ?? subscriberId;
+			const internalSubscriberId =
+				(await resolveSubscriberInternalId(db, subscriberId)) ?? subscriberId;
 
 			const pref = await db.findOne<PreferenceRecord>({
 				model: "preference",
@@ -294,7 +295,8 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 
 		async updatePreferences(subscriberId, preferences) {
 			await pluginsReady;
-			const internalSubscriberId = await resolveSubscriberInternalId(db, subscriberId) ?? subscriberId;
+			const internalSubscriberId =
+				(await resolveSubscriberInternalId(db, subscriberId)) ?? subscriberId;
 			const now = new Date();
 			const existing = await db.findOne<PreferenceRecord>({
 				model: "preference",
