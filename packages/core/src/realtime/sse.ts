@@ -168,10 +168,7 @@ export class SSEManager {
 		controller.enqueue(this.encoder.encode(message));
 	}
 
-	private removeConnection(
-		subscriberId: string,
-		connection: SSEConnection | null,
-	): void {
+	private removeConnection(subscriberId: string, connection: SSEConnection | null): void {
 		const connections = this.connections.get(subscriberId);
 		if (!connections) return;
 

@@ -1,12 +1,12 @@
-import type { DatabaseAdapter } from "./adapter.js";
-import type { HeraldPlugin } from "./plugin.js";
-import type { ChannelType, NotificationWorkflow, WorkflowAdapter } from "./workflow.js";
 import type { ChannelProvider, ChannelRegistry } from "../channels/provider.js";
 import type { SSEManager } from "../realtime/sse.js";
-import type { EmailLayout, LayoutRegistry } from "../templates/layouts.js";
 import type { TemplateFilter } from "../templates/engine.js";
+import type { EmailLayout, LayoutRegistry } from "../templates/layouts.js";
 import type { TemplateEngine } from "../templates/types.js";
+import type { DatabaseAdapter } from "./adapter.js";
+import type { HeraldPlugin } from "./plugin.js";
 import type { HeraldDBSchema } from "./schema.js";
+import type { ChannelType, NotificationWorkflow, WorkflowAdapter } from "./workflow.js";
 import type { WorkflowHandler } from "./workflow.js";
 
 /**

@@ -1,9 +1,13 @@
-import { describe, expect, it, beforeEach, vi } from "vitest";
-import { herald } from "../src/core/herald.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { memoryAdapter } from "../src/adapters/database/memory.js";
 import { memoryWorkflowAdapter } from "../src/adapters/workflow/memory.js";
+import type {
+	ChannelProvider,
+	ChannelProviderMessage,
+	ChannelProviderResult,
+} from "../src/channels/provider.js";
+import { herald } from "../src/core/herald.js";
 import type { Herald, NotificationWorkflow } from "../src/types/index.js";
-import type { ChannelProvider, ChannelProviderMessage, ChannelProviderResult } from "../src/channels/provider.js";
 
 function createMockEmailProvider(): ChannelProvider & { calls: ChannelProviderMessage[] } {
 	const calls: ChannelProviderMessage[] = [];
@@ -72,8 +76,12 @@ describe("herald v0.2 — channel providers", () => {
 		const plugin = {
 			id: "send-hooks",
 			hooks: {
-				beforeSend: async () => { hookCalls.push("before"); },
-				afterSend: async () => { hookCalls.push("after"); },
+				beforeSend: async () => {
+					hookCalls.push("before");
+				},
+				afterSend: async () => {
+					hookCalls.push("after");
+				},
 			},
 		};
 

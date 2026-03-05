@@ -1,16 +1,20 @@
 import type { HeraldContext } from "../types/config.js";
 import type { HeraldPlugin } from "../types/plugin.js";
-import { subscriberRoutes } from "./routes/subscribers.js";
 import { notificationRoutes } from "./routes/notifications.js";
 import { preferenceRoutes } from "./routes/preferences.js";
+import { realtimeRoutes } from "./routes/realtime.js";
+import { subscriberRoutes } from "./routes/subscribers.js";
 import { topicRoutes } from "./routes/topics.js";
 import { triggerRoutes } from "./routes/trigger.js";
-import { realtimeRoutes } from "./routes/realtime.js";
 
 interface Route {
 	method: string;
 	pattern: string;
-	handler: (request: Request, ctx: HeraldContext, params: Record<string, string>) => Promise<Response>;
+	handler: (
+		request: Request,
+		ctx: HeraldContext,
+		params: Record<string, string>,
+	) => Promise<Response>;
 }
 
 export class HTTPError extends Error {
@@ -120,9 +124,7 @@ export function jsonResponse(data: unknown, status = 200): Response {
 	});
 }
 
-export async function parseJsonBody<T = Record<string, unknown>>(
-	request: Request,
-): Promise<T> {
+export async function parseJsonBody<T = Record<string, unknown>>(request: Request): Promise<T> {
 	const text = await request.text();
 	if (!text) return {} as T;
 	try {

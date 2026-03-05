@@ -1,10 +1,10 @@
+import type { SSEManager } from "../realtime/sse.js";
 /**
  * In-app notification provider.
  * Stores notifications in the database and emits real-time events via SSE.
  */
 import type { DatabaseAdapter } from "../types/adapter.js";
 import type { ChannelProvider, ChannelProviderMessage, ChannelProviderResult } from "./provider.js";
-import type { SSEManager } from "../realtime/sse.js";
 
 export interface InAppProviderConfig {
 	db: DatabaseAdapter;

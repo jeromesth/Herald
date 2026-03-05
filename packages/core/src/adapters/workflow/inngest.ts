@@ -115,12 +115,7 @@ export interface InngestAdapterConfig {
  * Create a Herald workflow adapter backed by Inngest.
  */
 export function inngestAdapter(config: InngestAdapterConfig): WorkflowAdapter {
-	const {
-		client,
-		servePath = "/api/inngest",
-		eventPrefix = "herald",
-		retries = 3,
-	} = config;
+	const { client, servePath = "/api/inngest", eventPrefix = "herald", retries = 3 } = config;
 
 	const registeredFunctions: InngestFunction[] = [];
 	const adapter: InngestAdapter = {
@@ -176,37 +171,34 @@ export function inngestAdapter(config: InngestAdapterConfig): WorkflowAdapter {
 								continue;
 							}
 
-							await step.run(
-								`${workflowStep.stepId}-${subscriberId}`,
-								async () => {
-									const result = await workflowStep.handler({
-										subscriber: {
-											id: subscriberId,
-											externalId: subscriberId,
-										},
-										payload,
-										step: {
-											delay: async () => {},
-											digest: async () => [],
-										},
-									});
+							await step.run(`${workflowStep.stepId}-${subscriberId}`, async () => {
+								const result = await workflowStep.handler({
+									subscriber: {
+										id: subscriberId,
+										externalId: subscriberId,
+									},
+									payload,
+									step: {
+										delay: async () => {},
+										digest: async () => [],
+									},
+								});
 
-									// Emit a step completion event for tracking
-									await client.send({
-										name: `${eventPrefix}/step.completed`,
-										data: {
-											workflowId: workflow.id,
-											stepId: workflowStep.stepId,
-											subscriberId,
-											channel: workflowStep.type,
-											result,
-											transactionId: event.data.transactionId as string,
-										},
-									});
+								// Emit a step completion event for tracking
+								await client.send({
+									name: `${eventPrefix}/step.completed`,
+									data: {
+										workflowId: workflow.id,
+										stepId: workflowStep.stepId,
+										subscriberId,
+										channel: workflowStep.type,
+										result,
+										transactionId: event.data.transactionId as string,
+									},
+								});
 
-									return result;
-								},
-							);
+								return result;
+							});
 						}
 					}
 
@@ -264,11 +256,12 @@ export function inngestAdapter(config: InngestAdapterConfig): WorkflowAdapter {
 				path: servePath,
 				handler: async (request: Request) => {
 					const method = request.method.toUpperCase();
-					const handlerFn = method === "GET"
-						? serveResult.GET
-						: method === "PUT"
-							? serveResult.PUT
-							: serveResult.POST;
+					const handlerFn =
+						method === "GET"
+							? serveResult.GET
+							: method === "PUT"
+								? serveResult.PUT
+								: serveResult.POST;
 
 					return (handlerFn as (req: Request) => Promise<Response>)(request);
 				},

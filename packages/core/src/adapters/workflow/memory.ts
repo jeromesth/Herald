@@ -56,7 +56,7 @@ export function memoryWorkflowAdapter(): WorkflowAdapter & {
 			if (!workflow) {
 				console.warn(
 					`[herald] Memory adapter: no workflow registered with id "${args.workflowId}". ` +
-					`Registered: [${[...workflows.keys()].join(", ")}]`,
+						`Registered: [${[...workflows.keys()].join(", ")}]`,
 				);
 			}
 			if (workflow) {
