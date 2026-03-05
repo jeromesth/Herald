@@ -34,7 +34,7 @@ herald/                          # pnpm monorepo
 │   │   │   └── routes/          # Route handlers by domain
 │   │   ├── adapters/            # Database & workflow adapters
 │   │   │   ├── database/        # prisma.ts, memory.ts
-│   │   │   └── workflow/        # inngest.ts, memory.ts
+│   │   │   └── workflow/        # inngest.ts, postgres.ts, memory.ts
 │   │   ├── channels/            # Notification channels
 │   │   │   ├── provider.ts      # ChannelRegistry
 │   │   │   ├── in-app.ts        # In-app provider
@@ -56,7 +56,7 @@ herald/                          # pnpm monorepo
 
 - **TypeScript** (strict mode, ES2022, ESNext modules)
 - **pnpm** 10.x monorepo with workspaces
-- **Biome** for linting and formatting (tabs, double quotes, 100-char lines)
+- **Biome** for linting and formatting (tabs, double quotes, 140-char lines)
 - **Vitest** for testing
 - **tsup** for building (ESM only, .d.mts declarations)
 - **Zod** for runtime schema validation
@@ -114,6 +114,13 @@ Write concise descriptions focused on **what changed and why**, not implementati
 - Use `memoryAdapter()` for database in tests — creates fresh instances per test
 - Always test both happy path and edge cases
 - Run `pnpm test:run` before committing
+
+## Formatting Rules
+
+- **Always run `pnpm lint:fix` before committing.** This is non-negotiable. Biome handles all formatting decisions (line wrapping, indentation, import ordering). Do not manually format code — let the tool decide.
+- **Line width is 140 characters.** Lines under 140 chars stay on one line. Lines over 140 chars get wrapped by Biome. Do not manually wrap shorter lines or force-unwrap longer ones.
+- **Do not fight the formatter.** If Biome wraps something, leave it wrapped. If Biome keeps it on one line, leave it on one line. Consistency comes from the tool, not from human judgment.
+- **Adapter interface naming:** Use plain names (`PgPool`, `PgClient`) not `*Like` suffixes (`InngestClientLike` is legacy and should be renamed in a future refactor).
 
 ## PR Workflow
 

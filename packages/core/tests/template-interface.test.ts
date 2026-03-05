@@ -44,10 +44,7 @@ function templateEngineContract(name: string, factory: () => TemplateEngine) {
 			});
 
 			it("should interpolate context values into the template", () => {
-				const result = engine.render(
-					"Hi {{ subscriber.firstName }}, order {{ payload.orderId }} confirmed.",
-					baseContext,
-				);
+				const result = engine.render("Hi {{ subscriber.firstName }}, order {{ payload.orderId }} confirmed.", baseContext);
 				expect(result).toContain("Alice");
 				expect(result).toContain("ORD-123");
 			});

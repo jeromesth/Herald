@@ -77,8 +77,7 @@ export function herald(options: HeraldOptions): Herald {
 	}
 
 	// Set up template engine (pluggable, defaults to Handlebars)
-	const templateEngine: TemplateEngine =
-		options.templateEngine ?? new HandlebarsEngine(options.templateFilters);
+	const templateEngine: TemplateEngine = options.templateEngine ?? new HandlebarsEngine(options.templateFilters);
 
 	// Set up layout registry
 	const layoutRegistry = new LayoutRegistry();
@@ -223,12 +222,9 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 
 		async getNotifications(args) {
 			await pluginsReady;
-			const subscriberId =
-				(await resolveSubscriberInternalId(db, args.subscriberId)) ?? args.subscriberId;
+			const subscriberId = (await resolveSubscriberInternalId(db, args.subscriberId)) ?? args.subscriberId;
 
-			const where: { field: string; value: unknown }[] = [
-				{ field: "subscriberId", value: subscriberId },
-			];
+			const where: { field: string; value: unknown }[] = [{ field: "subscriberId", value: subscriberId }];
 
 			if (args.read !== undefined) {
 				where.push({ field: "read", value: args.read });
@@ -285,8 +281,7 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 
 		async getPreferences(subscriberId) {
 			await pluginsReady;
-			const internalSubscriberId =
-				(await resolveSubscriberInternalId(db, subscriberId)) ?? subscriberId;
+			const internalSubscriberId = (await resolveSubscriberInternalId(db, subscriberId)) ?? subscriberId;
 
 			const pref = await db.findOne<PreferenceRecord>({
 				model: "preference",
@@ -298,8 +293,7 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 
 		async updatePreferences(subscriberId, preferences) {
 			await pluginsReady;
-			const internalSubscriberId =
-				(await resolveSubscriberInternalId(db, subscriberId)) ?? subscriberId;
+			const internalSubscriberId = (await resolveSubscriberInternalId(db, subscriberId)) ?? subscriberId;
 			const now = new Date();
 			const existing = await db.findOne<PreferenceRecord>({
 				model: "preference",

@@ -56,10 +56,7 @@ export function memoryAdapter(): DatabaseAdapter {
 		return andMatch && orMatch;
 	}
 
-	function applySelect(
-		record: Record<string, unknown>,
-		select?: string[],
-	): Record<string, unknown> {
+	function applySelect(record: Record<string, unknown>, select?: string[]): Record<string, unknown> {
 		if (!select || select.length === 0) return { ...record };
 		const result: Record<string, unknown> = {};
 		for (const field of select) {

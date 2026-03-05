@@ -8,10 +8,7 @@ const typeValidators: Record<string, (v: unknown) => boolean> = {
 	json: (v) => v != null && typeof v === "object",
 };
 
-function pickConfiguredSubscriberFields(
-	ctx: HeraldContext,
-	body: Record<string, unknown>,
-): Record<string, unknown> {
+function pickConfiguredSubscriberFields(ctx: HeraldContext, body: Record<string, unknown>): Record<string, unknown> {
 	const configured = ctx.options.subscriber?.additionalFields;
 	if (!configured) return {};
 
@@ -121,26 +118,13 @@ export const subscriberRoutes = [
 			}
 
 			const updateBody: Record<string, unknown> = {};
-			const stringFields = [
-				"email",
-				"phone",
-				"firstName",
-				"lastName",
-				"avatar",
-				"locale",
-				"timezone",
-			] as const;
+			const stringFields = ["email", "phone", "firstName", "lastName", "avatar", "locale", "timezone"] as const;
 			for (const field of stringFields) {
 				if (field in body && typeof body[field] === "string") {
 					updateBody[field] = body[field];
 				}
 			}
-			if (
-				"data" in body &&
-				typeof body.data === "object" &&
-				body.data != null &&
-				!Array.isArray(body.data)
-			) {
+			if ("data" in body && typeof body.data === "object" && body.data != null && !Array.isArray(body.data)) {
 				updateBody.data = body.data as Record<string, unknown>;
 			}
 			Object.assign(updateBody, pickConfiguredSubscriberFields(ctx, body));

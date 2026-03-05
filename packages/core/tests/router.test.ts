@@ -94,9 +94,7 @@ describe("HTTP Router", () => {
 		});
 
 		it("returns 400 when externalId is missing", async () => {
-			const res = await app.handler(
-				makeRequest("POST", "/subscribers", { email: "test@example.com" }),
-			);
+			const res = await app.handler(makeRequest("POST", "/subscribers", { email: "test@example.com" }));
 
 			expect(res.status).toBe(400);
 		});
@@ -158,9 +156,7 @@ describe("HTTP Router", () => {
 		it("returns 409 for duplicate topic", async () => {
 			await app.handler(makeRequest("POST", "/topics", { key: "project:abc", name: "ABC" }));
 
-			const res = await app.handler(
-				makeRequest("POST", "/topics", { key: "project:abc", name: "ABC" }),
-			);
+			const res = await app.handler(makeRequest("POST", "/topics", { key: "project:abc", name: "ABC" }));
 
 			expect(res.status).toBe(409);
 		});

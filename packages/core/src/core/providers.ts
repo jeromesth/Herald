@@ -2,11 +2,7 @@ import { postmarkProvider } from "../channels/email/postmark.js";
 import { resendProvider } from "../channels/email/resend.js";
 import { sendgridProvider } from "../channels/email/sendgrid.js";
 import { sesProvider } from "../channels/email/ses.js";
-import type {
-	ChannelProvider,
-	ChannelProviderMessage,
-	ChannelProviderResult,
-} from "../channels/provider.js";
+import type { ChannelProvider, ChannelProviderMessage, ChannelProviderResult } from "../channels/provider.js";
 /**
  * Build a ChannelProvider from the EmailChannelConfig shorthand.
  */
@@ -58,9 +54,7 @@ export function buildEmailProvider(config: EmailChannelConfig): ChannelProvider 
 			return createCustomEmailProvider(config);
 
 		default:
-			throw new Error(
-				`Unknown email provider "${config.provider}". Supported providers: sendgrid, resend, postmark, ses, custom`,
-			);
+			throw new Error(`Unknown email provider "${config.provider}". Supported providers: sendgrid, resend, postmark, ses, custom`);
 	}
 }
 

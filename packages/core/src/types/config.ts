@@ -259,10 +259,7 @@ export interface HeraldAPI {
 	getPreferences: (subscriberId: string) => Promise<PreferenceRecord>;
 
 	/** Update subscriber preferences. */
-	updatePreferences: (
-		subscriberId: string,
-		preferences: Partial<PreferenceRecord>,
-	) => Promise<PreferenceRecord>;
+	updatePreferences: (subscriberId: string, preferences: Partial<PreferenceRecord>) => Promise<PreferenceRecord>;
 
 	/** Add subscribers to a topic. */
 	addToTopic: (args: {

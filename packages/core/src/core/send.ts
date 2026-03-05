@@ -15,10 +15,7 @@ export interface ProviderSendArgs {
 	data?: Record<string, unknown>;
 }
 
-function applyBeforeSendPatch(
-	message: ProviderSendArgs,
-	patch: Record<string, unknown> | void,
-): void {
+function applyBeforeSendPatch(message: ProviderSendArgs, patch: Record<string, unknown> | void): void {
 	if (!patch) return;
 
 	const knownKeys = new Set(["to", "subject", "body", "actionUrl", "layoutId", "data"]);
@@ -109,9 +106,7 @@ export async function sendThroughProvider(
 
 	const subscriber = await resolveSubscriberByAnyId(ctx.db, message.subscriberId);
 	if (!subscriber) {
-		console.warn(
-			`[herald] Subscriber "${message.subscriberId}" not found. Template rendering will use limited context.`,
-		);
+		console.warn(`[herald] Subscriber "${message.subscriberId}" not found. Template rendering will use limited context.`);
 	}
 	const templateContext: TemplateContext = {
 		subscriber: (subscriber ?? {
@@ -125,9 +120,7 @@ export async function sendThroughProvider(
 
 	// Template rendering is applied before provider.send.
 	if (message.channel === "email") {
-		const layout = message.layoutId
-			? (ctx.layouts.get(message.layoutId) ?? ctx.layouts.getDefault())
-			: ctx.layouts.getDefault();
+		const layout = message.layoutId ? (ctx.layouts.get(message.layoutId) ?? ctx.layouts.getDefault()) : ctx.layouts.getDefault();
 		const rendered = renderEmail({
 			layout,
 			subject: message.subject ?? "",
@@ -159,9 +152,7 @@ export async function sendThroughProvider(
 	});
 
 	if (result.status === "failed") {
-		console.error(
-			`[herald] Provider "${provider.providerId}" failed to send to ${message.to}: ${result.error ?? "unknown error"}`,
-		);
+		console.error(`[herald] Provider "${provider.providerId}" failed to send to ${message.to}: ${result.error ?? "unknown error"}`);
 	}
 
 	// Run afterSend hooks

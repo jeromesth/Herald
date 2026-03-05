@@ -42,13 +42,8 @@ type PrismaClientLike = Record<string, unknown> & {
 /**
  * Create a Herald database adapter backed by Prisma.
  */
-export function prismaAdapter(
-	prisma: PrismaClientLike,
-	config: PrismaAdapterConfig,
-): DatabaseAdapter {
-	const debugLog = config.debugLogs
-		? (op: string, args: unknown) => console.debug(`[herald/prisma] ${op}:`, args)
-		: undefined;
+export function prismaAdapter(prisma: PrismaClientLike, config: PrismaAdapterConfig): DatabaseAdapter {
+	const debugLog = config.debugLogs ? (op: string, args: unknown) => console.debug(`[herald/prisma] ${op}:`, args) : undefined;
 
 	function getModelDelegate(client: PrismaClientLike, model: string) {
 		const modelName = config.usePlural ? model : model;
@@ -108,11 +103,7 @@ export function prismaAdapter(
 		return { AND: andConditions };
 	}
 
-	function convertOperator(
-		field: string,
-		value: unknown,
-		operator?: WhereOperator,
-	): Record<string, unknown> {
+	function convertOperator(field: string, value: unknown, operator?: WhereOperator): Record<string, unknown> {
 		if (!operator || operator === "eq") {
 			return { [field]: value };
 		}

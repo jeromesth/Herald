@@ -132,9 +132,7 @@ export type PostgresWorkflowAdapter = WorkflowAdapter & {
 
 export function postgresWorkflowAdapter(config: PostgresWorkflowConfig): PostgresWorkflowAdapter {
 	if (!config.pool && !config.connectionString) {
-		throw new Error(
-			"postgresWorkflowAdapter requires either a `pool` or `connectionString` option",
-		);
+		throw new Error("postgresWorkflowAdapter requires either a `pool` or `connectionString` option");
 	}
 
 	const prefix = config.tablePrefix ?? "herald_wf";
@@ -304,10 +302,7 @@ export function postgresWorkflowAdapter(config: PostgresWorkflowConfig): Postgre
 
 			// Mark jobs as running within the transaction
 			const ids = result.rows.map((r) => r.id as string);
-			await client.query(
-				`UPDATE ${prefix}_jobs SET status = '${RUNNING}', updated_at = NOW() WHERE id = ANY($1)`,
-				[ids],
-			);
+			await client.query(`UPDATE ${prefix}_jobs SET status = '${RUNNING}', updated_at = NOW() WHERE id = ANY($1)`, [ids]);
 
 			await client.query("COMMIT");
 
@@ -332,10 +327,10 @@ export function postgresWorkflowAdapter(config: PostgresWorkflowConfig): Postgre
 		try {
 			const workflow = workflows.get(job.workflow_id);
 			if (!workflow) {
-				await p.query(
-					`UPDATE ${prefix}_jobs SET status = '${FAILED}', error = $1, updated_at = NOW() WHERE id = $2`,
-					[`No workflow registered with id "${job.workflow_id}"`, job.id],
-				);
+				await p.query(`UPDATE ${prefix}_jobs SET status = '${FAILED}', error = $1, updated_at = NOW() WHERE id = $2`, [
+					`No workflow registered with id "${job.workflow_id}"`,
+					job.id,
+				]);
 				return;
 			}
 
@@ -359,9 +354,7 @@ export function postgresWorkflowAdapter(config: PostgresWorkflowConfig): Postgre
 				};
 
 				// Check conditions
-				if (
-					!conditionsPass(currentStep.conditions, stepContext, currentStep.conditionMode)
-				) {
+				if (!conditionsPass(currentStep.conditions, stepContext, currentStep.conditionMode)) {
 					await advanceStep(p, job.id, i + 1);
 					continue;
 				}
@@ -382,10 +375,7 @@ export function postgresWorkflowAdapter(config: PostgresWorkflowConfig): Postgre
 				if (currentStep.type === "throttle") {
 					const throttled = await handleThrottleStep(p, job, currentStep, stepContext);
 					if (throttled) {
-						await p.query(
-							`UPDATE ${prefix}_jobs SET status = '${COMPLETED}', updated_at = NOW() WHERE id = $1`,
-							[job.id],
-						);
+						await p.query(`UPDATE ${prefix}_jobs SET status = '${COMPLETED}', updated_at = NOW() WHERE id = $1`, [job.id]);
 						return;
 					}
 					await advanceStep(p, job.id, i + 1);
@@ -394,10 +384,7 @@ export function postgresWorkflowAdapter(config: PostgresWorkflowConfig): Postgre
 
 				if (currentStep.type === "fetch") {
 					const result = await currentStep.handler(stepContext);
-					if (
-						result._internal?.fetchResult != null &&
-						typeof result._internal.fetchResult === "object"
-					) {
+					if (result._internal?.fetchResult != null && typeof result._internal.fetchResult === "object") {
 						Object.assign(handlerPayload, result._internal.fetchResult);
 					}
 					await advanceStep(p, job.id, i + 1);
@@ -410,10 +397,7 @@ export function postgresWorkflowAdapter(config: PostgresWorkflowConfig): Postgre
 			}
 
 			// All steps completed
-			await p.query(
-				`UPDATE ${prefix}_jobs SET status = '${COMPLETED}', updated_at = NOW() WHERE id = $1`,
-				[job.id],
-			);
+			await p.query(`UPDATE ${prefix}_jobs SET status = '${COMPLETED}', updated_at = NOW() WHERE id = $1`, [job.id]);
 		} catch (err) {
 			await handleJobError(p, job, err);
 		} finally {
@@ -422,10 +406,7 @@ export function postgresWorkflowAdapter(config: PostgresWorkflowConfig): Postgre
 	}
 
 	async function advanceStep(p: PgPool, jobId: string, nextStep: number): Promise<void> {
-		await p.query(`UPDATE ${prefix}_jobs SET current_step = $1, updated_at = NOW() WHERE id = $2`, [
-			nextStep,
-			jobId,
-		]);
+		await p.query(`UPDATE ${prefix}_jobs SET current_step = $1, updated_at = NOW() WHERE id = $2`, [nextStep, jobId]);
 	}
 
 	// -----------------------------------------------------------------------
@@ -439,8 +420,7 @@ export function postgresWorkflowAdapter(config: PostgresWorkflowConfig): Postgre
 		stepIndex: number,
 		context: StepContext,
 	): Promise<"parked" | "continue"> {
-		let capturedDelay: { amount: number; unit: "seconds" | "minutes" | "hours" | "days" } | null =
-			null;
+		let capturedDelay: { amount: number; unit: "seconds" | "minutes" | "hours" | "days" } | null = null;
 
 		const delayContext: StepContext = {
 			...context,
@@ -517,10 +497,7 @@ export function postgresWorkflowAdapter(config: PostgresWorkflowConfig): Postgre
 
 		// Window expired — collect digest events
 		const digestKey = `${job.workflow_id}:${step.stepId}:${job.subscriber_id}`;
-		const events = await p.query(
-			`DELETE FROM ${prefix}_digest_events WHERE digest_key = $1 RETURNING payload, created_at`,
-			[digestKey],
-		);
+		const events = await p.query(`DELETE FROM ${prefix}_digest_events WHERE digest_key = $1 RETURNING payload, created_at`, [digestKey]);
 
 		const digested: DigestedEvent[] = events.rows.map((r) => ({
 			payload: (r.payload ?? {}) as Record<string, unknown>,
@@ -540,12 +517,7 @@ export function postgresWorkflowAdapter(config: PostgresWorkflowConfig): Postgre
 		return "continue";
 	}
 
-	async function handleThrottleStep(
-		p: PgPool,
-		job: JobRow,
-		step: WorkflowStep,
-		context: StepContext,
-	): Promise<boolean> {
+	async function handleThrottleStep(p: PgPool, job: JobRow, step: WorkflowStep, context: StepContext): Promise<boolean> {
 		let capturedConfig: {
 			key: string;
 			limit: number;
@@ -624,14 +596,12 @@ export function postgresWorkflowAdapter(config: PostgresWorkflowConfig): Postgre
 		const retryCount = job.retry_count + 1;
 
 		if (retryCount >= job.max_retries) {
-			await p.query(
-				`UPDATE ${prefix}_jobs SET status = '${FAILED}', error = $1, retry_count = $2, updated_at = NOW() WHERE id = $3`,
-				[message, retryCount, job.id],
-			);
-			console.error(
-				`[herald] Postgres workflow job ${job.id} failed after ${retryCount} retries:`,
+			await p.query(`UPDATE ${prefix}_jobs SET status = '${FAILED}', error = $1, retry_count = $2, updated_at = NOW() WHERE id = $3`, [
 				message,
-			);
+				retryCount,
+				job.id,
+			]);
+			console.error(`[herald] Postgres workflow job ${job.id} failed after ${retryCount} retries:`, message);
 		} else {
 			// Exponential backoff: 2^retryCount seconds
 			const backoffMs = 2 ** retryCount * 1000;

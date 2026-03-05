@@ -4,18 +4,7 @@
  * with their ecosystem of adapters.
  */
 
-export type WhereOperator =
-	| "eq"
-	| "ne"
-	| "lt"
-	| "lte"
-	| "gt"
-	| "gte"
-	| "in"
-	| "not_in"
-	| "contains"
-	| "starts_with"
-	| "ends_with";
+export type WhereOperator = "eq" | "ne" | "lt" | "lte" | "gt" | "gte" | "in" | "not_in" | "contains" | "starts_with" | "ends_with";
 
 export interface Where {
 	field: string;

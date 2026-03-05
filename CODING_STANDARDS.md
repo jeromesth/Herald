@@ -132,13 +132,24 @@ describe("resolveSubscriberByAnyId", () => {
 These are enforced automatically — don't override them:
 
 - **Indentation:** tabs
-- **Line width:** 100 characters
+- **Line width:** 140 characters
 - **Quotes:** double quotes
 - **Semicolons:** always
 - **Imports:** organized, explicit `type` imports
 - **Relative imports:** use `.js` extension (ESM compatibility)
 
-Run `pnpm lint:fix` and `pnpm format` before committing.
+### Line width rationale
+
+We use **140 characters** because we prefer long lines over unnecessary wrapping. Biome automatically formats to fit within this limit:
+
+- If a line fits in 140 chars, it stays on one line (function signatures, short arrays, ternaries).
+- If it exceeds 140 chars, Biome wraps it into a multi-line format.
+
+This means you should **not manually wrap lines** that Biome would keep on one line, and you should **not force single-line** for things Biome wraps. Let the formatter decide — that's the point of having one.
+
+### Formatting workflow
+
+Run `pnpm lint:fix` before committing. This applies both lint fixes and formatting in one pass. Do **not** commit code that hasn't been through `pnpm lint:fix` — inconsistent formatting is a review blocker.
 
 ## Logging
 

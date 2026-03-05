@@ -1,10 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type {
-	PgClient,
-	PgPool,
-	PgQueryResult,
-	PostgresWorkflowAdapter,
-} from "../src/adapters/workflow/postgres.js";
+import type { PgClient, PgPool, PgQueryResult, PostgresWorkflowAdapter } from "../src/adapters/workflow/postgres.js";
 import { postgresWorkflowAdapter } from "../src/adapters/workflow/postgres.js";
 import type { NotificationWorkflow, StepResult } from "../src/types/workflow.js";
 
@@ -182,9 +177,7 @@ describe("postgresWorkflowAdapter", () => {
 
 	describe("configuration", () => {
 		it("throws when neither pool nor connectionString is provided", () => {
-			expect(() => postgresWorkflowAdapter({} as PostgresWorkflowConfig)).toThrow(
-				"requires either a `pool` or `connectionString`",
-			);
+			expect(() => postgresWorkflowAdapter({} as PostgresWorkflowConfig)).toThrow("requires either a `pool` or `connectionString`");
 		});
 
 		it("has adapterId 'postgres'", () => {
@@ -209,14 +202,10 @@ describe("postgresWorkflowAdapter", () => {
 		it("creates tables and indexes idempotently", async () => {
 			await adapter.migrate();
 
-			const createQueries = mockPool.queries.filter((q) =>
-				q.text.includes("CREATE TABLE IF NOT EXISTS"),
-			);
+			const createQueries = mockPool.queries.filter((q) => q.text.includes("CREATE TABLE IF NOT EXISTS"));
 			expect(createQueries).toHaveLength(3); // jobs, digest_events, throttle_state
 
-			const indexQueries = mockPool.queries.filter((q) =>
-				q.text.includes("CREATE INDEX IF NOT EXISTS"),
-			);
+			const indexQueries = mockPool.queries.filter((q) => q.text.includes("CREATE INDEX IF NOT EXISTS"));
 			expect(indexQueries).toHaveLength(3); // poll, transaction, digest_key
 		});
 
@@ -241,9 +230,7 @@ describe("postgresWorkflowAdapter", () => {
 			expect(result.status).toBe("queued");
 			expect(result.transactionId).toBeDefined();
 
-			const insertQueries = mockPool.queries.filter((q) =>
-				q.text.includes("INSERT INTO herald_wf_jobs"),
-			);
+			const insertQueries = mockPool.queries.filter((q) => q.text.includes("INSERT INTO herald_wf_jobs"));
 			expect(insertQueries).toHaveLength(2);
 
 			// Verify payload is serialized
@@ -266,9 +253,7 @@ describe("postgresWorkflowAdapter", () => {
 			adapter.registerWorkflow(simpleEmailWorkflow());
 			await adapter.trigger({ workflowId: "welcome", to: "user-1", payload: {} });
 
-			const insertQueries = mockPool.queries.filter((q) =>
-				q.text.includes("INSERT INTO herald_wf_jobs"),
-			);
+			const insertQueries = mockPool.queries.filter((q) => q.text.includes("INSERT INTO herald_wf_jobs"));
 			expect(insertQueries).toHaveLength(1);
 		});
 
@@ -276,9 +261,7 @@ describe("postgresWorkflowAdapter", () => {
 			adapter.registerWorkflow(digestWorkflow());
 			await adapter.trigger({ workflowId: "digest-wf", to: "user-1", payload: { data: 1 } });
 
-			const digestInserts = mockPool.queries.filter((q) =>
-				q.text.includes("INSERT INTO herald_wf_digest_events"),
-			);
+			const digestInserts = mockPool.queries.filter((q) => q.text.includes("INSERT INTO herald_wf_digest_events"));
 			expect(digestInserts).toHaveLength(1);
 			expect(digestInserts[0].values?.[2]).toBe("digest-wf:digest-1:user-1");
 		});
@@ -293,9 +276,7 @@ describe("postgresWorkflowAdapter", () => {
 				tenant: "org-1",
 			});
 
-			const insertQuery = mockPool.queries.find((q) =>
-				q.text.includes("INSERT INTO herald_wf_jobs"),
-			);
+			const insertQuery = mockPool.queries.find((q) => q.text.includes("INSERT INTO herald_wf_jobs"));
 			expect(insertQuery?.values?.[5]).toBe("admin");
 			expect(insertQuery?.values?.[6]).toBe("org-1");
 		});

@@ -102,10 +102,7 @@ describe("performFetch", () => {
 		const result = await performFetch({ url: "https://example.com/api" });
 		expect(result.status).toBe(200);
 		expect(result.data).toEqual({ ok: true });
-		expect(fetchSpy).toHaveBeenCalledWith(
-			"https://example.com/api",
-			expect.objectContaining({ method: "GET" }),
-		);
+		expect(fetchSpy).toHaveBeenCalledWith("https://example.com/api", expect.objectContaining({ method: "GET" }));
 	});
 
 	it("sends POST with body", async () => {
