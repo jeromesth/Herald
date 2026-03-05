@@ -41,6 +41,10 @@ This fills the gap between the **memory adapter** (testing only, no durability) 
 4. **Digest via event collection table** — Digest steps insert a row into `herald_wf_digest_events` and set a `scheduled_at` for the window expiry. When the window fires, all collected events are fetched and passed to the handler.
 5. **No external dependencies** — Uses only the `pg` npm package (peer dependency).
 6. **Auto-migration** — Creates tables on first use (idempotent `CREATE TABLE IF NOT EXISTS`).
+7. **Minimal Pool-like interface** — The adapter types against a `PgPoolLike` interface (not the concrete `pg.Pool` class), following the same pattern as `InngestClientLike` in the Inngest adapter. This means:
+   - v0.2.5 ships with `pg` as an optional peer dependency (simplest path).
+   - A future version can accept a Herald `DatabaseAdapter` instead, so users who already use Drizzle/Prisma for their main DB can reuse the same connection for workflow tables — no second dependency needed.
+   - The `PgPoolLike` interface is intentionally narrow (`query()` + `connect()`) so any Postgres-compatible client can satisfy it today.
 
 ---
 
@@ -114,19 +118,46 @@ CREATE TABLE IF NOT EXISTS herald_wf_throttle_state (
 
 ## Implementation Steps
 
-### Step 1: Create the adapter file structure
+### Step 1: Define the minimal Pool-like interface and config
 
 **File:** `packages/core/src/adapters/workflow/postgres.ts`
+
+The adapter types against a narrow interface, not the concrete `pg` module. This mirrors
+the `InngestClientLike` pattern from `adapters/workflow/inngest.ts` and sets us up for
+a future version where users can plug in a `DatabaseAdapter` instead.
+
+```typescript
+/**
+ * Minimal Postgres pool interface.
+ * Any client that satisfies this shape works — pg.Pool, @neondatabase/serverless, etc.
+ * In a future version this can be replaced by a DatabaseAdapter for full ORM reuse.
+ */
+export interface PgPoolLike {
+  query(text: string, values?: unknown[]): Promise<PgQueryResult>;
+  connect(): Promise<PgClientLike>;
+  end?(): Promise<void>;
+}
+
+export interface PgClientLike {
+  query(text: string, values?: unknown[]): Promise<PgQueryResult>;
+  release(): void;
+}
+
+export interface PgQueryResult {
+  rows: Record<string, unknown>[];
+  rowCount: number | null;
+}
+```
 
 - Factory function: `postgresWorkflowAdapter(config: PostgresWorkflowConfig): WorkflowAdapter`
 - Config interface:
 
 ```typescript
 export interface PostgresWorkflowConfig {
-  /** PostgreSQL connection string */
-  connectionString: string;
-  /** Or pass an existing pg Pool instance */
+  /** Pass an existing pool instance that satisfies PgPoolLike. */
   pool?: PgPoolLike;
+  /** Or provide a connection string — adapter creates a pg.Pool internally. */
+  connectionString?: string;
   /** Polling interval in milliseconds. @default 1000 */
   pollInterval?: number;
   /** Maximum concurrent job executions. @default 10 */
@@ -139,6 +170,8 @@ export interface PostgresWorkflowConfig {
   autoMigrate?: boolean;
 }
 ```
+
+When `connectionString` is provided without `pool`, the adapter dynamically imports `pg` and creates a pool internally. When `pool` is provided, no `pg` import is needed at all — this is what enables future ORM-backed pools.
 
 ### Step 2: Implement `WorkflowAdapter` interface methods
 
@@ -407,6 +440,7 @@ process.on("SIGTERM", () => workflow.stop());
 
 ## Out of Scope (Future)
 
+- **DatabaseAdapter-backed workflow storage** — Allow users to pass their existing Herald `DatabaseAdapter` (Drizzle, Prisma, etc.) instead of a raw Postgres pool. This would let users who already have Drizzle as their main DB ORM reuse the same connection for workflow tables — zero additional dependencies. The `PgPoolLike` interface is designed to make this swap non-breaking. Target: v0.3.x.
 - **Dead letter queue** — Failed jobs beyond max retries could be moved to a DLQ table. Deferred to v0.3.x.
 - **Job cleanup/TTL** — Automatic cleanup of completed/failed jobs older than N days.
 - **Observability hooks** — `onJobStart`, `onJobComplete`, `onJobFail` callbacks.
