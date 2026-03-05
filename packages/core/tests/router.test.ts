@@ -1,7 +1,7 @@
-import { describe, expect, it, beforeEach } from "vitest";
-import { herald } from "../src/core/herald.js";
+import { beforeEach, describe, expect, it } from "vitest";
 import { memoryAdapter } from "../src/adapters/database/memory.js";
 import { memoryWorkflowAdapter } from "../src/adapters/workflow/memory.js";
+import { herald } from "../src/core/herald.js";
 import type { Herald, NotificationWorkflow } from "../src/types/index.js";
 
 const testWorkflow: NotificationWorkflow = {
@@ -23,11 +23,7 @@ describe("HTTP Router", () => {
 	const origin = "https://herald.test";
 	const basePath = "/api/notifications";
 
-	function makeRequest(
-		method: string,
-		path: string,
-		body?: unknown,
-	): Request {
+	function makeRequest(method: string, path: string, body?: unknown): Request {
 		return new Request(`${origin}${basePath}${path}`, {
 			method,
 			headers: { "Content-Type": "application/json" },
@@ -64,9 +60,7 @@ describe("HTTP Router", () => {
 		});
 
 		it("returns 400 when workflowId is missing", async () => {
-			const res = await app.handler(
-				makeRequest("POST", "/trigger", { to: "user-1" }),
-			);
+			const res = await app.handler(makeRequest("POST", "/trigger", { to: "user-1" }));
 
 			expect(res.status).toBe(400);
 		});
@@ -162,9 +156,7 @@ describe("HTTP Router", () => {
 		});
 
 		it("returns 409 for duplicate topic", async () => {
-			await app.handler(
-				makeRequest("POST", "/topics", { key: "project:abc", name: "ABC" }),
-			);
+			await app.handler(makeRequest("POST", "/topics", { key: "project:abc", name: "ABC" }));
 
 			const res = await app.handler(
 				makeRequest("POST", "/topics", { key: "project:abc", name: "ABC" }),

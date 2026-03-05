@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { memoryAdapter } from "../src/adapters/database/memory.js";
 import type { DatabaseAdapter } from "../src/types/adapter.js";
 

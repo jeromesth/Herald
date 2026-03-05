@@ -1,7 +1,11 @@
 /**
  * Postmark email provider for Herald.
  */
-import type { ChannelProvider, ChannelProviderMessage, ChannelProviderResult } from "../provider.js";
+import type {
+	ChannelProvider,
+	ChannelProviderMessage,
+	ChannelProviderResult,
+} from "../provider.js";
 
 export interface PostmarkConfig {
 	serverToken: string;

@@ -1,7 +1,7 @@
-import { describe, expect, it, beforeEach } from "vitest";
-import { herald } from "../src/core/herald.js";
+import { beforeEach, describe, expect, it } from "vitest";
 import { memoryAdapter } from "../src/adapters/database/memory.js";
 import { memoryWorkflowAdapter } from "../src/adapters/workflow/memory.js";
+import { herald } from "../src/core/herald.js";
 import type { Herald, NotificationWorkflow } from "../src/types/index.js";
 
 const testWorkflow: NotificationWorkflow = {

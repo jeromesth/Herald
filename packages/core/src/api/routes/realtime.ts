@@ -8,11 +8,7 @@ export const realtimeRoutes = [
 	{
 		method: "GET",
 		pattern: "/notifications/:subscriberId/stream",
-		handler: async (
-			_request: Request,
-			ctx: HeraldContext,
-			params: Record<string, string>,
-		) => {
+		handler: async (_request: Request, ctx: HeraldContext, params: Record<string, string>) => {
 			if (!ctx.sse) {
 				return jsonResponse({ error: "Real-time not enabled" }, 501);
 			}

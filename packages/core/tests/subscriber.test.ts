@@ -1,10 +1,7 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { memoryAdapter } from "../src/adapters/database/memory.js";
+import { resolveRecipient, resolveSubscriberByAnyId } from "../src/core/subscriber.js";
 import type { SubscriberRecord } from "../src/types/config.js";
-import {
-	resolveSubscriberByAnyId,
-	resolveRecipient,
-} from "../src/core/subscriber.js";
 
 describe("resolveSubscriberByAnyId", () => {
 	let db: ReturnType<typeof memoryAdapter>;
