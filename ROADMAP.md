@@ -23,21 +23,48 @@ Priority: **High** | Comparable: Novu Integrations, Knock Channels
 - [x] **Template rendering** — Handlebars-style template engine for notification content
 - [x] **Email layouts** — reusable HTML email layouts with variable interpolation
 
-## v0.3 — Workflow Steps
+## v0.2.5 — Postgres Workflow Engine
+
+Priority: **High** | Unique to Herald — zero-dependency workflow execution
+
+The Inngest adapter is powerful for teams that scale, but most developers starting out already have Postgres and don't want another service. A Postgres-backed workflow adapter gives Herald a **batteries-included default**: one database, zero external dependencies, instant setup. Perfect for indie hackers, vibe coders, and fast adoption. Teams that outgrow it can migrate to Inngest or Temporal later.
+
+**Implementation approach:** Integrate an existing Postgres-based durable execution library rather than building a custom runtime. Top candidates:
+
+| Library | Approach | Why consider |
+|---------|----------|--------------|
+| [DBOS Transact](https://github.com/dbos-inc/dbos-transact-ts) | Durable execution with step-level persistence | True workflow durability, step checkpointing, automatic crash recovery. Only needs Postgres. |
+| [pg-boss](https://github.com/timgit/pg-boss) + thin orchestration layer | Job queue with chained steps | Battle-tested (~3.3k stars), widely adopted. Would need a small orchestration layer to chain steps into workflows. |
+| [pg-workflows](https://github.com/SokratisVidros/pg-workflows) | Durable workflows on top of pg-boss | Purpose-built for exactly this use case, but very early-stage (~23 stars). Worth watching. |
+
+**Tasks:**
+
+- [ ] **Evaluate and select** Postgres workflow library (DBOS vs pg-boss + orchestration layer)
+- [ ] **Implement `postgresWorkflowAdapter()`** — new adapter conforming to `WorkflowAdapter` interface
+- [ ] **Step-level durability** — each workflow step checkpointed to Postgres, recoverable on crash
+- [ ] **Delay step support** — Postgres-native scheduling (e.g. `pg_notify` or polling) for delay steps
+- [ ] **Retry and error handling** — configurable retries with backoff per step
+- [ ] **Make it the default** — when using `prismaAdapter({ provider: "postgresql" })`, suggest or auto-configure this adapter
+- [ ] **Migration guide** — document how to migrate from Postgres workflow adapter to Inngest/Temporal when scaling
+- [ ] **Tests** — full test suite covering durability, retries, delays, crash recovery
+
+## v0.3 — Workflow Steps `IN REVIEW`
 
 Priority: **High** | Comparable: Novu Digest/Delay, Knock Function Steps
+Branch: `Workflow-Steps` — implementation complete, in code review
 
-- [ ] **Delay step** — pause workflow execution for a configurable duration
-- [ ] **Digest/batch step** — aggregate multiple triggers into a single notification
+- [x] **Delay step** — pause workflow execution for a configurable duration
+- [x] **Digest/batch step** — aggregate multiple triggers into a single notification
 - [ ] **Branch step** — conditional logic within workflows (if/else)
-- [ ] **Throttle step** — rate-limit notifications per subscriber
-- [ ] **Fetch step** — HTTP request to pull external data into workflow context
+- [x] **Throttle step** — rate-limit notifications per subscriber
+- [x] **Fetch step** — HTTP request to pull external data into workflow context
 
 ## v0.4 — Additional Adapters
 
 Priority: **High** | Unique to Herald
 
 - [ ] **Drizzle database adapter** — `@herald/core/drizzle`
+- [ ] **Postgres workflow adapter** — `@herald/core/postgres-workflow` (see v0.2.5)
 - [ ] **Upstash Workflow adapter** — `@herald/core/upstash`
 - [ ] **Trigger.dev adapter** — `@herald/core/trigger`
 - [ ] **Kysely database adapter** — `@herald/core/kysely`
@@ -144,6 +171,7 @@ Features mapped across Herald, Novu, and Knock.app:
 | React components | v0.8 | Yes | Yes |
 | Self-hosted | v0.1 | Partial | No |
 | Bring your own DB | v0.1 | No | No |
+| Zero-dep workflow (Postgres) | v0.2.5 | No | No |
 | Bring your own workflow | v0.1 | No | No |
 | Plugin system | v0.1 | No | No |
 | Open source | v0.1 | Yes | No |
