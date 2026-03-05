@@ -1,25 +1,25 @@
 {
-  "name": "@herald/monorepo",
-  "private": true,
-  "description": "Open-source headless notification system for TypeScript",
-  "scripts": {
-    "build": "pnpm -r build",
-    "dev": "pnpm -r dev",
-    "test": "vitest",
-    "test:run": "vitest run",
-    "lint": "biome check .",
-    "lint:fix": "biome check --write .",
-    "format": "biome format --write .",
-    "clean": "pnpm -r clean",
-    "typecheck": "pnpm -r typecheck"
-  },
-  "devDependencies": {
-    "@biomejs/biome": "^1.9.0",
-    "typescript": "^5.7.0",
-    "vitest": "^3.0.0"
-  },
-  "packageManager": "pnpm@10.29.3",
-  "engines": {
-    "node": ">=20.0.0"
-  }
+	"name": "@herald/monorepo",
+	"private": true,
+	"description": "Open-source headless notification system for TypeScript",
+	"scripts": {
+		"build": "pnpm -r build",
+		"dev": "pnpm -r dev",
+		"test": "vitest",
+		"test:run": "vitest run",
+		"lint": "biome check .",
+		"lint:fix": "biome check --write .",
+		"format": "biome format --write .",
+		"clean": "pnpm -r clean",
+		"typecheck": "pnpm -r typecheck"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^1.9.0",
+		"typescript": "^5.7.0",
+		"vitest": "^3.0.0"
+	},
+	"packageManager": "pnpm@10.29.3",
+	"engines": {
+		"node": ">=20.0.0"
+	}
 }

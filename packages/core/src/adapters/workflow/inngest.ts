@@ -70,6 +70,7 @@ type InngestHandler = (args: {
 }) => Promise<unknown>;
 
 type InngestFunction = unknown;
+type InngestAdapter = WorkflowAdapter & { __functions?: InngestFunction[] };
 
 /**
  * Serve function type — we accept any serve implementation.
@@ -114,22 +115,13 @@ export interface InngestAdapterConfig {
  * Create a Herald workflow adapter backed by Inngest.
  */
 export function inngestAdapter(config: InngestAdapterConfig): WorkflowAdapter {
-	const {
-		client,
-		servePath = "/api/inngest",
-		eventPrefix = "herald",
-		retries = 3,
-	} = config;
+	const { client, servePath = "/api/inngest", eventPrefix = "herald", retries = 3 } = config;
 
 	const registeredFunctions: InngestFunction[] = [];
-	const workflowMap = new Map<string, NotificationWorkflow>();
-
-	return {
+	const adapter: InngestAdapter = {
 		adapterId: "inngest",
 
 		registerWorkflow(workflow: NotificationWorkflow): void {
-			workflowMap.set(workflow.id, workflow);
-
 			const eventName = `${eventPrefix}/workflow.${workflow.id}`;
 
 			const fn = client.createFunction(
@@ -179,37 +171,34 @@ export function inngestAdapter(config: InngestAdapterConfig): WorkflowAdapter {
 								continue;
 							}
 
-							await step.run(
-								`${workflowStep.stepId}-${subscriberId}`,
-								async () => {
-									const result = await workflowStep.handler({
-										subscriber: {
-											id: subscriberId,
-											externalId: subscriberId,
-										},
-										payload,
-										step: {
-											delay: async () => {},
-											digest: async () => [],
-										},
-									});
+							await step.run(`${workflowStep.stepId}-${subscriberId}`, async () => {
+								const result = await workflowStep.handler({
+									subscriber: {
+										id: subscriberId,
+										externalId: subscriberId,
+									},
+									payload,
+									step: {
+										delay: async () => {},
+										digest: async () => [],
+									},
+								});
 
-									// Emit a step completion event for tracking
-									await client.send({
-										name: `${eventPrefix}/step.completed`,
-										data: {
-											workflowId: workflow.id,
-											stepId: workflowStep.stepId,
-											subscriberId,
-											channel: workflowStep.type,
-											result,
-											transactionId: event.data.transactionId as string,
-										},
-									});
+								// Emit a step completion event for tracking
+								await client.send({
+									name: `${eventPrefix}/step.completed`,
+									data: {
+										workflowId: workflow.id,
+										stepId: workflowStep.stepId,
+										subscriberId,
+										channel: workflowStep.type,
+										result,
+										transactionId: event.data.transactionId as string,
+									},
+								});
 
-									return result;
-								},
-							);
+								return result;
+							});
 						}
 					}
 
@@ -267,17 +256,21 @@ export function inngestAdapter(config: InngestAdapterConfig): WorkflowAdapter {
 				path: servePath,
 				handler: async (request: Request) => {
 					const method = request.method.toUpperCase();
-					const handlerFn = method === "GET"
-						? serveResult.GET
-						: method === "PUT"
-							? serveResult.PUT
-							: serveResult.POST;
+					const handlerFn =
+						method === "GET"
+							? serveResult.GET
+							: method === "PUT"
+								? serveResult.PUT
+								: serveResult.POST;
 
 					return (handlerFn as (req: Request) => Promise<Response>)(request);
 				},
 			};
 		},
 	};
+
+	adapter.__functions = registeredFunctions;
+	return adapter;
 }
 
 /**
@@ -288,6 +281,6 @@ export function getInngestFunctions(adapter: WorkflowAdapter): InngestFunction[]
 	if (adapter.adapterId !== "inngest") {
 		throw new Error("getInngestFunctions can only be used with the Inngest adapter");
 	}
-	// Access internal state via the adapter's getHandler which creates functions
-	return [];
+
+	return (adapter as Partial<InngestAdapter>).__functions ?? [];
 }

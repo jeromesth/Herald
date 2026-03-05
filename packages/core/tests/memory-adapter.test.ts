@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { memoryAdapter } from "../src/adapters/database/memory.js";
 import type { DatabaseAdapter } from "../src/types/adapter.js";
 
@@ -219,6 +219,17 @@ describe("memoryAdapter", () => {
 			const results = await db.findMany({
 				model: "item",
 				where: [{ field: "name", value: "hello", operator: "starts_with" }],
+			});
+			expect(results).toHaveLength(2);
+		});
+
+		it("supports OR connector semantics", async () => {
+			const results = await db.findMany({
+				model: "item",
+				where: [
+					{ field: "value", value: 10, connector: "OR" },
+					{ field: "value", value: 30, connector: "OR" },
+				],
 			});
 			expect(results).toHaveLength(2);
 		});

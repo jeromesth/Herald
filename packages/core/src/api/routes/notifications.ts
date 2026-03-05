@@ -5,11 +5,7 @@ export const notificationRoutes = [
 	{
 		method: "GET",
 		pattern: "/notifications/:subscriberId",
-		handler: async (
-			request: Request,
-			ctx: HeraldContext,
-			params: Record<string, string>,
-		) => {
+		handler: async (request: Request, ctx: HeraldContext, params: Record<string, string>) => {
 			const url = new URL(request.url);
 			const limit = Number.parseInt(url.searchParams.get("limit") ?? "20", 10);
 			const offset = Number.parseInt(url.searchParams.get("offset") ?? "0", 10);
@@ -63,11 +59,7 @@ export const notificationRoutes = [
 	{
 		method: "GET",
 		pattern: "/notifications/:subscriberId/count",
-		handler: async (
-			request: Request,
-			ctx: HeraldContext,
-			params: Record<string, string>,
-		) => {
+		handler: async (request: Request, ctx: HeraldContext, params: Record<string, string>) => {
 			const url = new URL(request.url);
 			const read = url.searchParams.has("read")
 				? url.searchParams.get("read") === "true"

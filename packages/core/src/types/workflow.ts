@@ -59,7 +59,7 @@ export interface StepContext {
  */
 export interface StepResult {
 	subject?: string;
-	body: string;
+	body?: string;
 	data?: Record<string, unknown>;
 	actionUrl?: string;
 	avatar?: string;
@@ -101,9 +101,7 @@ export interface SubscriberData {
 /**
  * Full notification workflow definition.
  */
-export interface NotificationWorkflow<
-	TPayload extends z.ZodType = z.ZodType,
-> {
+export interface NotificationWorkflow<TPayload extends z.ZodType = z.ZodType> {
 	id: string;
 	name: string;
 	description?: string;

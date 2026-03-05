@@ -1,11 +1,13 @@
-import type { DatabaseAdapter } from "./adapter.js";
-import type { HeraldPlugin } from "./plugin.js";
-import type { ChannelType, NotificationWorkflow, WorkflowAdapter } from "./workflow.js";
 import type { ChannelProvider, ChannelRegistry } from "../channels/provider.js";
 import type { SSEManager } from "../realtime/sse.js";
-import type { EmailLayout } from "../templates/layouts.js";
 import type { TemplateFilter } from "../templates/engine.js";
+import type { EmailLayout, LayoutRegistry } from "../templates/layouts.js";
 import type { TemplateEngine } from "../templates/types.js";
+import type { DatabaseAdapter } from "./adapter.js";
+import type { HeraldPlugin } from "./plugin.js";
+import type { HeraldDBSchema } from "./schema.js";
+import type { ChannelType, NotificationWorkflow, WorkflowAdapter } from "./workflow.js";
+import type { WorkflowHandler } from "./workflow.js";
 
 /**
  * The single, comprehensive configuration object for Herald.
@@ -111,7 +113,7 @@ export interface ChannelConfig {
 }
 
 export interface EmailChannelConfig {
-	provider: "sendgrid" | "resend" | "postmark" | "ses" | "smtp" | "custom";
+	provider: "sendgrid" | "resend" | "postmark" | "ses" | "custom";
 	from: string;
 	apiKey?: string;
 	send?: (args: {
@@ -149,6 +151,8 @@ export interface PushChannelConfig {
  */
 export interface DefaultPreferences {
 	channels?: Partial<Record<ChannelType, boolean>>;
+	workflows?: Partial<Record<string, boolean>>;
+	categories?: Partial<Record<string, boolean>>;
 }
 
 /**
@@ -160,7 +164,10 @@ export interface HeraldContext {
 	workflow: WorkflowAdapter;
 	generateId: () => string;
 	channels: ChannelRegistry;
+	layouts: LayoutRegistry;
 	templateEngine: TemplateEngine;
+	schema: HeraldDBSchema;
+	transactionWorkflowMap: Map<string, string>;
 	sse?: SSEManager;
 }
 
@@ -180,10 +187,15 @@ export interface Herald {
 	api: HeraldAPI;
 
 	/**
-	 * The underlying workflow handler, if the adapter requires one.
-	 * Mount this alongside your workflow engine (e.g., Inngest serve).
+	 * Workflow handler info for framework mounting.
 	 */
-	workflowHandler: (() => Promise<Response>) | null;
+	workflow: WorkflowHandler | null;
+
+	/**
+	 * The underlying workflow handler, if the adapter requires one.
+	 * @deprecated Use `workflow` instead.
+	 */
+	workflowHandler: ((request: Request) => Promise<Response>) | null;
 
 	/**
 	 * Raw context for advanced usage.
@@ -216,6 +228,7 @@ export interface HeraldAPI {
 		locale?: string;
 		timezone?: string;
 		data?: Record<string, unknown>;
+		[key: string]: unknown;
 	}) => Promise<{ id: string }>;
 
 	/** Get a subscriber by external ID. */
@@ -226,6 +239,7 @@ export interface HeraldAPI {
 
 	/** List notifications for a subscriber (in-app inbox). */
 	getNotifications: (args: {
+		/** Subscriber external ID (preferred) or internal ID. */
 		subscriberId: string;
 		limit?: number;
 		offset?: number;
@@ -263,12 +277,13 @@ export interface HeraldAPI {
 
 	/** Send a notification directly through a channel provider. */
 	send: (args: {
-		channel: string;
+		channel: ChannelType;
 		subscriberId: string;
 		to: string;
 		subject?: string;
 		body: string;
 		actionUrl?: string;
+		layoutId?: string;
 		data?: Record<string, unknown>;
 	}) => Promise<{ messageId: string; status: string }>;
 

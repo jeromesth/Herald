@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderTemplate, compileTemplate, HandlebarsEngine } from "../src/templates/engine.js";
+import { HandlebarsEngine, compileTemplate, renderTemplate } from "../src/templates/engine.js";
 import type { TemplateContext } from "../src/templates/engine.js";
 
 const baseContext: TemplateContext = {
@@ -87,11 +87,9 @@ describe("Template Engine — filters", () => {
 	});
 
 	it("supports custom filters", () => {
-		const result = renderTemplate(
-			"{{ payload.amount | double }}",
-			baseContext,
-			{ double: (v) => String(Number(v) * 2) },
-		);
+		const result = renderTemplate("{{ payload.amount | double }}", baseContext, {
+			double: (v) => String(Number(v) * 2),
+		});
 		expect(result).toBe("84");
 	});
 });
@@ -106,18 +104,12 @@ describe("Template Engine — block helpers", () => {
 	});
 
 	it("does not render #if block when falsy", () => {
-		const result = renderTemplate(
-			"{{#if subscriber.missing}}Hidden{{/if}}",
-			baseContext,
-		);
+		const result = renderTemplate("{{#if subscriber.missing}}Hidden{{/if}}", baseContext);
 		expect(result).toBe("");
 	});
 
 	it("renders else branch", () => {
-		const result = renderTemplate(
-			"{{#if subscriber.missing}}Yes{{else}}No{{/if}}",
-			baseContext,
-		);
+		const result = renderTemplate("{{#if subscriber.missing}}Yes{{else}}No{{/if}}", baseContext);
 		expect(result).toBe("No");
 	});
 
@@ -125,16 +117,10 @@ describe("Template Engine — block helpers", () => {
 		const ctx: TemplateContext = {
 			subscriber: {},
 			payload: {
-				users: [
-					{ name: "Alice" },
-					{ name: "Bob" },
-				],
+				users: [{ name: "Alice" }, { name: "Bob" }],
 			},
 		};
-		const result = renderTemplate(
-			"{{#each payload.users}}{{ name }} {{/each}}",
-			ctx,
-		);
+		const result = renderTemplate("{{#each payload.users}}{{ name }} {{/each}}", ctx);
 		expect(result).toBe("Alice Bob ");
 	});
 
@@ -143,10 +129,7 @@ describe("Template Engine — block helpers", () => {
 			subscriber: {},
 			payload: { items: [] },
 		};
-		const result = renderTemplate(
-			"{{#each payload.items}}item{{/each}}",
-			ctx,
-		);
+		const result = renderTemplate("{{#each payload.items}}item{{/each}}", ctx);
 		expect(result).toBe("");
 	});
 });
@@ -155,10 +138,12 @@ describe("Template Engine — compileTemplate", () => {
 	it("returns a reusable render function", () => {
 		const render = compileTemplate("Hello {{ subscriber.firstName }}!");
 		expect(render(baseContext)).toBe("Hello Alice!");
-		expect(render({
-			subscriber: { firstName: "Bob" },
-			payload: {},
-		})).toBe("Hello Bob!");
+		expect(
+			render({
+				subscriber: { firstName: "Bob" },
+				payload: {},
+			}),
+		).toBe("Hello Bob!");
 	});
 });
 
@@ -175,7 +160,11 @@ describe("HandlebarsEngine", () => {
 
 	it("supports custom filters passed to the constructor", () => {
 		const engine = new HandlebarsEngine({
-			reverse: (v) => String(v ?? "").split("").reverse().join(""),
+			reverse: (v) =>
+				String(v ?? "")
+					.split("")
+					.reverse()
+					.join(""),
 		});
 		const result = engine.render("{{ subscriber.firstName | reverse }}", baseContext);
 		expect(result).toBe("ecilA");
@@ -211,10 +200,7 @@ describe("HandlebarsEngine", () => {
 			payload: { users: [{ name: "Alice" }, { name: "Bob" }] },
 		};
 		const engine = new HandlebarsEngine();
-		const result = engine.render(
-			"{{#each payload.users}}{{ name }} {{/each}}",
-			ctx,
-		);
+		const result = engine.render("{{#each payload.users}}{{ name }} {{/each}}", ctx);
 		expect(result).toBe("Alice Bob ");
 	});
 

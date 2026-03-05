@@ -1,16 +1,30 @@
 import type { HeraldContext } from "../types/config.js";
 import type { HeraldPlugin } from "../types/plugin.js";
-import { subscriberRoutes } from "./routes/subscribers.js";
 import { notificationRoutes } from "./routes/notifications.js";
 import { preferenceRoutes } from "./routes/preferences.js";
+import { realtimeRoutes } from "./routes/realtime.js";
+import { subscriberRoutes } from "./routes/subscribers.js";
 import { topicRoutes } from "./routes/topics.js";
 import { triggerRoutes } from "./routes/trigger.js";
-import { realtimeRoutes } from "./routes/realtime.js";
 
 interface Route {
 	method: string;
 	pattern: string;
-	handler: (request: Request, ctx: HeraldContext, params: Record<string, string>) => Promise<Response>;
+	handler: (
+		request: Request,
+		ctx: HeraldContext,
+		params: Record<string, string>,
+	) => Promise<Response>;
+}
+
+export class HTTPError extends Error {
+	status: number;
+
+	constructor(status: number, message: string) {
+		super(message);
+		this.name = "HTTPError";
+		this.status = status;
+	}
 }
 
 /**
@@ -19,6 +33,7 @@ interface Route {
 export function createRouter(
 	ctx: HeraldContext,
 	plugins?: HeraldPlugin[],
+	pluginsReady?: Promise<void>,
 ): (request: Request) => Promise<Response> {
 	const basePath = ctx.options.basePath ?? "/api/notifications";
 
@@ -47,6 +62,10 @@ export function createRouter(
 	}
 
 	return async (request: Request): Promise<Response> => {
+		if (pluginsReady) {
+			await pluginsReady;
+		}
+
 		const url = new URL(request.url);
 		const path = url.pathname.replace(basePath, "").replace(/\/$/, "") || "/";
 		const method = request.method.toUpperCase();
@@ -59,8 +78,11 @@ export function createRouter(
 				try {
 					return await route.handler(request, ctx, params);
 				} catch (error) {
-					const message = error instanceof Error ? error.message : "Internal server error";
-					return jsonResponse({ error: message }, 500);
+					if (error instanceof HTTPError) {
+						return jsonResponse({ error: error.message }, error.status);
+					}
+					console.error(`[herald] Unhandled route error:`, error);
+					return jsonResponse({ error: "Internal server error" }, 500);
 				}
 			}
 		}
@@ -102,10 +124,12 @@ export function jsonResponse(data: unknown, status = 200): Response {
 	});
 }
 
-export async function parseJsonBody<T = Record<string, unknown>>(
-	request: Request,
-): Promise<T> {
+export async function parseJsonBody<T = Record<string, unknown>>(request: Request): Promise<T> {
 	const text = await request.text();
 	if (!text) return {} as T;
-	return JSON.parse(text) as T;
+	try {
+		return JSON.parse(text) as T;
+	} catch {
+		throw new HTTPError(400, "Invalid JSON body");
+	}
 }
