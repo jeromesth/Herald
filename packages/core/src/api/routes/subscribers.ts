@@ -47,9 +47,10 @@ export const subscriberRoutes = [
 				avatar: typeof body.avatar === "string" ? body.avatar : undefined,
 				locale: typeof body.locale === "string" ? body.locale : undefined,
 				timezone: typeof body.timezone === "string" ? body.timezone : undefined,
-				data: typeof body.data === "object" && body.data != null && !Array.isArray(body.data)
-					? (body.data as Record<string, unknown>)
-					: undefined,
+				data:
+					typeof body.data === "object" && body.data != null && !Array.isArray(body.data)
+						? (body.data as Record<string, unknown>)
+						: undefined,
 				...pickConfiguredSubscriberFields(ctx, body),
 			};
 
@@ -90,11 +91,7 @@ export const subscriberRoutes = [
 	{
 		method: "GET",
 		pattern: "/subscribers/:id",
-		handler: async (
-			_request: Request,
-			ctx: HeraldContext,
-			params: Record<string, string>,
-		) => {
+		handler: async (_request: Request, ctx: HeraldContext, params: Record<string, string>) => {
 			const subscriber = await ctx.db.findOne<SubscriberRecord>({
 				model: "subscriber",
 				where: [{ field: "externalId", value: params.id }],
@@ -110,11 +107,7 @@ export const subscriberRoutes = [
 	{
 		method: "PATCH",
 		pattern: "/subscribers/:id",
-		handler: async (
-			request: Request,
-			ctx: HeraldContext,
-			params: Record<string, string>,
-		) => {
+		handler: async (request: Request, ctx: HeraldContext, params: Record<string, string>) => {
 			const body = await parseJsonBody<Record<string, unknown>>(request);
 			const now = new Date();
 
@@ -128,13 +121,26 @@ export const subscriberRoutes = [
 			}
 
 			const updateBody: Record<string, unknown> = {};
-			const stringFields = ["email", "phone", "firstName", "lastName", "avatar", "locale", "timezone"] as const;
+			const stringFields = [
+				"email",
+				"phone",
+				"firstName",
+				"lastName",
+				"avatar",
+				"locale",
+				"timezone",
+			] as const;
 			for (const field of stringFields) {
 				if (field in body && typeof body[field] === "string") {
 					updateBody[field] = body[field];
 				}
 			}
-			if ("data" in body && typeof body.data === "object" && body.data != null && !Array.isArray(body.data)) {
+			if (
+				"data" in body &&
+				typeof body.data === "object" &&
+				body.data != null &&
+				!Array.isArray(body.data)
+			) {
 				updateBody.data = body.data as Record<string, unknown>;
 			}
 			Object.assign(updateBody, pickConfiguredSubscriberFields(ctx, body));
@@ -156,11 +162,7 @@ export const subscriberRoutes = [
 	{
 		method: "DELETE",
 		pattern: "/subscribers/:id",
-		handler: async (
-			_request: Request,
-			ctx: HeraldContext,
-			params: Record<string, string>,
-		) => {
+		handler: async (_request: Request, ctx: HeraldContext, params: Record<string, string>) => {
 			const existing = await ctx.db.findOne<SubscriberRecord>({
 				model: "subscriber",
 				where: [{ field: "externalId", value: params.id }],

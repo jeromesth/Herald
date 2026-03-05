@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { HandlebarsEngine } from "../src/templates/engine.js";
-import type { TemplateEngine, TemplateContext } from "../src/templates/types.js";
+import type { TemplateContext, TemplateEngine } from "../src/templates/types.js";
 
 // ---------------------------------------------------------------------------
 // Shared context fixtures

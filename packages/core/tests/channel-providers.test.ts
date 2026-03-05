@@ -1,8 +1,12 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import { ChannelRegistry } from "../src/channels/provider.js";
-import type { ChannelProvider, ChannelProviderMessage, ChannelProviderResult } from "../src/channels/provider.js";
-import { InAppProvider } from "../src/channels/in-app.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { memoryAdapter } from "../src/adapters/database/memory.js";
+import { InAppProvider } from "../src/channels/in-app.js";
+import { ChannelRegistry } from "../src/channels/provider.js";
+import type {
+	ChannelProvider,
+	ChannelProviderMessage,
+	ChannelProviderResult,
+} from "../src/channels/provider.js";
 import { SSEManager } from "../src/realtime/sse.js";
 
 function createMockProvider(
@@ -110,9 +114,12 @@ describe("InAppProvider", () => {
 			data: { workflowId: "test" },
 		});
 
-		expect(emitSpy).toHaveBeenCalledWith("sub-1", expect.objectContaining({
-			type: "notification:new",
-		}));
+		expect(emitSpy).toHaveBeenCalledWith(
+			"sub-1",
+			expect.objectContaining({
+				type: "notification:new",
+			}),
+		);
 
 		sse.close();
 	});

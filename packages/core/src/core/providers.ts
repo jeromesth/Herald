@@ -1,12 +1,16 @@
+import { postmarkProvider } from "../channels/email/postmark.js";
+import { resendProvider } from "../channels/email/resend.js";
+import { sendgridProvider } from "../channels/email/sendgrid.js";
+import { sesProvider } from "../channels/email/ses.js";
+import type {
+	ChannelProvider,
+	ChannelProviderMessage,
+	ChannelProviderResult,
+} from "../channels/provider.js";
 /**
  * Build a ChannelProvider from the EmailChannelConfig shorthand.
  */
 import type { EmailChannelConfig } from "../types/config.js";
-import type { ChannelProvider, ChannelProviderMessage, ChannelProviderResult } from "../channels/provider.js";
-import { sendgridProvider } from "../channels/email/sendgrid.js";
-import { resendProvider } from "../channels/email/resend.js";
-import { postmarkProvider } from "../channels/email/postmark.js";
-import { sesProvider } from "../channels/email/ses.js";
 
 function requireApiKey(config: EmailChannelConfig, providerName: string): string {
 	if (!config.apiKey) {

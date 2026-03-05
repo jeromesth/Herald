@@ -3,7 +3,7 @@
  * Provides reusable HTML email layouts with variable interpolation.
  */
 
-import { renderTemplate, type TemplateContext } from "./engine.js";
+import { type TemplateContext, renderTemplate } from "./engine.js";
 
 export interface EmailLayout {
 	/** Unique layout identifier. */

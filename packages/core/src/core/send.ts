@@ -1,7 +1,7 @@
+import { renderEmail } from "../templates/layouts.js";
+import type { TemplateContext } from "../templates/types.js";
 import type { HeraldContext } from "../types/config.js";
 import type { ChannelType } from "../types/workflow.js";
-import type { TemplateContext } from "../templates/types.js";
-import { renderEmail } from "../templates/layouts.js";
 import { resolveSubscriberByAnyId } from "./subscriber.js";
 
 export interface ProviderSendArgs {
@@ -21,14 +21,7 @@ function applyBeforeSendPatch(
 ): void {
 	if (!patch) return;
 
-	const knownKeys = new Set([
-		"to",
-		"subject",
-		"body",
-		"actionUrl",
-		"layoutId",
-		"data",
-	]);
+	const knownKeys = new Set(["to", "subject", "body", "actionUrl", "layoutId", "data"]);
 
 	if (typeof patch.to === "string") {
 		message.to = patch.to;

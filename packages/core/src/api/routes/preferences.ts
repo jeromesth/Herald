@@ -5,11 +5,7 @@ export const preferenceRoutes = [
 	{
 		method: "GET",
 		pattern: "/subscribers/:id/preferences",
-		handler: async (
-			_request: Request,
-			ctx: HeraldContext,
-			params: Record<string, string>,
-		) => {
+		handler: async (_request: Request, ctx: HeraldContext, params: Record<string, string>) => {
 			const subscriber = await ctx.db.findOne<{ id: string }>({
 				model: "subscriber",
 				where: [{ field: "externalId", value: params.id }],
@@ -38,11 +34,7 @@ export const preferenceRoutes = [
 	{
 		method: "PUT",
 		pattern: "/subscribers/:id/preferences",
-		handler: async (
-			request: Request,
-			ctx: HeraldContext,
-			params: Record<string, string>,
-		) => {
+		handler: async (request: Request, ctx: HeraldContext, params: Record<string, string>) => {
 			const body = await parseJsonBody<{
 				channels?: Record<string, boolean>;
 				workflows?: Record<string, boolean>;

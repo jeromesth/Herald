@@ -12,7 +12,7 @@
  *   {{ payload.amount | uppercase }}       — pipe filters
  */
 
-import type { TemplateEngine, TemplateContext } from "./types.js";
+import type { TemplateContext, TemplateEngine } from "./types.js";
 
 export type { TemplateContext } from "./types.js";
 
@@ -25,7 +25,7 @@ const builtinFilters: Record<string, TemplateFilter> = {
 		const s = String(v ?? "");
 		return s.charAt(0).toUpperCase() + s.slice(1);
 	},
-	default: (v, fallback) => (v == null || v === "" ? fallback ?? "" : String(v)),
+	default: (v, fallback) => (v == null || v === "" ? (fallback ?? "") : String(v)),
 	truncate: (v, len) => {
 		const s = String(v ?? "");
 		const n = Number.parseInt(len ?? "50", 10);
@@ -61,7 +61,11 @@ function escapeHtml(str: string): string {
 /**
  * Process a single expression: resolve the variable and apply filters.
  */
-function processExpression(expr: string, context: TemplateContext, filters: Record<string, TemplateFilter>): string {
+function processExpression(
+	expr: string,
+	context: TemplateContext,
+	filters: Record<string, TemplateFilter>,
+): string {
 	const parts = expr.split("|").map((p) => p.trim());
 	const varPath = parts[0]!;
 	let value = resolvePath(context as Record<string, unknown>, varPath);
@@ -81,7 +85,11 @@ function processExpression(expr: string, context: TemplateContext, filters: Reco
 /**
  * Process block helpers (if, each).
  */
-function processBlocks(template: string, context: TemplateContext, filters: Record<string, TemplateFilter>): string {
+function processBlocks(
+	template: string,
+	context: TemplateContext,
+	filters: Record<string, TemplateFilter>,
+): string {
 	// Process {{#each items}}...{{/each}}
 	template = template.replace(
 		/\{\{#each\s+([^}]+)\}\}([\s\S]*?)\{\{\/each\}\}/g,

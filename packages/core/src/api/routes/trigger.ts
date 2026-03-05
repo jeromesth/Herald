@@ -145,11 +145,7 @@ export const triggerRoutes = [
 	{
 		method: "DELETE",
 		pattern: "/trigger/:transactionId",
-		handler: async (
-			request: Request,
-			ctx: HeraldContext,
-			params: Record<string, string>,
-		) => {
+		handler: async (request: Request, ctx: HeraldContext, params: Record<string, string>) => {
 			const transactionId = params.transactionId;
 			if (!transactionId) {
 				return jsonResponse({ error: "transactionId is required" }, 400);
@@ -172,7 +168,10 @@ export const triggerRoutes = [
 
 			if (!workflowId) {
 				return jsonResponse(
-					{ error: "Could not resolve workflowId for this transaction. Provide workflowId as a query parameter." },
+					{
+						error:
+							"Could not resolve workflowId for this transaction. Provide workflowId as a query parameter.",
+					},
 					404,
 				);
 			}

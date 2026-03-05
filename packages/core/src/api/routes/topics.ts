@@ -75,11 +75,7 @@ export const topicRoutes = [
 	{
 		method: "GET",
 		pattern: "/topics/:key",
-		handler: async (
-			_request: Request,
-			ctx: HeraldContext,
-			params: Record<string, string>,
-		) => {
+		handler: async (_request: Request, ctx: HeraldContext, params: Record<string, string>) => {
 			const topic = await ctx.db.findOne<TopicRecord>({
 				model: "topic",
 				where: [{ field: "key", value: params.key }],
@@ -95,11 +91,7 @@ export const topicRoutes = [
 	{
 		method: "DELETE",
 		pattern: "/topics/:key",
-		handler: async (
-			_request: Request,
-			ctx: HeraldContext,
-			params: Record<string, string>,
-		) => {
+		handler: async (_request: Request, ctx: HeraldContext, params: Record<string, string>) => {
 			const topic = await ctx.db.findOne<TopicRecord>({
 				model: "topic",
 				where: [{ field: "key", value: params.key }],
@@ -120,11 +112,7 @@ export const topicRoutes = [
 	{
 		method: "POST",
 		pattern: "/topics/:key/subscribers",
-		handler: async (
-			request: Request,
-			ctx: HeraldContext,
-			params: Record<string, string>,
-		) => {
+		handler: async (request: Request, ctx: HeraldContext, params: Record<string, string>) => {
 			const body = await parseJsonBody<{ subscriberIds: string[] }>(request);
 
 			if (!body.subscriberIds?.length) {
@@ -172,11 +160,7 @@ export const topicRoutes = [
 	{
 		method: "DELETE",
 		pattern: "/topics/:key/subscribers",
-		handler: async (
-			request: Request,
-			ctx: HeraldContext,
-			params: Record<string, string>,
-		) => {
+		handler: async (request: Request, ctx: HeraldContext, params: Record<string, string>) => {
 			const body = await parseJsonBody<{ subscriberIds: string[] }>(request);
 
 			if (!body.subscriberIds?.length) {
