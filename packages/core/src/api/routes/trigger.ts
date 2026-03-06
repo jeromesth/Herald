@@ -25,47 +25,49 @@ export const triggerRoutes = [
 			const transactionId = body.transactionId ?? ctx.generateId();
 			ctx.transactionWorkflowMap.set(transactionId, body.workflowId);
 
-			// Run plugin beforeTrigger hooks
-			if (ctx.options.plugins) {
-				for (const plugin of ctx.options.plugins) {
-					if (plugin.hooks?.beforeTrigger) {
-						await plugin.hooks.beforeTrigger({
-							workflowId: body.workflowId,
-							to: body.to,
-							payload: body.payload ?? {},
-						});
+			try {
+				// Run plugin beforeTrigger hooks
+				if (ctx.options.plugins) {
+					for (const plugin of ctx.options.plugins) {
+						if (plugin.hooks?.beforeTrigger) {
+							await plugin.hooks.beforeTrigger({
+								workflowId: body.workflowId,
+								to: body.to,
+								payload: body.payload ?? {},
+							});
+						}
 					}
 				}
-			}
 
-			await ctx.workflow.trigger({
-				workflowId: body.workflowId,
-				to: body.to,
-				payload: body.payload ?? {},
-				actor: body.actor,
-				tenant: body.tenant,
-				transactionId,
-			});
+				await ctx.workflow.trigger({
+					workflowId: body.workflowId,
+					to: body.to,
+					payload: body.payload ?? {},
+					actor: body.actor,
+					tenant: body.tenant,
+					transactionId,
+				});
 
-			// Run plugin afterTrigger hooks
-			if (ctx.options.plugins) {
-				for (const plugin of ctx.options.plugins) {
-					if (plugin.hooks?.afterTrigger) {
-						await plugin.hooks.afterTrigger({
-							workflowId: body.workflowId,
-							transactionId,
-						});
+				// Run plugin afterTrigger hooks
+				if (ctx.options.plugins) {
+					for (const plugin of ctx.options.plugins) {
+						if (plugin.hooks?.afterTrigger) {
+							await plugin.hooks.afterTrigger({
+								workflowId: body.workflowId,
+								transactionId,
+							});
+						}
 					}
 				}
+
+				return jsonResponse({ transactionId, status: "triggered" });
+			} finally {
+				// Clean up transaction map after trigger completes (memory adapter
+				// executes synchronously, so the workflow is done at this point).
+				// For async adapters like Inngest, the cancel endpoint also accepts
+				// workflowId as a query param, so the map entry is not required.
+				ctx.transactionWorkflowMap.delete(transactionId);
 			}
-
-			// Clean up transaction map after trigger completes (memory adapter
-			// executes synchronously, so the workflow is done at this point).
-			// For async adapters like Inngest, the cancel endpoint also accepts
-			// workflowId as a query param, so the map entry is not required.
-			ctx.transactionWorkflowMap.delete(transactionId);
-
-			return jsonResponse({ transactionId, status: "triggered" });
 		},
 	},
 	{

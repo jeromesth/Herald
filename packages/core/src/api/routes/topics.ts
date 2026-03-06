@@ -188,8 +188,11 @@ export const topicRoutes = [
 						],
 					});
 					removed++;
-				} catch {
-					// Subscriber was not in topic, skip
+				} catch (error) {
+					// Skip "not found" errors — subscriber was not in topic
+					if (error instanceof Error && !error.message.includes("not found")) {
+						throw error;
+					}
 				}
 			}
 

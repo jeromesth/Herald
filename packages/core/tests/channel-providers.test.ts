@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { memoryAdapter } from "../src/adapters/database/memory.js";
 import { InAppProvider } from "../src/channels/in-app.js";
-import { ChannelRegistry } from "../src/channels/provider.js";
 import type { ChannelProvider, ChannelProviderMessage, ChannelProviderResult } from "../src/channels/provider.js";
+import { ChannelRegistry } from "../src/channels/provider.js";
 import { SSEManager } from "../src/realtime/sse.js";
 
 function createMockProvider(providerId: string, channelType: string): ChannelProvider & { calls: ChannelProviderMessage[] } {

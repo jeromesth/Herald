@@ -1,9 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { memoryAdapter } from "../src/adapters/database/memory.js";
 import { memoryWorkflowAdapter } from "../src/adapters/workflow/memory.js";
 import type { ChannelProvider, ChannelProviderMessage, ChannelProviderResult } from "../src/channels/provider.js";
 import { herald } from "../src/core/herald.js";
-import type { Herald, NotificationWorkflow } from "../src/types/index.js";
+import type { Herald } from "../src/types/index.js";
 
 function createMockEmailProvider(): ChannelProvider & { calls: ChannelProviderMessage[] } {
 	const calls: ChannelProviderMessage[] = [];

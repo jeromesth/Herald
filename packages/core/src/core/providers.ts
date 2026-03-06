@@ -35,35 +35,41 @@ export function buildEmailProvider(config: EmailChannelConfig): ChannelProvider 
 				from: config.from,
 			});
 
-		case "ses":
-			if (!config.send) {
+		case "ses": {
+			const sesSend = config.send;
+			if (!sesSend) {
 				throw new Error("SES provider requires a custom send function");
 			}
 			return sesProvider({
 				from: config.from,
 				send: async ({ to, subject, html }) => {
-					await config.send!({ to, subject, body: html, from: config.from });
+					await sesSend({ to, subject, body: html, from: config.from });
 					return crypto.randomUUID();
 				},
 			});
+		}
 
-		case "custom":
-			if (!config.send) {
+		case "custom": {
+			const customSend = config.send;
+			if (!customSend) {
 				throw new Error("Custom email provider requires a send function");
 			}
-			return createCustomEmailProvider(config);
+			return createCustomEmailProvider({ ...config, send: customSend });
+		}
 
 		default:
 			throw new Error(`Unknown email provider "${config.provider}". Supported providers: sendgrid, resend, postmark, ses, custom`);
 	}
 }
 
-function createCustomEmailProvider(config: EmailChannelConfig): ChannelProvider {
+function createCustomEmailProvider(
+	config: EmailChannelConfig & { send: NonNullable<EmailChannelConfig["send"]> },
+): ChannelProvider {
 	return {
 		providerId: "custom",
 		channelType: "email",
 		async send(message: ChannelProviderMessage): Promise<ChannelProviderResult> {
-			await config.send!({
+			await config.send({
 				to: message.to,
 				subject: message.subject ?? "",
 				body: message.body,
