@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { memoryAdapter } from "../src/adapters/database/memory.js";
 import { memoryWorkflowAdapter } from "../src/adapters/workflow/memory.js";
 import { herald } from "../src/core/herald.js";
@@ -104,6 +104,35 @@ describe("preferenceGate()", () => {
 		const meta: WorkflowMeta = { workflowId: "promo" };
 		const result = preferenceGate(prefs, meta, "email", defaults);
 		expect(result.allowed).toBe(true);
+	});
+
+	it("channel kill switch (step 2) beats workflow enable (step 3)", () => {
+		const prefs: PreferenceRecord = {
+			subscriberId: "s1",
+			channels: { email: false },
+			workflows: { "comment-reply": true },
+		};
+		const result = preferenceGate(prefs, baseMeta, "email");
+		expect(result.allowed).toBe(false);
+		expect(result.reason).toContain("subscriber disabled channel");
+	});
+
+	it("config default per-workflow blocks delivery (step 6)", () => {
+		const defaults = { workflows: { digest: false } };
+		const meta: WorkflowMeta = { workflowId: "digest" };
+		const result = preferenceGate(undefined, meta, "email", defaults);
+		expect(result.allowed).toBe(false);
+		expect(result.reason).toContain("config default disabled workflow");
+	});
+
+	it("WorkflowChannelPreference with enabled: false blocks like boolean false", () => {
+		const prefs: PreferenceRecord = {
+			subscriberId: "s1",
+			workflows: { "comment-reply": { enabled: false } },
+		};
+		const result = preferenceGate(prefs, baseMeta, "email");
+		expect(result.allowed).toBe(false);
+		expect(result.reason).toContain("subscriber disabled workflow");
 	});
 });
 
@@ -236,5 +265,109 @@ describe("preference enforcement — integration", () => {
 
 		const { notifications } = await pluginApp.api.getNotifications({ subscriberId });
 		expect(notifications).toHaveLength(0);
+	});
+
+	it("plugin beforePreferenceCheck can override to force allow", async () => {
+		const inAppOnlyWorkflow: NotificationWorkflow = {
+			id: "notify",
+			name: "Notify",
+			steps: [{ stepId: "send-in-app", type: "in_app", handler: async () => ({ subject: "Hi", body: "Hello" }) }],
+		};
+		const pluginDb = memoryAdapter();
+		const pluginWorkflow = memoryWorkflowAdapter();
+		const pluginApp = herald({
+			database: pluginDb,
+			workflow: pluginWorkflow,
+			workflows: [inAppOnlyWorkflow],
+			plugins: [
+				{
+					id: "force-allow-plugin",
+					hooks: {
+						beforePreferenceCheck: async () => ({ override: true }),
+					},
+				},
+			],
+		});
+
+		const { id: subscriberId } = await pluginApp.api.upsertSubscriber({ externalId: "user-1" });
+
+		// Disable in_app channel — plugin should override
+		await pluginApp.api.updatePreferences(subscriberId, { channels: { in_app: false } });
+
+		await pluginApp.api.trigger({ workflowId: "notify", to: "user-1", payload: {} });
+
+		const { notifications } = await pluginApp.api.getNotifications({ subscriberId });
+		expect(notifications).toHaveLength(1);
+	});
+
+	it("plugin hook that throws does not block delivery", async () => {
+		const inAppOnlyWorkflow: NotificationWorkflow = {
+			id: "notify",
+			name: "Notify",
+			steps: [{ stepId: "send-in-app", type: "in_app", handler: async () => ({ subject: "Hi", body: "Hello" }) }],
+		};
+		const pluginDb = memoryAdapter();
+		const pluginWorkflow = memoryWorkflowAdapter();
+		const pluginApp = herald({
+			database: pluginDb,
+			workflow: pluginWorkflow,
+			workflows: [inAppOnlyWorkflow],
+			plugins: [
+				{
+					id: "broken-plugin",
+					hooks: {
+						beforePreferenceCheck: async () => {
+							throw new Error("plugin exploded");
+						},
+					},
+				},
+			],
+		});
+
+		const { id: subscriberId } = await pluginApp.api.upsertSubscriber({ externalId: "user-1" });
+
+		await pluginApp.api.trigger({ workflowId: "notify", to: "user-1", payload: {} });
+
+		// Delivery should still proceed despite plugin error
+		const { notifications } = await pluginApp.api.getNotifications({ subscriberId });
+		expect(notifications).toHaveLength(1);
+	});
+
+	it("afterPreferenceCheck hook receives correct arguments", async () => {
+		const inAppOnlyWorkflow: NotificationWorkflow = {
+			id: "notify",
+			name: "Notify",
+			steps: [{ stepId: "send-in-app", type: "in_app", handler: async () => ({ subject: "Hi", body: "Hello" }) }],
+		};
+		const afterHook = vi.fn();
+		const pluginDb = memoryAdapter();
+		const pluginWorkflow = memoryWorkflowAdapter();
+		const pluginApp = herald({
+			database: pluginDb,
+			workflow: pluginWorkflow,
+			workflows: [inAppOnlyWorkflow],
+			plugins: [
+				{
+					id: "spy-plugin",
+					hooks: {
+						afterPreferenceCheck: afterHook,
+					},
+				},
+			],
+		});
+
+		const { id: subscriberId } = await pluginApp.api.upsertSubscriber({ externalId: "user-1" });
+
+		await pluginApp.api.trigger({ workflowId: "notify", to: "user-1", payload: {} });
+
+		expect(afterHook).toHaveBeenCalledOnce();
+		const firstCall = afterHook.mock.calls[0]?.[0];
+		expect(firstCall).toMatchObject({
+			subscriberId,
+			workflowId: "notify",
+			channel: "in_app",
+			allowed: true,
+		});
+		expect(firstCall.reason).toBeDefined();
 	});
 });
