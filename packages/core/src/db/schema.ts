@@ -97,7 +97,7 @@ export const coreSchema: HeraldDBSchema = {
 			},
 			channels: { type: "json", required: false },
 			workflows: { type: "json", required: false },
-			categories: { type: "json", required: false },
+			purposes: { type: "json", required: false },
 			updatedAt: { type: "date", required: true },
 		},
 		order: 5,

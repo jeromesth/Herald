@@ -106,7 +106,7 @@ export const preferences = pgTable(
 			.references(() => subscribers.id, { onDelete: "cascade" }),
 		channels: jsonb("channels"),
 		workflows: jsonb("workflows"),
-		categories: jsonb("categories"),
+		purposes: jsonb("purposes"),
 		updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 	},
 	(table) => [index("preferences_subscriber_id_idx").on(table.subscriberId)],

@@ -152,7 +152,7 @@ export interface PushChannelConfig {
 export interface DefaultPreferences {
 	channels?: Partial<Record<ChannelType, boolean>>;
 	workflows?: Partial<Record<string, boolean>>;
-	categories?: Partial<Record<string, boolean>>;
+	purposes?: Partial<Record<string, boolean>>;
 }
 
 /**
@@ -331,9 +331,17 @@ export interface NotificationRecord {
 	archivedAt?: Date;
 }
 
+/**
+ * Per-workflow channel preference override.
+ */
+export interface WorkflowChannelPreference {
+	enabled: boolean;
+	channels?: Partial<Record<string, boolean>>;
+}
+
 export interface PreferenceRecord {
 	subscriberId: string;
 	channels?: Partial<Record<string, boolean>>;
-	workflows?: Partial<Record<string, boolean>>;
-	categories?: Partial<Record<string, boolean>>;
+	workflows?: Partial<Record<string, boolean | WorkflowChannelPreference>>;
+	purposes?: Partial<Record<string, boolean>>;
 }

@@ -154,6 +154,7 @@ export interface NotificationWorkflow<TPayload extends z.ZodType = z.ZodType> {
 	description?: string;
 	tags?: string[];
 	critical?: boolean;
+	purpose?: string;
 	payloadSchema?: TPayload;
 	preferences?: WorkflowPreferences;
 	steps: WorkflowStep[];
