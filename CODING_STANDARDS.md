@@ -127,6 +127,32 @@ describe("resolveSubscriberByAnyId", () => {
 });
 ```
 
+## Development Methodology: BDD + TDD
+
+Herald follows **Behavior-Driven Development (BDD)** combined with **Test-Driven Development (TDD)**.
+
+### Contract-First Development
+
+Every adapter interface (DatabaseAdapter, WorkflowAdapter, ChannelProvider) has a **shared contract test suite** in `packages/core/tests/contracts/`. When implementing a new adapter:
+
+1. **Wire your adapter** to the existing contract suite — all tests will fail initially
+2. **Implement the adapter** method by method until all contract tests pass (TDD red-green-refactor)
+3. **Add adapter-specific tests** for implementation details not covered by the contract
+
+### Contract Test Suites
+
+| Interface | Contract File | Required Pass Rate |
+|-----------|--------------|-------------------|
+| `DatabaseAdapter` | `tests/contracts/database-adapter.contract.ts` | 100% |
+| `WorkflowAdapter` | `tests/contracts/workflow-adapter.contract.ts` | 100% |
+
+### TDD Cycle
+
+For all new code:
+1. **Red** — Write a failing test that describes the desired behavior
+2. **Green** — Write the minimum code to make the test pass
+3. **Refactor** — Clean up while keeping tests green
+
 ## Formatting (Enforced by Biome)
 
 These are enforced automatically — don't override them:
