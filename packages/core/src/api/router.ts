@@ -10,11 +10,7 @@ import { triggerRoutes } from "./routes/trigger.js";
 interface Route {
 	method: string;
 	pattern: string;
-	handler: (
-		request: Request,
-		ctx: HeraldContext,
-		params: Record<string, string>,
-	) => Promise<Response>;
+	handler: (request: Request, ctx: HeraldContext, params: Record<string, string>) => Promise<Response>;
 }
 
 export class HTTPError extends Error {
