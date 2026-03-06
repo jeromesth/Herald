@@ -1,4 +1,4 @@
-import type { HeraldContext, PreferenceRecord } from "../../types/config.js";
+import type { HeraldContext, PreferenceRecord, WorkflowChannelPreference } from "../../types/config.js";
 import { jsonResponse, parseJsonBody } from "../router.js";
 
 export const preferenceRoutes = [
@@ -37,7 +37,7 @@ export const preferenceRoutes = [
 		handler: async (request: Request, ctx: HeraldContext, params: Record<string, string>) => {
 			const body = await parseJsonBody<{
 				channels?: Record<string, boolean>;
-				workflows?: Record<string, boolean>;
+				workflows?: Record<string, boolean | WorkflowChannelPreference>;
 				purposes?: Record<string, boolean>;
 			}>(request);
 
@@ -80,13 +80,13 @@ export const preferenceRoutes = [
 			const id = ctx.generateId();
 			const defaultChannels = ctx.options.defaultPreferences?.channels ?? {};
 			const defaultWorkflows = ctx.options.defaultPreferences?.workflows ?? {};
-			const defaultCategories = ctx.options.defaultPreferences?.purposes ?? {};
+			const defaultPurposes = ctx.options.defaultPreferences?.purposes ?? {};
 			const newPref = {
 				id,
 				subscriberId: subscriber.id,
 				channels: { ...defaultChannels, ...(body.channels ?? {}) },
 				workflows: { ...defaultWorkflows, ...(body.workflows ?? {}) },
-				purposes: { ...defaultCategories, ...(body.purposes ?? {}) },
+				purposes: { ...defaultPurposes, ...(body.purposes ?? {}) },
 				updatedAt: now,
 			};
 
