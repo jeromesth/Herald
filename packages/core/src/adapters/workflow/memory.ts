@@ -1,3 +1,5 @@
+import { checkThrottle, performFetch } from "../../core/workflow-runtime.js";
+import type { HeraldContext } from "../../types/config.js";
 /**
  * In-memory workflow adapter for Herald.
  * Used for testing and development — not for production.
@@ -5,6 +7,7 @@
  */
 import type {
 	CancelArgs,
+	DigestedEvent,
 	NotificationWorkflow,
 	TriggerArgs,
 	TriggerResult,
@@ -21,17 +24,28 @@ export interface MemoryWorkflowEvent {
 	tenant?: string;
 }
 
-export function memoryWorkflowAdapter(): WorkflowAdapter & {
+export function memoryWorkflowAdapter(heraldCtx?: HeraldContext): WorkflowAdapter & {
 	events: MemoryWorkflowEvent[];
 	workflows: Map<string, NotificationWorkflow>;
+	digestBuffer: Map<string, DigestedEvent[]>;
+	addDigestEvent: (key: string, event: DigestedEvent) => void;
 } {
 	const workflows = new Map<string, NotificationWorkflow>();
 	const events: MemoryWorkflowEvent[] = [];
+	const digestBuffer = new Map<string, DigestedEvent[]>();
+
+	function addDigestEvent(key: string, event: DigestedEvent): void {
+		const existing = digestBuffer.get(key) ?? [];
+		existing.push(event);
+		digestBuffer.set(key, existing);
+	}
 
 	return {
 		adapterId: "memory",
 		events,
 		workflows,
+		digestBuffer,
+		addDigestEvent,
 
 		registerWorkflow(workflow: NotificationWorkflow): void {
 			workflows.set(workflow.id, workflow);
@@ -62,14 +76,38 @@ export function memoryWorkflowAdapter(): WorkflowAdapter & {
 			if (workflow) {
 				for (const recipient of recipients) {
 					for (const step of workflow.steps) {
-						await step.handler({
+						const result = await step.handler({
 							subscriber: { id: recipient, externalId: recipient },
 							payload: handlerPayload,
 							step: {
 								delay: async () => {},
-								digest: async () => [],
+								digest: async (config) => {
+									const key = config.key ?? `${args.workflowId}:${step.stepId}`;
+									const collected = digestBuffer.get(key) ?? [];
+									digestBuffer.delete(key);
+									return collected;
+								},
+								throttle: async (config) => {
+									if (!heraldCtx) {
+										return { throttled: false, count: 1, limit: config.limit };
+									}
+									return checkThrottle(heraldCtx, config);
+								},
+								fetch: async (config) => {
+									return performFetch(config);
+								},
 							},
 						});
+
+						if (step.type === "throttle" && result._internal?.throttled) {
+							break;
+						}
+
+						if (step.type === "fetch" && result._internal?.fetchResult != null) {
+							if (typeof result._internal.fetchResult === "object") {
+								Object.assign(handlerPayload, result._internal.fetchResult);
+							}
+						}
 					}
 				}
 			}

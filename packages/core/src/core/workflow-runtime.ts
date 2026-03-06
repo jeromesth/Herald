@@ -1,10 +1,14 @@
 import type { HeraldContext } from "../types/config.js";
 import type {
 	ChannelType,
+	FetchConfig,
+	FetchResult,
 	NotificationWorkflow,
 	StepCondition,
 	StepContext,
 	StepResult,
+	ThrottleConfig,
+	ThrottleResult,
 } from "../types/workflow.js";
 import { sendThroughProvider } from "./send.js";
 import { resolveRecipient, resolveSubscriberForStep } from "./subscriber.js";
@@ -29,7 +33,7 @@ function wrapStep(
 	return {
 		...step,
 		handler: async (context: StepContext): Promise<StepResult> => {
-			if (!conditionsPass(step.conditions, context)) {
+			if (!conditionsPass(step.conditions, context, step.conditionMode)) {
 				return { body: "" };
 			}
 
@@ -89,12 +93,15 @@ function isChannelStep(stepType: string): stepType is ChannelType {
 export function conditionsPass(
 	conditions: StepCondition[] | undefined,
 	context: StepContext,
+	mode: "all" | "any" = "all",
 ): boolean {
 	if (!conditions?.length) {
 		return true;
 	}
 
-	return conditions.every((condition) => {
+	const check =
+		mode === "any" ? conditions.some.bind(conditions) : conditions.every.bind(conditions);
+	return check((condition: StepCondition) => {
 		const actualValue = resolveConditionValue(condition.field, context);
 
 		switch (condition.operator) {
@@ -156,4 +163,54 @@ function resolvePath(source: Record<string, unknown>, path: string): unknown {
 	}
 
 	return current;
+}
+
+export function toMs(amount: number, unit: "seconds" | "minutes" | "hours" | "days"): number {
+	const multipliers = { seconds: 1000, minutes: 60_000, hours: 3_600_000, days: 86_400_000 };
+	return amount * multipliers[unit];
+}
+
+export function checkThrottle(ctx: HeraldContext, config: ThrottleConfig): ThrottleResult {
+	const now = Date.now();
+	const windowMs = toMs(config.window, config.unit);
+	const state = ctx.throttleState.get(config.key);
+
+	if (!state || now - state.windowStart >= windowMs) {
+		ctx.throttleState.set(config.key, { count: 1, windowStart: now });
+		return { throttled: false, count: 1, limit: config.limit };
+	}
+
+	state.count += 1;
+	if (state.count > config.limit) {
+		return { throttled: true, count: state.count, limit: config.limit };
+	}
+
+	return { throttled: false, count: state.count, limit: config.limit };
+}
+
+export async function performFetch(config: FetchConfig): Promise<FetchResult> {
+	const controller = new AbortController();
+	const timeoutId = config.timeout
+		? setTimeout(() => controller.abort(), config.timeout)
+		: undefined;
+
+	try {
+		const response = await fetch(config.url, {
+			method: config.method ?? "GET",
+			headers: config.headers,
+			body: config.body != null ? JSON.stringify(config.body) : undefined,
+			signal: controller.signal,
+		});
+
+		const responseHeaders: Record<string, string> = {};
+		response.headers.forEach((value, key) => {
+			responseHeaders[key] = value;
+		});
+
+		const data = await response.json().catch(() => null);
+
+		return { status: response.status, data, headers: responseHeaders };
+	} finally {
+		if (timeoutId !== undefined) clearTimeout(timeoutId);
+	}
 }

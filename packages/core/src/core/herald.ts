@@ -102,6 +102,7 @@ export function herald(options: HeraldOptions): Herald {
 		templateEngine,
 		schema: fullSchema,
 		transactionWorkflowMap: new Map<string, string>(),
+		throttleState: new Map(),
 		sse,
 	};
 
@@ -136,37 +137,40 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 			const transactionId = args.transactionId ?? generateId();
 			ctx.transactionWorkflowMap.set(transactionId, args.workflowId);
 
-			// Run beforeTrigger hooks
-			if (ctx.options.plugins) {
-				for (const plugin of ctx.options.plugins) {
-					if (plugin.hooks?.beforeTrigger) {
-						await plugin.hooks.beforeTrigger({
-							workflowId: args.workflowId,
-							to: args.to,
-							payload: args.payload,
-						});
+			try {
+				// Run beforeTrigger hooks
+				if (ctx.options.plugins) {
+					for (const plugin of ctx.options.plugins) {
+						if (plugin.hooks?.beforeTrigger) {
+							await plugin.hooks.beforeTrigger({
+								workflowId: args.workflowId,
+								to: args.to,
+								payload: args.payload,
+							});
+						}
 					}
 				}
-			}
 
-			await workflow.trigger({
-				...args,
-				transactionId,
-			});
+				await workflow.trigger({
+					...args,
+					transactionId,
+				});
 
-			// Run afterTrigger hooks
-			if (ctx.options.plugins) {
-				for (const plugin of ctx.options.plugins) {
-					if (plugin.hooks?.afterTrigger) {
-						await plugin.hooks.afterTrigger({
-							workflowId: args.workflowId,
-							transactionId,
-						});
+				// Run afterTrigger hooks
+				if (ctx.options.plugins) {
+					for (const plugin of ctx.options.plugins) {
+						if (plugin.hooks?.afterTrigger) {
+							await plugin.hooks.afterTrigger({
+								workflowId: args.workflowId,
+								transactionId,
+							});
+						}
 					}
 				}
+			} finally {
+				ctx.transactionWorkflowMap.delete(transactionId);
 			}
 
-			ctx.transactionWorkflowMap.delete(transactionId);
 			return { transactionId };
 		},
 

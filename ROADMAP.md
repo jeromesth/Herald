@@ -135,6 +135,7 @@ These features are candidates for the plugin system rather than core:
 
 | Plugin | Description | Priority |
 |--------|-------------|----------|
+| **workflow-kit** | Visual workflow editor UI — developers define steps in code, non-developers configure them via a drag-and-drop React component. Inspired by Inngest Workflow Kit and Novu Framework: code-first workflow definitions with a visual layer for editing steps, conditions, delays, and channel routing without redeploying. Ships as `@herald/workflow-kit` (React) with a headless `@herald/workflow-kit-core` for other frameworks. | **High** |
 | **analytics** | Notification delivery and engagement analytics | Medium |
 | **audit-log** | Full audit trail of all notification operations | Medium |
 | **rate-limiter** | Advanced per-subscriber rate limiting | Medium |
@@ -169,6 +170,7 @@ Features mapped across Herald, Novu, and Knock.app:
 | Multi-tenancy | v0.9 | Yes | Yes |
 | i18n | v0.9 | Yes | Yes |
 | React components | v0.8 | Yes | Yes |
+| Visual workflow editor | Plugin | Yes (Workflow Kit) | No |
 | Self-hosted | v0.1 | Partial | No |
 | Bring your own DB | v0.1 | No | No |
 | Zero-dep workflow (Postgres) | v0.2.5 | No | No |

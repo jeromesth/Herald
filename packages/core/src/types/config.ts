@@ -168,6 +168,7 @@ export interface HeraldContext {
 	templateEngine: TemplateEngine;
 	schema: HeraldDBSchema;
 	transactionWorkflowMap: Map<string, string>;
+	throttleState: Map<string, { count: number; windowStart: number }>;
 	sse?: SSEManager;
 }
 

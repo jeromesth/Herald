@@ -12,6 +12,8 @@ function makeContext(
 		step: {
 			delay: async () => {},
 			digest: async () => [],
+			throttle: async (c) => ({ throttled: false, count: 0, limit: c.limit }),
+			fetch: async () => ({ status: 200, data: null, headers: {} }),
 		},
 	};
 }
@@ -172,6 +174,33 @@ describe("conditionsPass", () => {
 				{ field: "payload.active", operator: "eq", value: true },
 			];
 			expect(conditionsPass(conditions, makeContext({ plan: "pro", active: true }))).toBe(true);
+			expect(conditionsPass(conditions, makeContext({ plan: "pro", active: false }))).toBe(false);
+		});
+	});
+
+	describe("conditionMode: any", () => {
+		it("passes when at least one condition matches", () => {
+			const conditions: StepCondition[] = [
+				{ field: "payload.plan", operator: "eq", value: "pro" },
+				{ field: "payload.plan", operator: "eq", value: "enterprise" },
+			];
+			expect(conditionsPass(conditions, makeContext({ plan: "enterprise" }), "any")).toBe(true);
+		});
+
+		it("fails when no conditions match", () => {
+			const conditions: StepCondition[] = [
+				{ field: "payload.plan", operator: "eq", value: "pro" },
+				{ field: "payload.plan", operator: "eq", value: "enterprise" },
+			];
+			expect(conditionsPass(conditions, makeContext({ plan: "free" }), "any")).toBe(false);
+		});
+
+		it("defaults to all mode when not specified", () => {
+			const conditions: StepCondition[] = [
+				{ field: "payload.plan", operator: "eq", value: "pro" },
+				{ field: "payload.active", operator: "eq", value: true },
+			];
+			// Only one matches — "all" mode should fail
 			expect(conditionsPass(conditions, makeContext({ plan: "pro", active: false }))).toBe(false);
 		});
 	});
