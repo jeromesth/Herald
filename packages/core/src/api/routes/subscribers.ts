@@ -8,10 +8,7 @@ const typeValidators: Record<string, (v: unknown) => boolean> = {
 	json: (v) => v != null && typeof v === "object",
 };
 
-function pickConfiguredSubscriberFields(
-	ctx: HeraldContext,
-	body: Record<string, unknown>,
-): Record<string, unknown> {
+function pickConfiguredSubscriberFields(ctx: HeraldContext, body: Record<string, unknown>): Record<string, unknown> {
 	const configured = ctx.options.subscriber?.additionalFields;
 	if (!configured) return {};
 

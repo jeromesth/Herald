@@ -1,13 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { memoryAdapter } from "../src/adapters/database/memory.js";
 import { memoryWorkflowAdapter } from "../src/adapters/workflow/memory.js";
-import type {
-	ChannelProvider,
-	ChannelProviderMessage,
-	ChannelProviderResult,
-} from "../src/channels/provider.js";
+import type { ChannelProvider, ChannelProviderMessage, ChannelProviderResult } from "../src/channels/provider.js";
 import { herald } from "../src/core/herald.js";
-import type { Herald, NotificationWorkflow } from "../src/types/index.js";
+import type { Herald } from "../src/types/index.js";
 
 function createMockEmailProvider(): ChannelProvider & { calls: ChannelProviderMessage[] } {
 	const calls: ChannelProviderMessage[] = [];
@@ -249,9 +245,7 @@ describe("herald v0.2 — SSE route", () => {
 			workflow: memoryWorkflowAdapter(),
 		});
 
-		const response = await app.handler(
-			new Request("http://localhost/api/notifications/notifications/user-1/stream"),
-		);
+		const response = await app.handler(new Request("http://localhost/api/notifications/notifications/user-1/stream"));
 
 		expect(response.status).toBe(501);
 	});
@@ -263,9 +257,7 @@ describe("herald v0.2 — SSE route", () => {
 			realtime: true,
 		});
 
-		const response = await app.handler(
-			new Request("http://localhost/api/notifications/notifications/unknown/stream"),
-		);
+		const response = await app.handler(new Request("http://localhost/api/notifications/notifications/unknown/stream"));
 
 		expect(response.status).toBe(404);
 		app.$context.sse?.close();
@@ -280,9 +272,7 @@ describe("herald v0.2 — SSE route", () => {
 
 		await app.api.upsertSubscriber({ externalId: "user-1" });
 
-		const response = await app.handler(
-			new Request("http://localhost/api/notifications/notifications/user-1/stream"),
-		);
+		const response = await app.handler(new Request("http://localhost/api/notifications/notifications/user-1/stream"));
 
 		expect(response.status).toBe(200);
 		expect(response.headers.get("Content-Type")).toBe("text/event-stream");

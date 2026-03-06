@@ -50,12 +50,7 @@ function resolvePath(context: Record<string, unknown>, path: string): unknown {
  * Escape HTML special characters for safe email content.
  */
 function escapeHtml(str: string): string {
-	return str
-		.replace(/&/g, "&amp;")
-		.replace(/</g, "&lt;")
-		.replace(/>/g, "&gt;")
-		.replace(/"/g, "&quot;")
-		.replace(/'/g, "&#39;");
+	return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 /**
@@ -91,45 +86,39 @@ function processBlocks(
 	filters: Record<string, TemplateFilter>,
 ): string {
 	// Process {{#each items}}...{{/each}}
-	template = template.replace(
-		/\{\{#each\s+([^}]+)\}\}([\s\S]*?)\{\{\/each\}\}/g,
-		(_match, path: string, body: string) => {
-			const items = resolvePath(context as Record<string, unknown>, path.trim());
-			if (!Array.isArray(items)) return "";
+	template = template.replace(/\{\{#each\s+([^}]+)\}\}([\s\S]*?)\{\{\/each\}\}/g, (_match, path: string, body: string) => {
+		const items = resolvePath(context as Record<string, unknown>, path.trim());
+		if (!Array.isArray(items)) return "";
 
-			return items
-				.map((item, index) => {
-					const itemContext: TemplateContext = {
-						...context,
-						this: item as Record<string, unknown>,
-						"@index": index,
-						"@first": index === 0,
-						"@last": index === items.length - 1,
-					};
-					// If item is an object, spread its properties for direct access
-					if (item != null && typeof item === "object") {
-						Object.assign(itemContext, item);
-					}
-					return renderTemplate(body, itemContext, filters);
-				})
-				.join("");
-		},
-	);
+		return items
+			.map((item, index) => {
+				const itemContext: TemplateContext = {
+					...context,
+					this: item as Record<string, unknown>,
+					"@index": index,
+					"@first": index === 0,
+					"@last": index === items.length - 1,
+				};
+				// If item is an object, spread its properties for direct access
+				if (item != null && typeof item === "object") {
+					Object.assign(itemContext, item);
+				}
+				return renderTemplate(body, itemContext, filters);
+			})
+			.join("");
+	});
 
 	// Process {{#if condition}}...{{else}}...{{/if}}
-	template = template.replace(
-		/\{\{#if\s+([^}]+)\}\}([\s\S]*?)\{\{\/if\}\}/g,
-		(_match, condition: string, body: string) => {
-			const value = resolvePath(context as Record<string, unknown>, condition.trim());
-			const isTruthy = value != null && value !== false && value !== 0 && value !== "";
+	template = template.replace(/\{\{#if\s+([^}]+)\}\}([\s\S]*?)\{\{\/if\}\}/g, (_match, condition: string, body: string) => {
+		const value = resolvePath(context as Record<string, unknown>, condition.trim());
+		const isTruthy = value != null && value !== false && value !== 0 && value !== "";
 
-			const elseParts = body.split(/\{\{else\}\}/);
-			if (isTruthy) {
-				return renderTemplate(elseParts[0]!, context, filters);
-			}
-			return elseParts[1] ? renderTemplate(elseParts[1], context, filters) : "";
-		},
-	);
+		const elseParts = body.split(/\{\{else\}\}/);
+		if (isTruthy) {
+			return renderTemplate(elseParts[0]!, context, filters);
+		}
+		return elseParts[1] ? renderTemplate(elseParts[1], context, filters) : "";
+	});
 
 	return template;
 }
@@ -137,11 +126,7 @@ function processBlocks(
 /**
  * Render a template string with the given context.
  */
-export function renderTemplate(
-	template: string,
-	context: TemplateContext,
-	customFilters?: Record<string, TemplateFilter>,
-): string {
+export function renderTemplate(template: string, context: TemplateContext, customFilters?: Record<string, TemplateFilter>): string {
 	const filters = { ...builtinFilters, ...customFilters };
 
 	// Process block helpers first
@@ -163,10 +148,7 @@ export function renderTemplate(
 /**
  * Create a reusable compiled template function.
  */
-export function compileTemplate(
-	template: string,
-	customFilters?: Record<string, TemplateFilter>,
-): (context: TemplateContext) => string {
+export function compileTemplate(template: string, customFilters?: Record<string, TemplateFilter>): (context: TemplateContext) => string {
 	return (context: TemplateContext) => renderTemplate(template, context, customFilters);
 }
 

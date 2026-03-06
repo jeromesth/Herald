@@ -121,10 +121,7 @@ export const coreSchema: HeraldDBSchema = {
 /**
  * Merge plugin schemas into the core schema.
  */
-export function mergeSchemas(
-	base: HeraldDBSchema,
-	...extensions: (HeraldDBSchema | undefined)[]
-): HeraldDBSchema {
+export function mergeSchemas(base: HeraldDBSchema, ...extensions: (HeraldDBSchema | undefined)[]): HeraldDBSchema {
 	const merged = { ...base };
 
 	for (const extension of extensions) {

@@ -96,10 +96,7 @@ describe("Template Engine — filters", () => {
 
 describe("Template Engine — block helpers", () => {
 	it("renders #if block when truthy", () => {
-		const result = renderTemplate(
-			"{{#if subscriber.firstName}}Hi {{ subscriber.firstName }}{{/if}}",
-			baseContext,
-		);
+		const result = renderTemplate("{{#if subscriber.firstName}}Hi {{ subscriber.firstName }}{{/if}}", baseContext);
 		expect(result).toBe("Hi Alice");
 	});
 
@@ -187,10 +184,7 @@ describe("HandlebarsEngine", () => {
 
 	it("handles block helpers through the class interface", () => {
 		const engine = new HandlebarsEngine();
-		const result = engine.render(
-			"{{#if subscriber.firstName}}Hi {{ subscriber.firstName }}{{else}}Hi there{{/if}}",
-			baseContext,
-		);
+		const result = engine.render("{{#if subscriber.firstName}}Hi {{ subscriber.firstName }}{{else}}Hi there{{/if}}", baseContext);
 		expect(result).toBe("Hi Alice");
 	});
 

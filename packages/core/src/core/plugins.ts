@@ -1,9 +1,6 @@
 import type { HeraldContext, HeraldOptions } from "../types/config.js";
 
-export async function initializePlugins(
-	ctx: HeraldContext,
-	plugins?: HeraldOptions["plugins"],
-): Promise<void> {
+export async function initializePlugins(ctx: HeraldContext, plugins?: HeraldOptions["plugins"]): Promise<void> {
 	if (!plugins?.length) {
 		return;
 	}

@@ -9,15 +9,9 @@ export const notificationRoutes = [
 			const url = new URL(request.url);
 			const limit = Number.parseInt(url.searchParams.get("limit") ?? "20", 10);
 			const offset = Number.parseInt(url.searchParams.get("offset") ?? "0", 10);
-			const read = url.searchParams.has("read")
-				? url.searchParams.get("read") === "true"
-				: undefined;
-			const seen = url.searchParams.has("seen")
-				? url.searchParams.get("seen") === "true"
-				: undefined;
-			const archived = url.searchParams.has("archived")
-				? url.searchParams.get("archived") === "true"
-				: undefined;
+			const read = url.searchParams.has("read") ? url.searchParams.get("read") === "true" : undefined;
+			const seen = url.searchParams.has("seen") ? url.searchParams.get("seen") === "true" : undefined;
+			const archived = url.searchParams.has("archived") ? url.searchParams.get("archived") === "true" : undefined;
 
 			// Resolve subscriber internal ID from external ID
 			const subscriber = await ctx.db.findOne<{ id: string }>({
@@ -30,9 +24,7 @@ export const notificationRoutes = [
 				return jsonResponse({ error: "Subscriber not found" }, 404);
 			}
 
-			const where: { field: string; value: unknown }[] = [
-				{ field: "subscriberId", value: subscriber.id },
-			];
+			const where: { field: string; value: unknown }[] = [{ field: "subscriberId", value: subscriber.id }];
 
 			if (read !== undefined) where.push({ field: "read", value: read });
 			if (seen !== undefined) where.push({ field: "seen", value: seen });
@@ -61,9 +53,7 @@ export const notificationRoutes = [
 		pattern: "/notifications/:subscriberId/count",
 		handler: async (request: Request, ctx: HeraldContext, params: Record<string, string>) => {
 			const url = new URL(request.url);
-			const read = url.searchParams.has("read")
-				? url.searchParams.get("read") === "true"
-				: undefined;
+			const read = url.searchParams.has("read") ? url.searchParams.get("read") === "true" : undefined;
 
 			const subscriber = await ctx.db.findOne<{ id: string }>({
 				model: "subscriber",
@@ -75,9 +65,7 @@ export const notificationRoutes = [
 				return jsonResponse({ error: "Subscriber not found" }, 404);
 			}
 
-			const where: { field: string; value: unknown }[] = [
-				{ field: "subscriberId", value: subscriber.id },
-			];
+			const where: { field: string; value: unknown }[] = [{ field: "subscriberId", value: subscriber.id }];
 
 			if (read !== undefined) where.push({ field: "read", value: read });
 

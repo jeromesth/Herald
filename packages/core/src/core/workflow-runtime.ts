@@ -13,21 +13,14 @@ import type {
 import { sendThroughProvider } from "./send.js";
 import { resolveRecipient, resolveSubscriberForStep } from "./subscriber.js";
 
-export function wrapWorkflow(
-	workflow: NotificationWorkflow,
-	ctx: HeraldContext,
-): NotificationWorkflow {
+export function wrapWorkflow(workflow: NotificationWorkflow, ctx: HeraldContext): NotificationWorkflow {
 	return {
 		...workflow,
 		steps: workflow.steps.map((step) => wrapStep(workflow.id, step, ctx)),
 	};
 }
 
-function wrapStep(
-	workflowId: string,
-	step: NotificationWorkflow["steps"][number],
-	ctx: HeraldContext,
-) {
+function wrapStep(workflowId: string, step: NotificationWorkflow["steps"][number], ctx: HeraldContext) {
 	const originalHandler = step.handler;
 
 	return {
@@ -90,17 +83,12 @@ function isChannelStep(stepType: string): stepType is ChannelType {
 	);
 }
 
-export function conditionsPass(
-	conditions: StepCondition[] | undefined,
-	context: StepContext,
-	mode: "all" | "any" = "all",
-): boolean {
+export function conditionsPass(conditions: StepCondition[] | undefined, context: StepContext, mode: "all" | "any" = "all"): boolean {
 	if (!conditions?.length) {
 		return true;
 	}
 
-	const check =
-		mode === "any" ? conditions.some.bind(conditions) : conditions.every.bind(conditions);
+	const check = mode === "any" ? conditions.some.bind(conditions) : conditions.every.bind(conditions);
 	return check((condition: StepCondition) => {
 		const actualValue = resolveConditionValue(condition.field, context);
 
@@ -131,10 +119,7 @@ function resolveConditionValue(field: string, context: StepContext): unknown {
 	}
 
 	if (field.startsWith("subscriber.")) {
-		return resolvePath(
-			context.subscriber as unknown as Record<string, unknown>,
-			field.slice("subscriber.".length),
-		);
+		return resolvePath(context.subscriber as unknown as Record<string, unknown>, field.slice("subscriber.".length));
 	}
 
 	const payloadValue = resolvePath(context.payload, field);
@@ -190,9 +175,7 @@ export function checkThrottle(ctx: HeraldContext, config: ThrottleConfig): Throt
 
 export async function performFetch(config: FetchConfig): Promise<FetchResult> {
 	const controller = new AbortController();
-	const timeoutId = config.timeout
-		? setTimeout(() => controller.abort(), config.timeout)
-		: undefined;
+	const timeoutId = config.timeout ? setTimeout(() => controller.abort(), config.timeout) : undefined;
 
 	try {
 		const response = await fetch(config.url, {

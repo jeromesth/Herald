@@ -19,6 +19,10 @@
 			"types": "./dist/adapters/workflow/inngest.d.mts",
 			"default": "./dist/adapters/workflow/inngest.mjs"
 		},
+		"./postgres": {
+			"types": "./dist/adapters/workflow/postgres.d.mts",
+			"default": "./dist/adapters/workflow/postgres.mjs"
+		},
 		"./memory": {
 			"types": "./dist/adapters/memory.d.mts",
 			"default": "./dist/adapters/memory.mjs"
@@ -59,13 +63,17 @@
 	},
 	"peerDependencies": {
 		"@prisma/client": ">=5.0.0",
-		"inngest": ">=3.0.0"
+		"inngest": ">=3.0.0",
+		"pg": ">=8.0.0"
 	},
 	"peerDependenciesMeta": {
 		"@prisma/client": {
 			"optional": true
 		},
 		"inngest": {
+			"optional": true
+		},
+		"pg": {
 			"optional": true
 		}
 	},
@@ -80,6 +88,7 @@
 		"knock-alternative",
 		"email",
 		"sendgrid",
+		"postgres",
 		"resend",
 		"postmark",
 		"ses",

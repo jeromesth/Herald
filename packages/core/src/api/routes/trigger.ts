@@ -171,8 +171,7 @@ export const triggerRoutes = [
 			if (!workflowId) {
 				return jsonResponse(
 					{
-						error:
-							"Could not resolve workflowId for this transaction. Provide workflowId as a query parameter.",
+						error: "Could not resolve workflowId for this transaction. Provide workflowId as a query parameter.",
 					},
 					404,
 				);
