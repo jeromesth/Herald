@@ -6,6 +6,8 @@ export default defineConfig({
 		"adapters/database/prisma": "src/adapters/database/prisma.ts",
 		"adapters/workflow/inngest": "src/adapters/workflow/inngest.ts",
 		"adapters/workflow/postgres": "src/adapters/workflow/postgres.ts",
+		"adapters/workflow/upstash": "src/adapters/workflow/upstash.ts",
+		"adapters/database/drizzle": "src/adapters/database/drizzle/index.ts",
 		"adapters/memory": "src/adapters/memory.ts",
 		"api/index": "src/api/index.ts",
 		"channels/index": "src/channels/index.ts",

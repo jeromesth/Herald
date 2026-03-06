@@ -1,6 +1,6 @@
 {
 	"name": "@herald/core",
-	"version": "0.2.0",
+	"version": "0.4.0",
 	"description": "Open-source headless notification system for TypeScript. Build notification workflows on your own infrastructure.",
 	"type": "module",
 	"main": "./dist/index.mjs",
@@ -22,6 +22,14 @@
 		"./postgres": {
 			"types": "./dist/adapters/workflow/postgres.d.mts",
 			"default": "./dist/adapters/workflow/postgres.mjs"
+		},
+		"./drizzle": {
+			"types": "./dist/adapters/database/drizzle.d.mts",
+			"default": "./dist/adapters/database/drizzle.mjs"
+		},
+		"./upstash": {
+			"types": "./dist/adapters/workflow/upstash.d.mts",
+			"default": "./dist/adapters/workflow/upstash.mjs"
 		},
 		"./memory": {
 			"types": "./dist/adapters/memory.d.mts",
@@ -56,21 +64,30 @@
 		"zod": "^3.24.0"
 	},
 	"devDependencies": {
-		"tsup": "^8.4.0",
-		"typescript": "^5.7.0",
 		"@prisma/client": "^6.0.0",
-		"inngest": "^3.0.0"
+		"drizzle-orm": "^0.45.1",
+		"inngest": "^3.0.0",
+		"tsup": "^8.4.0",
+		"typescript": "^5.7.0"
 	},
 	"peerDependencies": {
 		"@prisma/client": ">=5.0.0",
+		"drizzle-orm": ">=0.30.0",
 		"inngest": ">=3.0.0",
+		"@upstash/workflow": ">=0.1.0",
 		"pg": ">=8.0.0"
 	},
 	"peerDependenciesMeta": {
 		"@prisma/client": {
 			"optional": true
 		},
+		"drizzle-orm": {
+			"optional": true
+		},
 		"inngest": {
+			"optional": true
+		},
+		"@upstash/workflow": {
 			"optional": true
 		},
 		"pg": {
@@ -89,6 +106,9 @@
 		"email",
 		"sendgrid",
 		"postgres",
+		"drizzle",
+		"upstash",
+		"qstash",
 		"resend",
 		"postmark",
 		"ses",
