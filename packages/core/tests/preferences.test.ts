@@ -182,7 +182,7 @@ describe("preference enforcement — integration", () => {
 		const { notifications } = await app.api.getNotifications({ subscriberId });
 		// Only the in_app notification should be delivered, email should be blocked
 		expect(notifications).toHaveLength(1);
-		expect(notifications[0]!.channel).toBe("in_app");
+		expect(notifications[0]?.channel).toBe("in_app");
 	});
 
 	it("critical workflow delivers despite all prefs disabled", async () => {
@@ -203,7 +203,7 @@ describe("preference enforcement — integration", () => {
 
 		const { notifications } = await app.api.getNotifications({ subscriberId });
 		expect(notifications).toHaveLength(1);
-		expect(notifications[0]!.subject).toBe("Password Reset");
+		expect(notifications[0]?.subject).toBe("Password Reset");
 	});
 
 	it("plugin beforePreferenceCheck can override to block", async () => {

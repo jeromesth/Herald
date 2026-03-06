@@ -336,12 +336,12 @@ export interface NotificationRecord {
  */
 export interface WorkflowChannelPreference {
 	enabled: boolean;
-	channels?: Partial<Record<string, boolean>>;
+	channels?: Partial<Record<ChannelType, boolean>>;
 }
 
 export interface PreferenceRecord {
 	subscriberId: string;
-	channels?: Partial<Record<string, boolean>>;
+	channels?: Partial<Record<ChannelType, boolean>>;
 	workflows?: Partial<Record<string, boolean | WorkflowChannelPreference>>;
 	purposes?: Partial<Record<string, boolean>>;
 }
