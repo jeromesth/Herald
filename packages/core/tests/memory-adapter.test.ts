@@ -103,8 +103,8 @@ describe("memoryAdapter", () => {
 				model: "item",
 				sortBy: { field: "order", direction: "asc" },
 			});
-			expect(results[0]!.order).toBe(1);
-			expect(results[2]!.order).toBe(3);
+			expect(results[0]?.order).toBe(1);
+			expect(results[2]?.order).toBe(3);
 		});
 	});
 

@@ -75,7 +75,7 @@ describe("SSEManager", () => {
 		sse.emit("sub-1", { type: "test", data: { message: "hello" } });
 
 		// Read from the stream
-		const reader = response.body!.getReader();
+		const reader = response.body?.getReader();
 		const decoder = new TextDecoder();
 
 		// Read the connected event + test event
@@ -103,8 +103,8 @@ describe("SSEManager", () => {
 		sse.broadcast({ type: "announce", data: { text: "global" } });
 
 		// Both streams should have the broadcast event
-		const reader1 = res1.body!.getReader();
-		const reader2 = res2.body!.getReader();
+		const reader1 = res1.body?.getReader();
+		const reader2 = res2.body?.getReader();
 		const decoder = new TextDecoder();
 
 		// Read connected + broadcast for each

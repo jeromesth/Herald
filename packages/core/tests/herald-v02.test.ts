@@ -34,7 +34,7 @@ describe("herald v0.2 — channel providers", () => {
 
 	it("registers custom providers via the providers option", () => {
 		expect(app.$context.channels.has("email")).toBe(true);
-		expect(app.$context.channels.get("email")!.providerId).toBe("mock-email");
+		expect(app.$context.channels.get("email")?.providerId).toBe("mock-email");
 	});
 
 	it("always registers the in-app provider", () => {
@@ -53,7 +53,7 @@ describe("herald v0.2 — channel providers", () => {
 		expect(result.status).toBe("sent");
 		expect(result.messageId).toBe("email-1");
 		expect(emailProvider.calls).toHaveLength(1);
-		expect(emailProvider.calls[0]!.to).toBe("alice@example.com");
+		expect(emailProvider.calls[0]?.to).toBe("alice@example.com");
 	});
 
 	it("throws for unregistered channel", async () => {
@@ -128,7 +128,7 @@ describe("herald v0.2 — in-app provider integration", () => {
 
 		const notifications = await app.api.getNotifications({ subscriberId });
 		expect(notifications.totalCount).toBe(1);
-		expect(notifications.notifications[0]!.body).toBe("Hello from Herald!");
+		expect(notifications.notifications[0]?.body).toBe("Hello from Herald!");
 	});
 });
 

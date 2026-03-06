@@ -53,45 +53,68 @@ function wrapStep(workflowMeta: WorkflowMeta, step: NotificationWorkflow["steps"
 			}
 
 			// Load subscriber preferences and run preference gate
-			const subscriberPrefs = await ctx.db.findOne<PreferenceRecord>({
-				model: "preference",
-				where: [{ field: "subscriberId", value: subscriber.id }],
-			});
+			let subscriberPrefs: PreferenceRecord | null = null;
+			try {
+				subscriberPrefs = await ctx.db.findOne<PreferenceRecord>({
+					model: "preference",
+					where: [{ field: "subscriberId", value: subscriber.id }],
+				});
+			} catch (error) {
+				console.error(
+					`[herald] Workflow "${workflowMeta.workflowId}" step "${step.stepId}": failed to load preferences for subscriber "${subscriber.id}", proceeding with defaults`,
+					error,
+				);
+			}
 
 			// Run beforePreferenceCheck plugin hooks
+			let pluginOverride: boolean | undefined;
 			if (ctx.options.plugins) {
 				for (const plugin of ctx.options.plugins) {
 					if (plugin.hooks?.beforePreferenceCheck) {
-						const hookResult = await plugin.hooks.beforePreferenceCheck({
-							subscriberId: subscriber.id,
-							workflowId: workflowMeta.workflowId,
-							channel: step.type,
-							purpose: workflowMeta.purpose,
-							critical: workflowMeta.critical,
-						});
-						if (hookResult?.override !== undefined) {
-							if (!hookResult.override) {
+						try {
+							const hookResult = await plugin.hooks.beforePreferenceCheck({
+								subscriberId: subscriber.id,
+								workflowId: workflowMeta.workflowId,
+								channel: step.type,
+								purpose: workflowMeta.purpose,
+								critical: workflowMeta.critical,
+							});
+							if (hookResult?.override !== undefined) {
+								if (!hookResult.override) {
+									console.info(
+										`[herald] Workflow "${workflowMeta.workflowId}" step "${step.stepId}": blocked by plugin "${plugin.id}" beforePreferenceCheck`,
+									);
+									await runAfterPreferenceHooks(ctx, subscriber.id, workflowMeta.workflowId, step.type, false, "plugin override");
+									return result;
+								}
+								// override === true: skip preference gate, allow delivery
 								console.info(
-									`[herald] Workflow "${workflowMeta.workflowId}" step "${step.stepId}": blocked by plugin beforePreferenceCheck`,
+									`[herald] Workflow "${workflowMeta.workflowId}" step "${step.stepId}": delivery forced by plugin "${plugin.id}" beforePreferenceCheck`,
 								);
-								return result;
+								pluginOverride = true;
+								await runAfterPreferenceHooks(ctx, subscriber.id, workflowMeta.workflowId, step.type, true, "plugin override");
+								break;
 							}
-							// override === true: skip preference gate, allow delivery
-							await runAfterPreferenceHooks(ctx, subscriber.id, workflowMeta.workflowId, step.type, true, "plugin override");
-							break;
+						} catch (error) {
+							console.error(
+								`[herald] Plugin "${plugin.id}" beforePreferenceCheck hook threw for workflow "${workflowMeta.workflowId}" step "${step.stepId}":`,
+								error,
+							);
 						}
 					}
 				}
 			}
 
-			const gateResult = preferenceGate(subscriberPrefs ?? undefined, workflowMeta, step.type, ctx.options.defaultPreferences);
+			if (!pluginOverride) {
+				const gateResult = preferenceGate(subscriberPrefs ?? undefined, workflowMeta, step.type, ctx.options.defaultPreferences);
 
-			// Run afterPreferenceCheck plugin hooks
-			await runAfterPreferenceHooks(ctx, subscriber.id, workflowMeta.workflowId, step.type, gateResult.allowed, gateResult.reason);
+				// Run afterPreferenceCheck plugin hooks
+				await runAfterPreferenceHooks(ctx, subscriber.id, workflowMeta.workflowId, step.type, gateResult.allowed, gateResult.reason);
 
-			if (!gateResult.allowed) {
-				console.info(`[herald] Workflow "${workflowMeta.workflowId}" step "${step.stepId}": delivery blocked — ${gateResult.reason}`);
-				return result;
+				if (!gateResult.allowed) {
+					console.info(`[herald] Workflow "${workflowMeta.workflowId}" step "${step.stepId}": delivery blocked — ${gateResult.reason}`);
+					return result;
+				}
 			}
 
 			const recipient = resolveRecipient(step.type, subscriber);
@@ -133,7 +156,11 @@ async function runAfterPreferenceHooks(
 	if (!ctx.options.plugins) return;
 	for (const plugin of ctx.options.plugins) {
 		if (plugin.hooks?.afterPreferenceCheck) {
-			await plugin.hooks.afterPreferenceCheck({ subscriberId, workflowId, channel, allowed, reason });
+			try {
+				await plugin.hooks.afterPreferenceCheck({ subscriberId, workflowId, channel, allowed, reason });
+			} catch (error) {
+				console.error(`[herald] Plugin "${plugin.id}" afterPreferenceCheck hook threw:`, error);
+			}
 		}
 	}
 }

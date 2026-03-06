@@ -46,7 +46,7 @@ export class SSEManager {
 				if (!this.connections.has(subscriberId)) {
 					this.connections.set(subscriberId, new Set());
 				}
-				this.connections.get(subscriberId)!.add(connection);
+				this.connections.get(subscriberId)?.add(connection);
 
 				// Send initial connection event
 				this.sendToController(controller, {
@@ -121,7 +121,7 @@ export class SSEManager {
 				conn.controller.close();
 			} catch (err) {
 				if (!(err instanceof TypeError)) {
-					console.error(`[herald] Unexpected error closing SSE connection:`, err);
+					console.error("[herald] Unexpected error closing SSE connection:", err);
 				}
 			}
 		}

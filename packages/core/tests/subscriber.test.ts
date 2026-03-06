@@ -18,7 +18,7 @@ describe("resolveSubscriberByAnyId", () => {
 
 		const result = await resolveSubscriberByAnyId(db, "ext-1");
 		expect(result).not.toBeNull();
-		expect(result!.id).toBe("internal-1");
+		expect(result?.id).toBe("internal-1");
 	});
 
 	it("falls back to id when externalId not found", async () => {
@@ -29,7 +29,7 @@ describe("resolveSubscriberByAnyId", () => {
 
 		const result = await resolveSubscriberByAnyId(db, "internal-1");
 		expect(result).not.toBeNull();
-		expect(result!.externalId).toBe("ext-1");
+		expect(result?.externalId).toBe("ext-1");
 	});
 
 	it("returns null when neither id nor externalId match", async () => {

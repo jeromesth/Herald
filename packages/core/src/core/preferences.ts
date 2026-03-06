@@ -41,14 +41,18 @@ export function preferenceGate(
 			return { allowed: true, reason: `subscriber enabled workflow "${workflowMeta.workflowId}"` };
 		}
 		// WorkflowChannelPreference object
-		const wcp = workflowPref as WorkflowChannelPreference;
-		if (!wcp.enabled) {
-			return { allowed: false, reason: `subscriber disabled workflow "${workflowMeta.workflowId}"` };
+		if (typeof workflowPref === "object" && workflowPref !== null && "enabled" in workflowPref) {
+			const wcp = workflowPref as WorkflowChannelPreference;
+			if (!wcp.enabled) {
+				return { allowed: false, reason: `subscriber disabled workflow "${workflowMeta.workflowId}"` };
+			}
+			if (wcp.channels?.[channel] === false) {
+				return { allowed: false, reason: `subscriber disabled channel "${channel}" for workflow "${workflowMeta.workflowId}"` };
+			}
+			return { allowed: true, reason: `subscriber enabled workflow "${workflowMeta.workflowId}"` };
 		}
-		if (wcp.channels?.[channel] === false) {
-			return { allowed: false, reason: `subscriber disabled channel "${channel}" for workflow "${workflowMeta.workflowId}"` };
-		}
-		return { allowed: true, reason: `subscriber enabled workflow "${workflowMeta.workflowId}"` };
+		// Unrecognized preference value — default to allow
+		return { allowed: true, reason: "default" };
 	}
 
 	// 4. Purpose-level preference

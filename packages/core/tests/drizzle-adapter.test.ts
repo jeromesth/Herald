@@ -28,7 +28,7 @@ function createMockDb(options?: { returnData?: unknown[]; countResult?: number }
 			};
 		}
 
-		// Make chain thenable for queries without .returning()
+		// biome-ignore lint/suspicious/noThenProperty: mock chain must be thenable to simulate Drizzle's query behavior
 		chain.then = (resolve: (v: unknown) => void, reject: (e: unknown) => void) => {
 			return Promise.resolve(returnData).then(resolve, reject);
 		};

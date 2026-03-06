@@ -15,7 +15,7 @@ export interface ProviderSendArgs {
 	data?: Record<string, unknown>;
 }
 
-function applyBeforeSendPatch(message: ProviderSendArgs, patch: Record<string, unknown> | void): void {
+function applyBeforeSendPatch(message: ProviderSendArgs, patch: Record<string, unknown> | undefined): void {
 	if (!patch) return;
 
 	const knownKeys = new Set(["to", "subject", "body", "actionUrl", "layoutId", "data"]);

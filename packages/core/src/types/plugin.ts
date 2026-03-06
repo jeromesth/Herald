@@ -16,7 +16,7 @@ export interface HeraldPlugin {
 	/**
 	 * Called during Herald initialization. Can extend the context or options.
 	 */
-	init?: (ctx: HeraldContext) => Promise<PluginInitResult | void> | PluginInitResult | void;
+	init?: (ctx: HeraldContext) => Promise<PluginInitResult | undefined> | PluginInitResult | undefined;
 
 	/**
 	 * REST API endpoints provided by this plugin.
@@ -47,7 +47,7 @@ export interface HeraldPlugin {
 			subscriberId: string;
 			channel: string;
 			content: Record<string, unknown>;
-		}) => Promise<Record<string, unknown> | void>;
+		}) => Promise<Record<string, unknown> | undefined>;
 
 		afterSend?: (args: {
 			subscriberId: string;
@@ -62,7 +62,7 @@ export interface HeraldPlugin {
 			channel: ChannelType;
 			purpose?: string;
 			critical?: boolean;
-		}) => Promise<{ override?: boolean } | void>;
+		}) => Promise<{ override?: boolean } | undefined>;
 
 		afterPreferenceCheck?: (args: {
 			subscriberId: string;

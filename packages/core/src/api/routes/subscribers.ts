@@ -16,7 +16,7 @@ function pickConfiguredSubscriberFields(ctx: HeraldContext, body: Record<string,
 	for (const [fieldName, fieldConfig] of Object.entries(configured)) {
 		if (fieldName in body) {
 			const validator = typeValidators[fieldConfig.type];
-			if (validator && validator(body[fieldName])) {
+			if (validator?.(body[fieldName])) {
 				result[fieldName] = body[fieldName];
 			}
 		}
@@ -118,26 +118,13 @@ export const subscriberRoutes = [
 			}
 
 			const updateBody: Record<string, unknown> = {};
-			const stringFields = [
-				"email",
-				"phone",
-				"firstName",
-				"lastName",
-				"avatar",
-				"locale",
-				"timezone",
-			] as const;
+			const stringFields = ["email", "phone", "firstName", "lastName", "avatar", "locale", "timezone"] as const;
 			for (const field of stringFields) {
 				if (field in body && typeof body[field] === "string") {
 					updateBody[field] = body[field];
 				}
 			}
-			if (
-				"data" in body &&
-				typeof body.data === "object" &&
-				body.data != null &&
-				!Array.isArray(body.data)
-			) {
+			if ("data" in body && typeof body.data === "object" && body.data != null && !Array.isArray(body.data)) {
 				updateBody.data = body.data as Record<string, unknown>;
 			}
 			Object.assign(updateBody, pickConfiguredSubscriberFields(ctx, body));

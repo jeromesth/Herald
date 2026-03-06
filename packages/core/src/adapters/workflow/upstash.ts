@@ -54,12 +54,7 @@ type WorkflowEntry = {
 };
 
 export function upstashWorkflowAdapter(config: UpstashWorkflowConfig): WorkflowAdapter {
-	const {
-		url = "https://qstash.upstash.io",
-		token = "",
-		servePath = "/api/herald",
-		retries = 3,
-	} = config;
+	const { url = "https://qstash.upstash.io", token = "", servePath = "/api/herald", retries = 3 } = config;
 
 	const registeredWorkflows = new Map<string, WorkflowEntry>();
 

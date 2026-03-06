@@ -62,9 +62,7 @@ export function buildEmailProvider(config: EmailChannelConfig): ChannelProvider 
 	}
 }
 
-function createCustomEmailProvider(
-	config: EmailChannelConfig & { send: NonNullable<EmailChannelConfig["send"]> },
-): ChannelProvider {
+function createCustomEmailProvider(config: EmailChannelConfig & { send: NonNullable<EmailChannelConfig["send"]> }): ChannelProvider {
 	return {
 		providerId: "custom",
 		channelType: "email",
