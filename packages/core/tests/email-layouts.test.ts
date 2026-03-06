@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { renderEmail, defaultEmailLayout, LayoutRegistry } from "../src/templates/layouts.js";
-import type { EmailLayout } from "../src/templates/layouts.js";
 import type { TemplateContext } from "../src/templates/engine.js";
+import { LayoutRegistry, defaultEmailLayout, renderEmail } from "../src/templates/layouts.js";
+import type { EmailLayout } from "../src/templates/layouts.js";
 
 const baseContext: TemplateContext = {
 	subscriber: { firstName: "Alice", email: "alice@example.com" },

@@ -31,15 +31,7 @@ export async function resolveSubscriberForStep(
 	ctx: HeraldContext,
 	subscriber: StepContext["subscriber"],
 ): Promise<SubscriberRecord | null> {
-	const byExternalId = await ctx.db.findOne<SubscriberRecord>({
-		model: "subscriber",
-		where: [{ field: "externalId", value: subscriber.externalId }],
-	});
-	if (byExternalId) {
-		return byExternalId;
-	}
-
-	return resolveSubscriberByAnyId(ctx.db, subscriber.id);
+	return resolveSubscriberByAnyId(ctx.db, subscriber.externalId ?? subscriber.id);
 }
 
 export function resolveRecipient(

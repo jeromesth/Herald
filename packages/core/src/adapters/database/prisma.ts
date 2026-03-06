@@ -75,9 +75,7 @@ export function prismaAdapter(
 		return delegate;
 	}
 
-	function convertWhere(
-		where: Where[] | undefined,
-	): Record<string, unknown> | undefined {
+	function convertWhere(where: Where[] | undefined): Record<string, unknown> | undefined {
 		if (!where || where.length === 0) return undefined;
 
 		const andConditions: Record<string, unknown>[] = [];
@@ -140,9 +138,7 @@ export function prismaAdapter(
 		return { [field]: { [prismaOp]: value } };
 	}
 
-	function convertSelect(
-		select?: string[],
-	): Record<string, true> | undefined {
+	function convertSelect(select?: string[]): Record<string, true> | undefined {
 		if (!select || select.length === 0) return undefined;
 
 		const selectObj: Record<string, true> = {};
@@ -201,9 +197,7 @@ export function prismaAdapter(
 					where: convertWhere(args.where),
 					take: args.limit ?? 100,
 					skip: args.offset ?? 0,
-					orderBy: args.sortBy
-						? { [args.sortBy.field]: args.sortBy.direction }
-						: undefined,
+					orderBy: args.sortBy ? { [args.sortBy.field]: args.sortBy.direction } : undefined,
 					select: convertSelect(args.select),
 				});
 
@@ -232,15 +226,13 @@ export function prismaAdapter(
 
 				// Prisma's `update` requires a unique field at the root.
 				// We use `findFirst` then `update` with the found record's ID.
-				const existing = await delegate.findFirst({
+				const existing = (await delegate.findFirst({
 					where: convertWhere(args.where),
 					select: { id: true },
-				}) as { id: string } | null;
+				})) as { id: string } | null;
 
 				if (!existing) {
-					throw new Error(
-						`[herald/prisma] Record not found for update in "${args.model}"`,
-					);
+					throw new Error(`[herald/prisma] Record not found for update in "${args.model}"`);
 				}
 
 				const result = await delegate.update({
@@ -275,15 +267,13 @@ export function prismaAdapter(
 				const delegate = getModelDelegate(client, args.model);
 
 				// Same pattern as update — find first then delete by unique ID
-				const existing = await delegate.findFirst({
+				const existing = (await delegate.findFirst({
 					where: convertWhere(args.where),
 					select: { id: true },
-				}) as { id: string } | null;
+				})) as { id: string } | null;
 
 				if (!existing) {
-					throw new Error(
-						`[herald/prisma] Record not found for delete in "${args.model}"`,
-					);
+					throw new Error(`[herald/prisma] Record not found for delete in "${args.model}"`);
 				}
 
 				await delegate.delete({
