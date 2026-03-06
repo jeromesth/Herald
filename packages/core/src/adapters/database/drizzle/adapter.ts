@@ -27,11 +27,14 @@ export interface DrizzleAdapterConfig {
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle PgTable types are complex and vary by schema; duck-typing is intentional
 type AnyPgTable = PgTableWithColumns<any>;
 
-// biome-ignore lint/suspicious/noExplicitAny: Drizzle's query builder return types are complex; duck-typing is intentional
 type DrizzlePgLike = {
+	// biome-ignore lint/suspicious/noExplicitAny: Drizzle's query builder return types are complex; duck-typing is intentional
 	select: (fields?: Record<string, unknown>) => any;
+	// biome-ignore lint/suspicious/noExplicitAny: Drizzle's query builder return types are complex; duck-typing is intentional
 	insert: (table: AnyPgTable) => any;
+	// biome-ignore lint/suspicious/noExplicitAny: Drizzle's query builder return types are complex; duck-typing is intentional
 	update: (table: AnyPgTable) => any;
+	// biome-ignore lint/suspicious/noExplicitAny: Drizzle's query builder return types are complex; duck-typing is intentional
 	delete: (table: AnyPgTable) => any;
 };
 
@@ -108,7 +111,9 @@ function convertWhere(table: AnyPgTable, where: Where[] | undefined): SQL | unde
 	}
 
 	if (orConditions.length > 0 && andConditions.length > 0) {
-		return and(...andConditions, or(...orConditions)!)!;
+		const orClause = or(...orConditions);
+		const combined = and(...andConditions, orClause);
+		return combined;
 	}
 
 	if (orConditions.length > 0) {
@@ -235,8 +240,8 @@ export function drizzleAdapter(db: DrizzlePgLike, config?: DrizzleAdapterConfig)
 			const whereClause = convertWhere(table, args.where);
 
 			// Find record first, then update by id (same pattern as Prisma adapter)
-			// biome-ignore lint/suspicious/noExplicitAny: Drizzle column type for select
 			const existing = await db
+				// biome-ignore lint/suspicious/noExplicitAny: Drizzle column type for select
 				.select({ id: getColumn(table, "id") as any })
 				.from(table)
 				.where(whereClause)
@@ -247,10 +252,10 @@ export function drizzleAdapter(db: DrizzlePgLike, config?: DrizzleAdapterConfig)
 			}
 
 			const idColumn = getColumn(table, "id");
-			// biome-ignore lint/suspicious/noExplicitAny: Drizzle column type for eq
 			const [result] = await db
 				.update(table)
 				.set(args.update)
+				// biome-ignore lint/suspicious/noExplicitAny: Drizzle column type for eq
 				.where(eq(idColumn as any, (existing[0] as any).id))
 				.returning();
 
@@ -285,8 +290,8 @@ export function drizzleAdapter(db: DrizzlePgLike, config?: DrizzleAdapterConfig)
 			const whereClause = convertWhere(table, args.where);
 
 			// Find record first, then delete by id
-			// biome-ignore lint/suspicious/noExplicitAny: Drizzle column type for select
 			const existing = await db
+				// biome-ignore lint/suspicious/noExplicitAny: Drizzle column type for select
 				.select({ id: getColumn(table, "id") as any })
 				.from(table)
 				.where(whereClause)

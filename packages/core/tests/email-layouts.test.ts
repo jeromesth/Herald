@@ -93,7 +93,7 @@ describe("LayoutRegistry", () => {
 		const registry = new LayoutRegistry();
 		const layout = registry.get("default");
 		expect(layout).toBeDefined();
-		expect(layout!.id).toBe("default");
+		expect(layout?.id).toBe("default");
 	});
 
 	it("registers and retrieves custom layouts", () => {
@@ -107,7 +107,7 @@ describe("LayoutRegistry", () => {
 
 		const retrieved = registry.get("marketing");
 		expect(retrieved).toBeDefined();
-		expect(retrieved!.id).toBe("marketing");
+		expect(retrieved?.id).toBe("marketing");
 	});
 
 	it("returns default layout from getDefault()", () => {

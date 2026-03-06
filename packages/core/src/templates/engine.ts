@@ -56,19 +56,16 @@ function escapeHtml(str: string): string {
 /**
  * Process a single expression: resolve the variable and apply filters.
  */
-function processExpression(
-	expr: string,
-	context: TemplateContext,
-	filters: Record<string, TemplateFilter>,
-): string {
+function processExpression(expr: string, context: TemplateContext, filters: Record<string, TemplateFilter>): string {
 	const parts = expr.split("|").map((p) => p.trim());
-	const varPath = parts[0]!;
+	const varPath = parts[0] ?? "";
 	let value = resolvePath(context as Record<string, unknown>, varPath);
 
 	for (let i = 1; i < parts.length; i++) {
-		const filterExpr = parts[i]!.trim();
+		const filterExpr = parts[i]?.trim();
+		if (!filterExpr) continue;
 		const [filterName, ...filterArgs] = filterExpr.split(/\s+/);
-		const filter = filters[filterName!] ?? builtinFilters[filterName!];
+		const filter = (filterName ? filters[filterName] : undefined) ?? (filterName ? builtinFilters[filterName] : undefined);
 		if (filter) {
 			value = filter(value, ...filterArgs);
 		}
@@ -80,13 +77,9 @@ function processExpression(
 /**
  * Process block helpers (if, each).
  */
-function processBlocks(
-	template: string,
-	context: TemplateContext,
-	filters: Record<string, TemplateFilter>,
-): string {
+function processBlocks(template: string, context: TemplateContext, filters: Record<string, TemplateFilter>): string {
 	// Process {{#each items}}...{{/each}}
-	template = template.replace(/\{\{#each\s+([^}]+)\}\}([\s\S]*?)\{\{\/each\}\}/g, (_match, path: string, body: string) => {
+	let result = template.replace(/\{\{#each\s+([^}]+)\}\}([\s\S]*?)\{\{\/each\}\}/g, (_match, path: string, body: string) => {
 		const items = resolvePath(context as Record<string, unknown>, path.trim());
 		if (!Array.isArray(items)) return "";
 
@@ -109,18 +102,18 @@ function processBlocks(
 	});
 
 	// Process {{#if condition}}...{{else}}...{{/if}}
-	template = template.replace(/\{\{#if\s+([^}]+)\}\}([\s\S]*?)\{\{\/if\}\}/g, (_match, condition: string, body: string) => {
+	result = result.replace(/\{\{#if\s+([^}]+)\}\}([\s\S]*?)\{\{\/if\}\}/g, (_match, condition: string, body: string) => {
 		const value = resolvePath(context as Record<string, unknown>, condition.trim());
 		const isTruthy = value != null && value !== false && value !== 0 && value !== "";
 
 		const elseParts = body.split(/\{\{else\}\}/);
 		if (isTruthy) {
-			return renderTemplate(elseParts[0]!, context, filters);
+			return renderTemplate(elseParts[0] ?? "", context, filters);
 		}
 		return elseParts[1] ? renderTemplate(elseParts[1], context, filters) : "";
 	});
 
-	return template;
+	return result;
 }
 
 /**
