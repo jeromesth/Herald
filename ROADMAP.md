@@ -63,9 +63,9 @@ Branch: `Workflow-Steps` — implementation complete, in code review
 
 Priority: **High** | Unique to Herald
 
-- [ ] **Drizzle database adapter** — `@herald/core/drizzle`
+- [x] **Drizzle database adapter** — `@herald/core/drizzle`
 - [ ] **Postgres workflow adapter** — `@herald/core/postgres-workflow` (see v0.2.5)
-- [ ] **Upstash Workflow adapter** — `@herald/core/upstash`
+- [x] **Upstash Workflow adapter** — `@herald/core/upstash`
 - [ ] **Trigger.dev adapter** — `@herald/core/trigger`
 - [ ] **Kysely database adapter** — `@herald/core/kysely`
 - [ ] **MongoDB adapter** — `@herald/core/mongo`
@@ -89,6 +89,7 @@ Priority: **Medium** | Comparable: Novu Activity Feed, Knock Message Events
 - [ ] **Engagement tracking** — seen, read, clicked, archived events
 - [ ] **Webhook events** — emit webhooks for notification lifecycle events
 - [ ] **Metrics endpoint** — expose notification metrics for monitoring
+- [ ] **Integration tests** — real database integration tests using testcontainers/docker for Postgres, Redis, etc.
 
 ## v0.7 — Multi-Channel Expansion
 
@@ -121,7 +122,7 @@ Priority: **Low** | Comparable: Knock/Novu enterprise features
 
 ## v1.0 — Production Ready
 
-- [ ] **CLI tool** — schema generation, migration helpers, adapter scaffolding
+- [ ] **CLI tool** — schema generation, migration helpers, adapter scaffolding. Includes `herald generate` command for scaffolding adapter schemas (Drizzle, Prisma, Kysely) — inspired by BetterAuth's `npx auth generate`
 - [ ] **OpenAPI spec** — auto-generated API documentation
 - [ ] **Comprehensive documentation** — guides, tutorials, API reference
 - [ ] **Performance benchmarks** — load testing and optimization
