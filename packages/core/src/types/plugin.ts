@@ -1,5 +1,6 @@
 import type { HeraldContext } from "./config.js";
 import type { HeraldPluginDBSchema } from "./schema.js";
+import type { ChannelType } from "./workflow.js";
 
 /**
  * Herald plugin interface.
@@ -53,6 +54,22 @@ export interface HeraldPlugin {
 			channel: string;
 			messageId: string;
 			status: string;
+		}) => Promise<void>;
+
+		beforePreferenceCheck?: (args: {
+			subscriberId: string;
+			workflowId: string;
+			channel: ChannelType;
+			purpose?: string;
+			critical?: boolean;
+		}) => Promise<{ override?: boolean } | undefined>;
+
+		afterPreferenceCheck?: (args: {
+			subscriberId: string;
+			workflowId: string;
+			channel: ChannelType;
+			allowed: boolean;
+			reason: string;
 		}) => Promise<void>;
 	};
 }

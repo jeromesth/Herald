@@ -1,4 +1,4 @@
-import type { HeraldContext, PreferenceRecord } from "../../types/config.js";
+import type { HeraldContext, PreferenceRecord, WorkflowChannelPreference } from "../../types/config.js";
 import { jsonResponse, parseJsonBody } from "../router.js";
 
 export const preferenceRoutes = [
@@ -26,7 +26,7 @@ export const preferenceRoutes = [
 					subscriberId: subscriber.id,
 					channels: { ...(ctx.options.defaultPreferences?.channels ?? {}) },
 					workflows: { ...(ctx.options.defaultPreferences?.workflows ?? {}) },
-					categories: { ...(ctx.options.defaultPreferences?.categories ?? {}) },
+					purposes: { ...(ctx.options.defaultPreferences?.purposes ?? {}) },
 				},
 			);
 		},
@@ -37,8 +37,8 @@ export const preferenceRoutes = [
 		handler: async (request: Request, ctx: HeraldContext, params: Record<string, string>) => {
 			const body = await parseJsonBody<{
 				channels?: Record<string, boolean>;
-				workflows?: Record<string, boolean>;
-				categories?: Record<string, boolean>;
+				workflows?: Record<string, boolean | WorkflowChannelPreference>;
+				purposes?: Record<string, boolean>;
 			}>(request);
 
 			const subscriber = await ctx.db.findOne<{ id: string }>({
@@ -61,7 +61,7 @@ export const preferenceRoutes = [
 				const merged = {
 					channels: { ...existing.channels, ...body.channels },
 					workflows: { ...existing.workflows, ...body.workflows },
-					categories: { ...existing.categories, ...body.categories },
+					purposes: { ...existing.purposes, ...body.purposes },
 					updatedAt: now,
 				};
 
@@ -80,13 +80,13 @@ export const preferenceRoutes = [
 			const id = ctx.generateId();
 			const defaultChannels = ctx.options.defaultPreferences?.channels ?? {};
 			const defaultWorkflows = ctx.options.defaultPreferences?.workflows ?? {};
-			const defaultCategories = ctx.options.defaultPreferences?.categories ?? {};
+			const defaultPurposes = ctx.options.defaultPreferences?.purposes ?? {};
 			const newPref = {
 				id,
 				subscriberId: subscriber.id,
 				channels: { ...defaultChannels, ...(body.channels ?? {}) },
 				workflows: { ...defaultWorkflows, ...(body.workflows ?? {}) },
-				categories: { ...defaultCategories, ...(body.categories ?? {}) },
+				purposes: { ...defaultPurposes, ...(body.purposes ?? {}) },
 				updatedAt: now,
 			};
 
