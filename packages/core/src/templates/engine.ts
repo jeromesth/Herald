@@ -56,11 +56,7 @@ function escapeHtml(str: string): string {
 /**
  * Process a single expression: resolve the variable and apply filters.
  */
-function processExpression(
-	expr: string,
-	context: TemplateContext,
-	filters: Record<string, TemplateFilter>,
-): string {
+function processExpression(expr: string, context: TemplateContext, filters: Record<string, TemplateFilter>): string {
 	const parts = expr.split("|").map((p) => p.trim());
 	const varPath = parts[0]!;
 	let value = resolvePath(context as Record<string, unknown>, varPath);
@@ -80,11 +76,7 @@ function processExpression(
 /**
  * Process block helpers (if, each).
  */
-function processBlocks(
-	template: string,
-	context: TemplateContext,
-	filters: Record<string, TemplateFilter>,
-): string {
+function processBlocks(template: string, context: TemplateContext, filters: Record<string, TemplateFilter>): string {
 	// Process {{#each items}}...{{/each}}
 	template = template.replace(/\{\{#each\s+([^}]+)\}\}([\s\S]*?)\{\{\/each\}\}/g, (_match, path: string, body: string) => {
 		const items = resolvePath(context as Record<string, unknown>, path.trim());
