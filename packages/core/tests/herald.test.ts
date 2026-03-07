@@ -67,8 +67,8 @@ describe("herald.api — subscribers", () => {
 
 		const subscriber = await app.api.getSubscriber("user-1");
 		expect(subscriber).not.toBeNull();
-		expect(subscriber!.email).toBe("alice@example.com");
-		expect(subscriber!.firstName).toBe("Alice");
+		expect(subscriber?.email).toBe("alice@example.com");
+		expect(subscriber?.firstName).toBe("Alice");
 	});
 
 	it("updates an existing subscriber on upsert", async () => {
@@ -84,7 +84,7 @@ describe("herald.api — subscribers", () => {
 		});
 
 		const subscriber = await app.api.getSubscriber("user-1");
-		expect(subscriber!.email).toBe("alice-new@example.com");
+		expect(subscriber?.email).toBe("alice-new@example.com");
 	});
 
 	it("deletes a subscriber", async () => {
@@ -122,8 +122,8 @@ describe("herald.api — trigger", () => {
 
 		expect(result.transactionId).toBeDefined();
 		expect(workflow.events).toHaveLength(1);
-		expect(workflow.events[0]!.workflowId).toBe("welcome");
-		expect(workflow.events[0]!.recipients).toEqual(["user-1"]);
+		expect(workflow.events[0]?.workflowId).toBe("welcome");
+		expect(workflow.events[0]?.recipients).toEqual(["user-1"]);
 	});
 
 	it("supports triggering for multiple recipients", async () => {
@@ -134,7 +134,7 @@ describe("herald.api — trigger", () => {
 		});
 
 		expect(result.transactionId).toBeDefined();
-		expect(workflow.events[0]!.recipients).toEqual(["user-1", "user-2", "user-3"]);
+		expect(workflow.events[0]?.recipients).toEqual(["user-1", "user-2", "user-3"]);
 	});
 
 	it("uses a custom transactionId when provided", async () => {
@@ -162,7 +162,7 @@ describe("herald.api — trigger", () => {
 
 		const notifications = await app.api.getNotifications({ subscriberId });
 		expect(notifications.totalCount).toBe(1);
-		expect(notifications.notifications[0]!.subject).toBe("Welcome!");
+		expect(notifications.notifications[0]?.subject).toBe("Welcome!");
 	});
 });
 
@@ -293,7 +293,7 @@ describe("herald.api — notifications", () => {
 		const result = await app.api.getNotifications({ subscriberId });
 		expect(result.notifications).toHaveLength(1);
 		expect(result.totalCount).toBe(1);
-		expect(result.notifications[0]!.body).toBe("Hello, welcome!");
+		expect(result.notifications[0]?.body).toBe("Hello, welcome!");
 	});
 
 	it("marks notifications as read", async () => {
@@ -320,8 +320,8 @@ describe("herald.api — notifications", () => {
 		await app.api.markNotifications({ ids: [notifId], action: "read" });
 
 		const result = await app.api.getNotifications({ subscriberId });
-		expect(result.notifications[0]!.read).toBe(true);
-		expect(result.notifications[0]!.readAt).toBeDefined();
+		expect(result.notifications[0]?.read).toBe(true);
+		expect(result.notifications[0]?.readAt).toBeDefined();
 	});
 });
 

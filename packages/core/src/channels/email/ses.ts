@@ -6,11 +6,7 @@
  * that uses the AWS SDK (@aws-sdk/client-sesv2) for proper credential
  * management and signing. This built-in provider covers the common case.
  */
-import type {
-	ChannelProvider,
-	ChannelProviderMessage,
-	ChannelProviderResult,
-} from "../provider.js";
+import type { ChannelProvider, ChannelProviderMessage, ChannelProviderResult } from "../provider.js";
 
 export interface SESConfig {
 	from: string;

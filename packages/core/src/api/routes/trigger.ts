@@ -135,7 +135,7 @@ export const triggerRoutes = [
 			const results = settled.map((result, index) => {
 				if (result.status === "fulfilled") return result.value;
 				return {
-					workflowId: body.events[index]!.workflowId,
+					workflowId: body.events[index]?.workflowId,
 					status: "failed" as const,
 					error: result.reason instanceof Error ? result.reason.message : "Unknown error",
 				};
