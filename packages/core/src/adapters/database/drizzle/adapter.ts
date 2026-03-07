@@ -16,7 +16,7 @@
  */
 import type { SQL, SQLWrapper } from "drizzle-orm";
 import { and, asc, desc, eq, gt, gte, inArray, like, lt, lte, ne, notInArray, or, sql } from "drizzle-orm";
-import type { PgTableWithColumns } from "drizzle-orm/pg-core";
+import type { PgColumn, PgTableWithColumns } from "drizzle-orm/pg-core";
 import type { DatabaseAdapter, Where, WhereOperator } from "../../../types/adapter.js";
 import { channels, notifications, preferences, subscribers, topicSubscribers, topics } from "./schema.js";
 
@@ -24,21 +24,23 @@ export interface DrizzleAdapterConfig {
 	debugLogs?: boolean;
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: Drizzle PgTable types are complex and vary by schema; duck-typing is intentional
+// biome-ignore lint/suspicious/noExplicitAny: Drizzle PgTable generic requires full column config; we constrain via HeraldTable instead
 type AnyPgTable = PgTableWithColumns<any>;
 
+type HeraldTable = AnyPgTable & { id: PgColumn };
+
 type DrizzlePgLike = {
-	// biome-ignore lint/suspicious/noExplicitAny: Drizzle's query builder return types are complex; duck-typing is intentional
+	// biome-ignore lint/suspicious/noExplicitAny: Drizzle query builder return types vary by dialect
 	select: (fields?: Record<string, unknown>) => any;
-	// biome-ignore lint/suspicious/noExplicitAny: Drizzle's query builder return types are complex; duck-typing is intentional
+	// biome-ignore lint/suspicious/noExplicitAny: Drizzle query builder return types vary by dialect
 	insert: (table: AnyPgTable) => any;
-	// biome-ignore lint/suspicious/noExplicitAny: Drizzle's query builder return types are complex; duck-typing is intentional
+	// biome-ignore lint/suspicious/noExplicitAny: Drizzle query builder return types vary by dialect
 	update: (table: AnyPgTable) => any;
-	// biome-ignore lint/suspicious/noExplicitAny: Drizzle's query builder return types are complex; duck-typing is intentional
+	// biome-ignore lint/suspicious/noExplicitAny: Drizzle query builder return types vary by dialect
 	delete: (table: AnyPgTable) => any;
 };
 
-const MODEL_MAP: Record<string, AnyPgTable> = {
+const MODEL_MAP: Record<string, HeraldTable> = {
 	subscriber: subscribers,
 	notification: notifications,
 	topic: topics,
@@ -47,7 +49,7 @@ const MODEL_MAP: Record<string, AnyPgTable> = {
 	channel: channels,
 };
 
-function getTable(model: string): AnyPgTable {
+function getTable(model: string): HeraldTable {
 	const table = MODEL_MAP[model];
 	if (!table) {
 		throw new Error(`[herald/drizzle] Unknown model "${model}". ` + `Available models: ${Object.keys(MODEL_MAP).join(", ")}`);
@@ -55,7 +57,7 @@ function getTable(model: string): AnyPgTable {
 	return table;
 }
 
-function getColumn(table: AnyPgTable, field: string): SQLWrapper {
+function getColumn(table: HeraldTable, field: string): SQLWrapper {
 	const col = (table as Record<string, unknown>)[field] as SQLWrapper | undefined;
 	if (!col) {
 		throw new Error(`[herald/drizzle] Unknown field "${field}" on table`);
@@ -93,7 +95,7 @@ function convertOperator(column: any, value: unknown, operator?: WhereOperator):
 	}
 }
 
-function convertWhere(table: AnyPgTable, where: Where[] | undefined): SQL | undefined {
+function convertWhere(table: HeraldTable, where: Where[] | undefined): SQL | undefined {
 	if (!where || where.length === 0) return undefined;
 
 	const andConditions: SQL[] = [];
@@ -127,7 +129,7 @@ function convertWhere(table: AnyPgTable, where: Where[] | undefined): SQL | unde
 	return and(...andConditions);
 }
 
-function applySelect(table: AnyPgTable, select?: string[]): Record<string, SQLWrapper> | undefined {
+function applySelect(table: HeraldTable, select?: string[]): Record<string, SQLWrapper> | undefined {
 	if (!select || select.length === 0) return undefined;
 
 	const fields: Record<string, SQLWrapper> = {};
@@ -240,24 +242,13 @@ export function drizzleAdapter(db: DrizzlePgLike, config?: DrizzleAdapterConfig)
 			const whereClause = convertWhere(table, args.where);
 
 			// Find record first, then update by id (same pattern as Prisma adapter)
-			const existing = await db
-				// biome-ignore lint/suspicious/noExplicitAny: Drizzle column type for select
-				.select({ id: getColumn(table, "id") as any })
-				.from(table)
-				.where(whereClause)
-				.limit(1);
+			const existing = await db.select({ id: table.id }).from(table).where(whereClause).limit(1);
 
 			if (!existing || existing.length === 0) {
 				throw new Error(`[herald/drizzle] Record not found for update in "${args.model}"`);
 			}
 
-			const idColumn = getColumn(table, "id");
-			const [result] = await db
-				.update(table)
-				.set(args.update)
-				// biome-ignore lint/suspicious/noExplicitAny: Drizzle column type for eq
-				.where(eq(idColumn as any, (existing[0] as any).id))
-				.returning();
+			const [result] = await db.update(table).set(args.update).where(eq(table.id, existing[0].id)).returning();
 
 			return result as T;
 		},
@@ -290,20 +281,13 @@ export function drizzleAdapter(db: DrizzlePgLike, config?: DrizzleAdapterConfig)
 			const whereClause = convertWhere(table, args.where);
 
 			// Find record first, then delete by id
-			const existing = await db
-				// biome-ignore lint/suspicious/noExplicitAny: Drizzle column type for select
-				.select({ id: getColumn(table, "id") as any })
-				.from(table)
-				.where(whereClause)
-				.limit(1);
+			const existing = await db.select({ id: table.id }).from(table).where(whereClause).limit(1);
 
 			if (!existing || existing.length === 0) {
 				throw new Error(`[herald/drizzle] Record not found for delete in "${args.model}"`);
 			}
 
-			const idColumn = getColumn(table, "id");
-			// biome-ignore lint/suspicious/noExplicitAny: Drizzle column type for eq
-			await db.delete(table).where(eq(idColumn as any, (existing[0] as any).id));
+			await db.delete(table).where(eq(table.id, existing[0].id));
 		},
 
 		async deleteMany(args: {
