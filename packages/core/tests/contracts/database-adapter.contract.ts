@@ -136,8 +136,8 @@ export function runDatabaseAdapterContract(name: string, createAdapter: () => Da
 					model: "item",
 					sortBy: { field: "order", direction: "asc" },
 				});
-				expect(results[0]!.order).toBe(1);
-				expect(results[2]!.order).toBe(3);
+				expect(results[0]?.order).toBe(1);
+				expect(results[2]?.order).toBe(3);
 			});
 
 			it("supports sortBy desc", async () => {
@@ -145,8 +145,8 @@ export function runDatabaseAdapterContract(name: string, createAdapter: () => Da
 					model: "item",
 					sortBy: { field: "order", direction: "desc" },
 				});
-				expect(results[0]!.order).toBe(3);
-				expect(results[2]!.order).toBe(1);
+				expect(results[0]?.order).toBe(3);
+				expect(results[2]?.order).toBe(1);
 			});
 
 			it("handles empty results", async () => {
