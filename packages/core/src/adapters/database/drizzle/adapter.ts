@@ -32,6 +32,7 @@ type HeraldTable = AnyPgTable & { id: PgColumn };
 
 type DrizzlePgLike = Pick<PgDatabase<PgQueryResultHKT>, "select" | "insert" | "update" | "delete">;
 
+
 const MODEL_MAP: Record<string, HeraldTable> = {
 	subscriber: subscribers,
 	notification: notifications,
