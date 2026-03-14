@@ -173,7 +173,7 @@ describe("HTTP Router", () => {
 				model: "notification",
 				data: {
 					id: notifId,
-					subscriberId: subscriber!.id,
+					subscriberId: subscriber?.id,
 					workflowId: "test",
 					channel: "in_app",
 					body: "Test",

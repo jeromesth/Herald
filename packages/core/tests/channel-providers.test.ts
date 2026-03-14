@@ -52,7 +52,7 @@ describe("ChannelRegistry", () => {
 		registry.register(first);
 		registry.register(second);
 
-		expect(registry.get("email")!.providerId).toBe("second");
+		expect(registry.get("email")?.providerId).toBe("second");
 	});
 });
 

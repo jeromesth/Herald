@@ -24,6 +24,7 @@ describe("upstashWorkflowAdapter", () => {
 	const mockFetch = vi.fn();
 
 	beforeEach(() => {
+		mockFetch.mockReset();
 		mockFetch.mockResolvedValue(new Response(JSON.stringify({ messageId: "msg-1" }), { status: 200 }));
 		vi.stubGlobal("fetch", mockFetch);
 	});
@@ -41,7 +42,7 @@ describe("upstashWorkflowAdapter", () => {
 
 			const handler = adapter.getHandler();
 			expect(handler).not.toBeNull();
-			expect(handler!.path).toBe("/api/herald");
+			expect(handler?.path).toBe("/api/herald");
 		});
 
 		it("registers multiple workflows", () => {
@@ -161,13 +162,14 @@ describe("upstashWorkflowAdapter", () => {
 
 			const handler = adapter.getHandler();
 			expect(handler).not.toBeNull();
-			expect(handler!.path).toBe("/custom/path");
+			expect(handler?.path).toBe("/custom/path");
 		});
 
 		it("handler returns 404 for unknown workflow", async () => {
 			const adapter = upstashWorkflowAdapter({ token: "test-token" });
 			adapter.registerWorkflow(createTestWorkflow());
 
+			// biome-ignore lint/style/noNonNullAssertion: handler is always defined after registerWorkflow
 			const handler = adapter.getHandler()!;
 			const request = new Request("http://localhost/api/herald", {
 				method: "POST",
@@ -186,6 +188,7 @@ describe("upstashWorkflowAdapter", () => {
 			const adapter = upstashWorkflowAdapter({ token: "test-token" });
 			adapter.registerWorkflow(createTestWorkflow());
 
+			// biome-ignore lint/style/noNonNullAssertion: handler is always defined after registerWorkflow
 			const handler = adapter.getHandler()!;
 			const request = new Request("http://localhost/api/herald", {
 				method: "POST",
@@ -201,6 +204,7 @@ describe("upstashWorkflowAdapter", () => {
 			const adapter = upstashWorkflowAdapter({ token: "test-token" });
 			adapter.registerWorkflow(createTestWorkflow());
 
+			// biome-ignore lint/style/noNonNullAssertion: handler is always defined after registerWorkflow
 			const handler = adapter.getHandler()!;
 			const request = new Request("http://localhost/api/herald", {
 				method: "POST",
@@ -288,7 +292,7 @@ describe("upstashWorkflowAdapter", () => {
 
 			adapter.registerWorkflow(createTestWorkflow());
 			const handler = adapter.getHandler();
-			expect(handler!.path).toBe("/api/herald");
+			expect(handler?.path).toBe("/api/herald");
 		});
 	});
 });

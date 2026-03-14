@@ -77,7 +77,7 @@ export function createRouter(
 					if (error instanceof HTTPError) {
 						return jsonResponse({ error: error.message }, error.status);
 					}
-					console.error(`[herald] Unhandled route error:`, error);
+					console.error("[herald] Unhandled route error:", error);
 					return jsonResponse({ error: "Internal server error" }, 500);
 				}
 			}
@@ -100,8 +100,8 @@ function matchRoute(pattern: string, path: string): Record<string, string> | nul
 	const params: Record<string, string> = {};
 
 	for (let i = 0; i < patternParts.length; i++) {
-		const patternPart = patternParts[i]!;
-		const pathPart = pathParts[i]!;
+		const patternPart = patternParts[i] as string;
+		const pathPart = pathParts[i] as string;
 
 		if (patternPart.startsWith(":")) {
 			params[patternPart.slice(1)] = pathPart;

@@ -11,6 +11,7 @@ export function memoryAdapter(): DatabaseAdapter {
 		if (!store.has(model)) {
 			store.set(model, new Map());
 		}
+		// biome-ignore lint/style/noNonNullAssertion: store.has(model) check above guarantees this exists
 		return store.get(model)!;
 	}
 
@@ -104,7 +105,7 @@ export function memoryAdapter(): DatabaseAdapter {
 			let results = Array.from(table.values());
 
 			if (args.where) {
-				results = results.filter((r) => matchesWhere(r, args.where!));
+				results = results.filter((r) => matchesWhere(r, args.where as Where[]));
 			}
 
 			if (args.sortBy) {

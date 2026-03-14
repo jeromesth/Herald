@@ -16,7 +16,7 @@ function pickConfiguredSubscriberFields(ctx: HeraldContext, body: Record<string,
 	for (const [fieldName, fieldConfig] of Object.entries(configured)) {
 		if (fieldName in body) {
 			const validator = typeValidators[fieldConfig.type];
-			if (validator && validator(body[fieldName])) {
+			if (validator?.(body[fieldName])) {
 				result[fieldName] = body[fieldName];
 			}
 		}

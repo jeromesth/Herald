@@ -12,7 +12,7 @@ describe("coreSchema", () => {
 	});
 
 	it("subscriber has required fields", () => {
-		const fields = coreSchema.subscriber!.fields;
+		const fields = coreSchema.subscriber?.fields;
 		expect(fields.id).toBeDefined();
 		expect(fields.externalId).toBeDefined();
 		expect(fields.email).toBeDefined();
@@ -24,7 +24,7 @@ describe("coreSchema", () => {
 	});
 
 	it("notification has required fields", () => {
-		const fields = coreSchema.notification!.fields;
+		const fields = coreSchema.notification?.fields;
 		expect(fields.id).toBeDefined();
 		expect(fields.subscriberId).toBeDefined();
 		expect(fields.workflowId).toBeDefined();
@@ -37,11 +37,11 @@ describe("coreSchema", () => {
 	});
 
 	it("notification.subscriberId references subscriber", () => {
-		const ref = coreSchema.notification!.fields.subscriberId!.references;
+		const ref = coreSchema.notification?.fields.subscriberId?.references;
 		expect(ref).toBeDefined();
-		expect(ref!.model).toBe("subscriber");
-		expect(ref!.field).toBe("id");
-		expect(ref!.onDelete).toBe("cascade");
+		expect(ref?.model).toBe("subscriber");
+		expect(ref?.field).toBe("id");
+		expect(ref?.onDelete).toBe("cascade");
 	});
 });
 
@@ -57,8 +57,8 @@ describe("mergeSchemas", () => {
 
 		const merged = mergeSchemas(coreSchema, plugin);
 
-		expect(merged.subscriber!.fields.companyName).toBeDefined();
-		expect(merged.subscriber!.fields.email).toBeDefined(); // core field still exists
+		expect(merged.subscriber?.fields.companyName).toBeDefined();
+		expect(merged.subscriber?.fields.email).toBeDefined(); // core field still exists
 	});
 
 	it("adds new tables from plugins", () => {
@@ -74,7 +74,7 @@ describe("mergeSchemas", () => {
 
 		const merged = mergeSchemas(coreSchema, plugin);
 		expect(merged.auditLog).toBeDefined();
-		expect(merged.auditLog!.fields.action).toBeDefined();
+		expect(merged.auditLog?.fields.action).toBeDefined();
 	});
 
 	it("handles undefined extensions gracefully", () => {

@@ -1,2 +1,10 @@
 packages:
-  - "packages/*"
+  - packages/*
+
+ignoredBuiltDependencies:
+  - esbuild
+  - protobufjs
+
+onlyBuiltDependencies:
+  - '@biomejs/biome'
+  - '@prisma/client'
