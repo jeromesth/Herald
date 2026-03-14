@@ -152,6 +152,7 @@ export interface PushChannelConfig {
 export interface DefaultPreferences {
 	channels?: Partial<Record<ChannelType, boolean>>;
 	workflows?: Partial<Record<string, boolean>>;
+	categories?: Partial<Record<string, boolean>>;
 	purposes?: Partial<Record<string, boolean>>;
 }
 
@@ -343,5 +344,6 @@ export interface PreferenceRecord {
 	subscriberId: string;
 	channels?: Partial<Record<ChannelType, boolean>>;
 	workflows?: Partial<Record<string, boolean | WorkflowChannelPreference>>;
+	categories?: Partial<Record<string, boolean>>;
 	purposes?: Partial<Record<string, boolean>>;
 }

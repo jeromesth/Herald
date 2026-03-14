@@ -351,17 +351,19 @@ Then("I should get {int} result(s)", function (this: HeraldWorld, count: number)
 
 Then("the first result field {string} should equal {string}", function (this: HeraldWorld, field: string, value: string) {
 	assert.ok(this.results.length > 0, "Expected at least one result");
-	assert.deepStrictEqual(this.results[0]![field], coerceValue(value));
+	assert.deepStrictEqual(this.results[0]?.[field], coerceValue(value));
 });
 
 Then("the last result field {string} should equal {string}", function (this: HeraldWorld, field: string, value: string) {
 	assert.ok(this.results.length > 0, "Expected at least one result");
-	assert.deepStrictEqual(this.results[this.results.length - 1]![field], coerceValue(value));
+	assert.deepStrictEqual(this.results[this.results.length - 1]?.[field], coerceValue(value));
 });
 
 Then("the first result should only contain field {string}", function (this: HeraldWorld, field: string) {
 	assert.ok(this.results.length > 0, "Expected at least one result");
-	const keys = Object.keys(this.results[0]!);
+	const first = this.results[0];
+	assert.ok(first, "Expected first result to exist");
+	const keys = Object.keys(first);
 	assert.deepStrictEqual(keys, [field], `Expected only field "${field}", got ${JSON.stringify(keys)}`);
 });
 
