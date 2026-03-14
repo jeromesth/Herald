@@ -9,4 +9,5 @@ coverage/
 *.log
 .DS_Store
 .worktrees/
+cucumber-report.html
 .claude/
