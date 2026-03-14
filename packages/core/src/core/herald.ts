@@ -16,7 +16,7 @@ import type {
 	SubscriberRecord,
 } from "../types/config.js";
 import { initializePlugins } from "./plugins.js";
-import { defaultPreferenceRecord } from "./preferences.js";
+import { deepMerge, defaultPreferenceRecord } from "./preferences.js";
 import { buildEmailProvider } from "./providers.js";
 import { sendThroughProvider } from "./send.js";
 import { resolveSubscriberInternalId } from "./subscriber.js";
@@ -155,14 +155,18 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 					transactionId,
 				});
 
-				// Run afterTrigger hooks
+				// Run afterTrigger hooks — errors are logged but do not propagate since trigger already succeeded
 				if (ctx.options.plugins) {
 					for (const plugin of ctx.options.plugins) {
 						if (plugin.hooks?.afterTrigger) {
-							await plugin.hooks.afterTrigger({
-								workflowId: args.workflowId,
-								transactionId,
-							});
+							try {
+								await plugin.hooks.afterTrigger({
+									workflowId: args.workflowId,
+									transactionId,
+								});
+							} catch (hookError) {
+								console.error(`[herald] Plugin "${plugin.id}" afterTrigger hook threw:`, hookError);
+							}
 						}
 					}
 				}
@@ -303,10 +307,10 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 			if (existing) {
 				const merged: PreferenceRecord = {
 					subscriberId: internalSubscriberId,
-					channels: { ...existing.channels, ...preferences.channels },
-					workflows: { ...existing.workflows, ...preferences.workflows },
-					categories: { ...existing.categories, ...preferences.categories },
-					purposes: { ...existing.purposes, ...preferences.purposes },
+					channels: deepMerge(existing.channels, preferences.channels),
+					workflows: deepMerge(existing.workflows, preferences.workflows),
+					categories: deepMerge(existing.categories, preferences.categories),
+					purposes: deepMerge(existing.purposes, preferences.purposes),
 				};
 
 				await db.update({
@@ -322,10 +326,10 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 			const defaults = defaultPreferenceRecord(ctx, internalSubscriberId);
 			const newPref: PreferenceRecord = {
 				subscriberId: internalSubscriberId,
-				channels: { ...defaults.channels, ...preferences.channels },
-				workflows: { ...defaults.workflows, ...preferences.workflows },
-				categories: { ...defaults.categories, ...preferences.categories },
-				purposes: { ...defaults.purposes, ...preferences.purposes },
+				channels: deepMerge(defaults.channels, preferences.channels),
+				workflows: deepMerge(defaults.workflows, preferences.workflows),
+				categories: deepMerge(defaults.categories, preferences.categories),
+				purposes: deepMerge(defaults.purposes, preferences.purposes),
 			};
 
 			await db.create({

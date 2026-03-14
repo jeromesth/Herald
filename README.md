@@ -237,7 +237,7 @@ Herald uses a generic database adapter interface (same pattern as better-auth). 
 | Adapter | Import | Status |
 |---------|--------|--------|
 | **Prisma** | `@herald/core/prisma` | Available |
-| **Drizzle** | `@herald/core/drizzle` | Planned |
+| **Drizzle** | `@herald/core/drizzle` | Available |
 | **Kysely** | `@herald/core/kysely` | Planned |
 | **MikroORM** | `@herald/core/mikro-orm` | Planned |
 | **MongoDB** | `@herald/core/mongo` | Planned |
@@ -249,10 +249,10 @@ Herald delegates workflow execution to your preferred engine:
 | Adapter | Import | Status |
 |---------|--------|--------|
 | **Inngest** | `@herald/core/inngest` | Available |
-| **Upstash Workflow** | `@herald/core/upstash` | Planned |
+| **Postgres** | `@herald/core/postgres` | Available |
+| **Upstash Workflow** | `@herald/core/upstash` | Available |
 | **Temporal** | `@herald/core/temporal` | Planned |
 | **Trigger.dev** | `@herald/core/trigger` | Planned |
-| **useWorkflow** | `@herald/core/use-workflow` | Planned |
 
 ## Database Schema
 
@@ -309,7 +309,7 @@ const notifications = herald({
 
 - **TypeScript** — full type safety
 - **pnpm** — package management
-- **Bun** — runtime
+- **Node.js** — runtime (>=20.0.0)
 - **Vitest** — testing
 - **Biome** — linting and formatting
 
@@ -319,8 +319,8 @@ We welcome contributions! See [ROADMAP.md](ROADMAP.md) for planned features and 
 
 ```bash
 # Clone and setup
-git clone https://github.com/jeromesth/inngest-notifications.git
-cd inngest-notifications
+git clone https://github.com/jeromesth/herald.git
+cd herald
 pnpm install
 
 # Run tests

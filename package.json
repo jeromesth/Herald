@@ -8,7 +8,7 @@
 		"test": "vitest",
 		"test:run": "vitest run",
 		"test:coverage": "vitest run --coverage",
-		"test:bdd": "cucumber-js",
+		"test:bdd": "node --import tsx node_modules/@cucumber/cucumber/bin/cucumber.js",
 		"test:all": "pnpm test:run && pnpm test:bdd",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
@@ -26,6 +26,6 @@
 	},
 	"packageManager": "pnpm@10.29.3",
 	"engines": {
-		"node": ">=24.0.0"
+		"node": ">=20.0.0"
 	}
 }

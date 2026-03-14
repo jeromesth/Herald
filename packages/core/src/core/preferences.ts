@@ -1,6 +1,35 @@
 import type { DefaultPreferences, HeraldContext, PreferenceRecord, WorkflowChannelPreference } from "../types/config.js";
 import type { ChannelType } from "../types/workflow.js";
 
+/**
+ * Deep merge two plain objects. Nested objects are recursively merged rather than overwritten.
+ * Primitive values in `patch` overwrite values in `base`.
+ */
+export function deepMerge<T extends Record<string, unknown>>(base: T | undefined, patch: T | undefined): T {
+	if (!base) return (patch ?? {}) as T;
+	if (!patch) return base;
+
+	const result = { ...base } as Record<string, unknown>;
+	for (const key of Object.keys(patch)) {
+		const baseVal = result[key];
+		const patchVal = (patch as Record<string, unknown>)[key];
+
+		if (
+			patchVal !== null &&
+			typeof patchVal === "object" &&
+			!Array.isArray(patchVal) &&
+			baseVal !== null &&
+			typeof baseVal === "object" &&
+			!Array.isArray(baseVal)
+		) {
+			result[key] = deepMerge(baseVal as Record<string, unknown>, patchVal as Record<string, unknown>);
+		} else {
+			result[key] = patchVal;
+		}
+	}
+	return result as T;
+}
+
 export interface WorkflowMeta {
 	workflowId: string;
 	critical?: boolean;

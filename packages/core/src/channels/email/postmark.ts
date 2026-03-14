@@ -40,10 +40,11 @@ export function postmarkProvider(config: PostmarkConfig): ChannelProvider {
 
 			if (!response.ok) {
 				const errorBody = await response.text();
+				console.error(`[herald] Postmark API error ${response.status}:`, errorBody);
 				return {
 					messageId: "",
 					status: "failed",
-					error: `Postmark error ${response.status}: ${errorBody}`,
+					error: `Postmark error: HTTP ${response.status}`,
 				};
 			}
 

@@ -1,3 +1,4 @@
+import { deepMerge } from "../../core/preferences.js";
 import type { HeraldContext, PreferenceRecord, WorkflowChannelPreference } from "../../types/config.js";
 import { jsonResponse, parseJsonBody } from "../router.js";
 
@@ -59,9 +60,9 @@ export const preferenceRoutes = [
 
 			if (existing) {
 				const merged = {
-					channels: { ...existing.channels, ...body.channels },
-					workflows: { ...existing.workflows, ...body.workflows },
-					purposes: { ...existing.purposes, ...body.purposes },
+					channels: deepMerge(existing.channels, body.channels),
+					workflows: deepMerge(existing.workflows, body.workflows),
+					purposes: deepMerge(existing.purposes, body.purposes),
 					updatedAt: now,
 				};
 

@@ -30,10 +30,15 @@ export class InAppProvider implements ChannelProvider {
 		const id = this.generateId();
 		const now = new Date();
 
+		const workflowId = message.data?.workflowId;
+		if (typeof workflowId !== "string" || !workflowId) {
+			console.warn("[herald] InAppProvider: missing workflowId in message data");
+		}
+
 		const notification = {
 			id,
 			subscriberId: message.subscriberId,
-			workflowId: (message.data?.workflowId as string) ?? "",
+			workflowId: typeof workflowId === "string" && workflowId ? workflowId : "unknown",
 			channel: "in_app",
 			subject: message.subject,
 			body: message.body,
@@ -44,7 +49,7 @@ export class InAppProvider implements ChannelProvider {
 			seen: false,
 			archived: false,
 			deliveryStatus: "delivered",
-			transactionId: (message.data?.transactionId as string) ?? id,
+			transactionId: typeof message.data?.transactionId === "string" ? message.data.transactionId : id,
 			actorId: message.data?.actorId as string | undefined,
 			tenantId: message.data?.tenantId as string | undefined,
 			createdAt: now,

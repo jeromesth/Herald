@@ -15,11 +15,17 @@ export const triggerRoutes = [
 				transactionId?: string;
 			}>(request);
 
-			if (!body.workflowId) {
-				return jsonResponse({ error: "workflowId is required" }, 400);
+			if (!body.workflowId || typeof body.workflowId !== "string") {
+				return jsonResponse({ error: "workflowId is required and must be a string" }, 400);
 			}
 			if (!body.to) {
 				return jsonResponse({ error: "to is required" }, 400);
+			}
+			if (typeof body.to !== "string" && !Array.isArray(body.to)) {
+				return jsonResponse({ error: "to must be a string or array of strings" }, 400);
+			}
+			if (Array.isArray(body.to) && !body.to.every((item) => typeof item === "string")) {
+				return jsonResponse({ error: "to must be a string or array of strings" }, 400);
 			}
 
 			const transactionId = body.transactionId ?? ctx.generateId();
@@ -48,14 +54,18 @@ export const triggerRoutes = [
 					transactionId,
 				});
 
-				// Run plugin afterTrigger hooks
+				// Run plugin afterTrigger hooks — errors logged but don't fail the trigger
 				if (ctx.options.plugins) {
 					for (const plugin of ctx.options.plugins) {
 						if (plugin.hooks?.afterTrigger) {
-							await plugin.hooks.afterTrigger({
-								workflowId: body.workflowId,
-								transactionId,
-							});
+							try {
+								await plugin.hooks.afterTrigger({
+									workflowId: body.workflowId,
+									transactionId,
+								});
+							} catch (hookError) {
+								console.error(`[herald] Plugin "${plugin.id}" afterTrigger hook threw:`, hookError);
+							}
 						}
 					}
 				}
@@ -84,8 +94,8 @@ export const triggerRoutes = [
 				}>;
 			}>(request);
 
-			if (!body.events?.length) {
-				return jsonResponse({ error: "events array is required" }, 400);
+			if (!Array.isArray(body.events) || body.events.length === 0) {
+				return jsonResponse({ error: "events must be a non-empty array" }, 400);
 			}
 
 			const settled = await Promise.allSettled(
@@ -118,10 +128,14 @@ export const triggerRoutes = [
 						if (ctx.options.plugins) {
 							for (const plugin of ctx.options.plugins) {
 								if (plugin.hooks?.afterTrigger) {
-									await plugin.hooks.afterTrigger({
-										workflowId: event.workflowId,
-										transactionId,
-									});
+									try {
+										await plugin.hooks.afterTrigger({
+											workflowId: event.workflowId,
+											transactionId,
+										});
+									} catch (hookError) {
+										console.error(`[herald] Plugin "${plugin.id}" afterTrigger hook threw:`, hookError);
+									}
 								}
 							}
 						}

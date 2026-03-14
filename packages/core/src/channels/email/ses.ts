@@ -54,10 +54,11 @@ export function sesProvider(config: SESConfig): ChannelProvider {
 
 				return { messageId, status: "sent" };
 			} catch (err) {
+				console.error("[herald] SES send error:", err);
 				return {
 					messageId: "",
 					status: "failed",
-					error: err instanceof Error ? err.message : "SES send failed",
+					error: "SES send failed",
 				};
 			}
 		},

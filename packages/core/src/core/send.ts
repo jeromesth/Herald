@@ -155,16 +155,20 @@ export async function sendThroughProvider(
 		console.error(`[herald] Provider "${provider.providerId}" failed to send to ${message.to}: ${result.error ?? "unknown error"}`);
 	}
 
-	// Run afterSend hooks
+	// Run afterSend hooks — errors are logged but do not propagate since delivery already succeeded
 	if (ctx.options.plugins) {
 		for (const plugin of ctx.options.plugins) {
 			if (plugin.hooks?.afterSend) {
-				await plugin.hooks.afterSend({
-					subscriberId: message.subscriberId,
-					channel: message.channel,
-					messageId: result.messageId,
-					status: result.status,
-				});
+				try {
+					await plugin.hooks.afterSend({
+						subscriberId: message.subscriberId,
+						channel: message.channel,
+						messageId: result.messageId,
+						status: result.status,
+					});
+				} catch (hookError) {
+					console.error(`[herald] Plugin "${plugin.id}" afterSend hook threw:`, hookError);
+				}
 			}
 		}
 	}

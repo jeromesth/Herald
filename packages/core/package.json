@@ -119,6 +119,6 @@
 	"license": "MIT",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/jeromesth/inngest-notifications"
+		"url": "https://github.com/jeromesth/herald"
 	}
 }

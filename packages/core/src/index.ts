@@ -1,6 +1,6 @@
 // Core
 export { herald } from "./core/herald.js";
-export { preferenceGate } from "./core/preferences.js";
+export { preferenceGate, deepMerge } from "./core/preferences.js";
 export type { WorkflowMeta, PreferenceGateResult } from "./core/preferences.js";
 
 // Schema
@@ -65,6 +65,7 @@ export type {
 	HeraldContext,
 	Herald,
 	HeraldAPI,
+	CorsConfig,
 	ChannelConfig,
 	EmailChannelConfig,
 	InAppChannelConfig,

@@ -36,10 +36,11 @@ export function sendgridProvider(config: SendGridConfig): ChannelProvider {
 
 			if (!response.ok) {
 				const errorBody = await response.text();
+				console.error(`[herald] SendGrid API error ${response.status}:`, errorBody);
 				return {
 					messageId: "",
 					status: "failed",
-					error: `SendGrid error ${response.status}: ${errorBody}`,
+					error: `SendGrid error: HTTP ${response.status}`,
 				};
 			}
 

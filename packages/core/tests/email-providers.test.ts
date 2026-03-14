@@ -251,7 +251,7 @@ describe("Email Providers", () => {
 			});
 
 			expect(result.status).toBe("failed");
-			expect(result.error).toBe("SES quota exceeded");
+			expect(result.error).toBe("SES send failed");
 		});
 
 		it("handles non-Error throw values", async () => {

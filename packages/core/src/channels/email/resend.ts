@@ -36,10 +36,11 @@ export function resendProvider(config: ResendConfig): ChannelProvider {
 
 			if (!response.ok) {
 				const errorBody = await response.text();
+				console.error(`[herald] Resend API error ${response.status}:`, errorBody);
 				return {
 					messageId: "",
 					status: "failed",
-					error: `Resend error ${response.status}: ${errorBody}`,
+					error: `Resend error: HTTP ${response.status}`,
 				};
 			}
 

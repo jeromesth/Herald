@@ -1,6 +1,11 @@
 import type { HeraldContext, SubscriberRecord } from "../../types/config.js";
 import { jsonResponse, parseJsonBody } from "../router.js";
 
+/** Basic email format check — not exhaustive, just catches obvious mistakes. */
+function isValidEmail(value: string): boolean {
+	return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
 const typeValidators: Record<string, (v: unknown) => boolean> = {
 	string: (v) => typeof v === "string",
 	number: (v) => typeof v === "number",
@@ -33,6 +38,10 @@ export const subscriberRoutes = [
 			const externalId = typeof body.externalId === "string" ? body.externalId : "";
 			if (!externalId) {
 				return jsonResponse({ error: "externalId is required" }, 400);
+			}
+
+			if (typeof body.email === "string" && !isValidEmail(body.email)) {
+				return jsonResponse({ error: "Invalid email format" }, 400);
 			}
 
 			const subscriberData = {
@@ -115,6 +124,10 @@ export const subscriberRoutes = [
 
 			if (!existing) {
 				return jsonResponse({ error: "Subscriber not found" }, 404);
+			}
+
+			if ("email" in body && typeof body.email === "string" && !isValidEmail(body.email)) {
+				return jsonResponse({ error: "Invalid email format" }, 400);
 			}
 
 			const updateBody: Record<string, unknown> = {};
