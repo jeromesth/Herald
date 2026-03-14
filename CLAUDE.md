@@ -108,6 +108,12 @@ Format: `type: description`
 
 Write concise descriptions focused on **what changed and why**, not implementation details.
 
+## Development Methodology
+
+- **BDD + TDD is mandatory** — write tests first, implement to make them pass
+- **Contract test suites** exist for DatabaseAdapter and WorkflowAdapter — new implementations must wire into them
+- Contract suites live in `packages/core/tests/contracts/`
+
 ## Testing
 
 - Tests live in `packages/core/tests/*.test.ts`

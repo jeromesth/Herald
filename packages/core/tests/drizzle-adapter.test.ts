@@ -16,7 +16,7 @@ function createMockDb(options?: { returnData?: unknown[]; countResult?: number }
 		calls.push({ method: startMethod, args: startArgs });
 
 		const chain: Record<string, unknown> = {};
-		const chainMethods = ["from", "where", "limit", "offset", "orderBy", "values", "set", "returning"];
+		const chainMethods = ["from", "where", "limit", "offset", "orderBy", "values", "set", "returning", "$dynamic"];
 
 		for (const method of chainMethods) {
 			chain[method] = (...args: unknown[]) => {

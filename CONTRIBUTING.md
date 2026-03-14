@@ -112,9 +112,25 @@ export function mysqlAdapter(connection: MysqlConnection): DatabaseAdapter {
 
 Re-export from `packages/core/src/adapters/database/index.ts`.
 
-### 4. Write tests
+### 4. Wire up to the contract test suite
 
-Add `packages/core/tests/mysql-adapter.test.ts`. Use the existing memory adapter tests as a reference for the operations you need to cover.
+Every DatabaseAdapter implementation MUST pass the shared contract test suite:
+
+```ts
+import { yourAdapter } from "../src/adapters/database/your-adapter.js";
+import { runDatabaseAdapterContract } from "./contracts/database-adapter.contract.js";
+
+runDatabaseAdapterContract("yourAdapter", () => {
+  const client = createMockClient();
+  return yourAdapter(client);
+});
+```
+
+All contract tests must pass before the PR can be merged.
+
+### 5. Add adapter-specific tests
+
+Add any tests for implementation details not covered by the contract (e.g., error handling for unknown models, provider-specific behavior).
 
 ## Adding a Channel Provider
 
@@ -163,6 +179,38 @@ Users register providers when creating a Herald instance. Make sure your provide
 ### 4. Write tests
 
 Mock the external API and verify that `send()` maps Herald's message format to the provider's API correctly.
+
+## Adding a Workflow Adapter
+
+Workflow adapters abstract the underlying workflow engine (Inngest, Upstash, Temporal, etc.):
+
+### 1. Create the adapter file
+
+```
+packages/core/src/adapters/workflow/your-engine.ts
+```
+
+### 2. Implement the `WorkflowAdapter` interface
+
+See `packages/core/src/types/workflow.ts` for the interface definition.
+
+### 3. Wire up to the contract test suite
+
+Every WorkflowAdapter implementation MUST pass the shared contract test suite:
+
+```ts
+import { yourWorkflowAdapter } from "../src/adapters/workflow/your-engine.js";
+import { runWorkflowAdapterContract } from "./contracts/workflow-adapter.contract.js";
+
+runWorkflowAdapterContract("yourWorkflowAdapter", () => {
+  const client = createMockClient();
+  return yourWorkflowAdapter({ client });
+});
+```
+
+### 4. Add adapter-specific tests
+
+Add tests for engine-specific behavior (e.g., HTTP handler, event routing) not covered by the contract.
 
 ## Adding a Plugin
 
@@ -294,6 +342,7 @@ Before opening your pull request, confirm:
 - [ ] `pnpm lint` reports no issues
 - [ ] `pnpm typecheck` reports no errors
 - [ ] New code has tests covering happy path and edge cases
+- [ ] Contract tests wired and passing (100%) for any new adapter
 - [ ] Commit messages follow `type: description` format
 - [ ] Public APIs have JSDoc comments
 - [ ] No `console.log` left in production code
