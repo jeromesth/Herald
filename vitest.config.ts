@@ -7,9 +7,20 @@ export default defineConfig({
 		include: ["packages/**/*.test.ts"],
 		coverage: {
 			provider: "v8",
-			reporter: ["text", "json", "html"],
+			reporter: ["text", "json", "json-summary", "html"],
 			include: ["packages/*/src/**/*.ts"],
-			exclude: ["**/*.test.ts", "**/*.d.ts", "**/types/**", "**/index.ts"],
+			exclude: [
+				"**/*.test.ts",
+				"**/*.d.ts",
+				"**/types/**",
+				"**/src/index.ts",
+				"**/channels/index.ts",
+				"**/channels/email/index.ts",
+				"**/adapters/memory.ts",
+				"**/adapters/database/drizzle/index.ts",
+				"**/api/index.ts",
+				"**/templates/types.ts",
+			],
 			thresholds: {
 				lines: 60,
 				branches: 50,

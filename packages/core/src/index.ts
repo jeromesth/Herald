@@ -1,5 +1,7 @@
 // Core
 export { herald } from "./core/herald.js";
+export { preferenceGate } from "./core/preferences.js";
+export type { WorkflowMeta, PreferenceGateResult } from "./core/preferences.js";
 
 // Schema
 export { coreSchema, mergeSchemas } from "./db/schema.js";
@@ -69,6 +71,7 @@ export type {
 	SmsChannelConfig,
 	PushChannelConfig,
 	DefaultPreferences,
+	WorkflowChannelPreference,
 	SubscriberRecord,
 	NotificationRecord,
 	PreferenceRecord,

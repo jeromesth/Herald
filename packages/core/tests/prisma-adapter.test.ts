@@ -13,7 +13,7 @@ function createMockPrismaClient() {
 		if (!store.has(model)) {
 			store.set(model, new Map());
 		}
-		return store.get(model)!;
+		return store.get(model) as Map<string, Record<string, unknown>>;
 	}
 
 	function matchesPrismaWhere(record: Record<string, unknown>, where: Record<string, unknown> | undefined): boolean {
@@ -121,7 +121,7 @@ function createMockPrismaClient() {
 				}
 
 				if (args.orderBy) {
-					const [field, direction] = Object.entries(args.orderBy)[0]!;
+					const [field, direction] = Object.entries(args.orderBy)[0] as [string, string];
 					results.sort((a, b) => {
 						const aVal = a[field];
 						const bVal = b[field];

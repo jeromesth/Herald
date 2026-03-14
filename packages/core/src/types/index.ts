@@ -55,6 +55,7 @@ export type {
 	SmsChannelConfig,
 	PushChannelConfig,
 	DefaultPreferences,
+	WorkflowChannelPreference,
 	SubscriberRecord,
 	NotificationRecord,
 	PreferenceRecord,

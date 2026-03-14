@@ -24,7 +24,7 @@ describe("upstashWorkflowAdapter", () => {
 	const mockFetch = vi.fn();
 
 	beforeEach(() => {
-		mockFetch.mockClear();
+		mockFetch.mockReset();
 		mockFetch.mockResolvedValue(new Response(JSON.stringify({ messageId: "msg-1" }), { status: 200 }));
 		vi.stubGlobal("fetch", mockFetch);
 	});
