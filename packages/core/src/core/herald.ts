@@ -305,6 +305,7 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 					subscriberId: internalSubscriberId,
 					channels: { ...existing.channels, ...preferences.channels },
 					workflows: { ...existing.workflows, ...preferences.workflows },
+					categories: { ...existing.categories, ...preferences.categories },
 					purposes: { ...existing.purposes, ...preferences.purposes },
 				};
 
@@ -323,6 +324,7 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 				subscriberId: internalSubscriberId,
 				channels: { ...defaults.channels, ...preferences.channels },
 				workflows: { ...defaults.workflows, ...preferences.workflows },
+				categories: { ...defaults.categories, ...preferences.categories },
 				purposes: { ...defaults.purposes, ...preferences.purposes },
 			};
 

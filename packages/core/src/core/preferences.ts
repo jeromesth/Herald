@@ -90,6 +90,7 @@ export function defaultPreferenceRecord(ctx: HeraldContext, subscriberId: string
 		subscriberId,
 		channels: { ...(ctx.options.defaultPreferences?.channels ?? {}) },
 		workflows: { ...(ctx.options.defaultPreferences?.workflows ?? {}) },
+		categories: { ...(ctx.options.defaultPreferences?.categories ?? {}) },
 		purposes: { ...(ctx.options.defaultPreferences?.purposes ?? {}) },
 	};
 }

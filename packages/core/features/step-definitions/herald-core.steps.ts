@@ -164,7 +164,7 @@ Given(
 Given("I have the first notification ID for subscriber {string}", async function (this: CoreWorld, externalId: string) {
 	const { notifications } = await this.api.getNotifications({ subscriberId: externalId });
 	assert.ok(notifications.length > 0, "Expected at least one notification");
-	this.notificationIds = [notifications[0]!.id];
+	this.notificationIds = [notifications[0]?.id];
 });
 
 Given("I have all notification IDs for subscriber {string}", async function (this: CoreWorld, externalId: string) {
@@ -181,7 +181,7 @@ Given("a plugin with a {string} hook that records calls", function (this: CoreWo
 		id: "test-plugin",
 		hooks: {
 			[hookName]: async (args: unknown) => {
-				calls[hookName]!.push(args);
+				calls[hookName]?.push(args);
 			},
 		},
 	};
@@ -194,7 +194,7 @@ Given("a plugin with an {string} hook that records calls", function (this: CoreW
 		id: "test-plugin",
 		hooks: {
 			[hookName]: async (args: unknown) => {
-				calls[hookName]!.push(args);
+				calls[hookName]?.push(args);
 			},
 		},
 	};
@@ -483,5 +483,5 @@ Then("the trigger transactionId should be {string}", function (this: CoreWorld, 
 
 Then("the {string} hook should have been called", function (this: CoreWorld, hookName: string) {
 	assert.ok(this.pluginCalls[hookName], `Expected "${hookName}" calls to be tracked`);
-	assert.ok(this.pluginCalls[hookName]!.length > 0, `Expected "${hookName}" hook to have been called at least once`);
+	assert.ok(this.pluginCalls[hookName]?.length > 0, `Expected "${hookName}" hook to have been called at least once`);
 });
