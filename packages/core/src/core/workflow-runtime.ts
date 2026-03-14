@@ -1,4 +1,4 @@
-import type { HeraldContext } from "../types/config.js";
+import type { HeraldContext, PreferenceRecord } from "../types/config.js";
 import type {
 	ChannelType,
 	FetchConfig,
@@ -10,17 +10,25 @@ import type {
 	ThrottleConfig,
 	ThrottleResult,
 } from "../types/workflow.js";
+import type { WorkflowMeta } from "./preferences.js";
+import { preferenceGate } from "./preferences.js";
 import { sendThroughProvider } from "./send.js";
 import { resolveRecipient, resolveSubscriberForStep } from "./subscriber.js";
 
 export function wrapWorkflow(workflow: NotificationWorkflow, ctx: HeraldContext): NotificationWorkflow {
+	const meta: WorkflowMeta = {
+		workflowId: workflow.id,
+		critical: workflow.critical,
+		purpose: workflow.purpose,
+		preferences: workflow.preferences,
+	};
 	return {
 		...workflow,
-		steps: workflow.steps.map((step) => wrapStep(workflow.id, step, ctx)),
+		steps: workflow.steps.map((step) => wrapStep(meta, step, ctx)),
 	};
 }
 
-function wrapStep(workflowId: string, step: NotificationWorkflow["steps"][number], ctx: HeraldContext) {
+function wrapStep(workflowMeta: WorkflowMeta, step: NotificationWorkflow["steps"][number], ctx: HeraldContext) {
 	const originalHandler = step.handler;
 
 	return {
@@ -39,15 +47,80 @@ function wrapStep(workflowId: string, step: NotificationWorkflow["steps"][number
 			const subscriber = await resolveSubscriberForStep(ctx, context.subscriber);
 			if (!subscriber) {
 				console.warn(
-					`[herald] Workflow "${workflowId}" step "${step.stepId}": subscriber "${context.subscriber.externalId}" not found, skipping delivery`,
+					`[herald] Workflow "${workflowMeta.workflowId}" step "${step.stepId}": subscriber "${context.subscriber.externalId}" not found, skipping delivery`,
 				);
 				return result;
+			}
+
+			// Load subscriber preferences and run preference gate
+			let subscriberPrefs: PreferenceRecord | null = null;
+			try {
+				subscriberPrefs = await ctx.db.findOne<PreferenceRecord>({
+					model: "preference",
+					where: [{ field: "subscriberId", value: subscriber.id }],
+				});
+			} catch (error) {
+				console.error(
+					`[herald] Workflow "${workflowMeta.workflowId}" step "${step.stepId}": failed to load preferences for subscriber "${subscriber.id}", proceeding with defaults`,
+					error,
+				);
+			}
+
+			// Run beforePreferenceCheck plugin hooks
+			let pluginOverride: boolean | undefined;
+			if (ctx.options.plugins) {
+				for (const plugin of ctx.options.plugins) {
+					if (plugin.hooks?.beforePreferenceCheck) {
+						try {
+							const hookResult = await plugin.hooks.beforePreferenceCheck({
+								subscriberId: subscriber.id,
+								workflowId: workflowMeta.workflowId,
+								channel: step.type,
+								purpose: workflowMeta.purpose,
+								critical: workflowMeta.critical,
+							});
+							if (hookResult?.override !== undefined) {
+								if (!hookResult.override) {
+									console.info(
+										`[herald] Workflow "${workflowMeta.workflowId}" step "${step.stepId}": blocked by plugin "${plugin.id}" beforePreferenceCheck`,
+									);
+									await runAfterPreferenceHooks(ctx, subscriber.id, workflowMeta.workflowId, step.type, false, "plugin override");
+									return result;
+								}
+								// override === true: skip preference gate, allow delivery
+								console.info(
+									`[herald] Workflow "${workflowMeta.workflowId}" step "${step.stepId}": delivery forced by plugin "${plugin.id}" beforePreferenceCheck`,
+								);
+								pluginOverride = true;
+								await runAfterPreferenceHooks(ctx, subscriber.id, workflowMeta.workflowId, step.type, true, "plugin override");
+								break;
+							}
+						} catch (error) {
+							console.error(
+								`[herald] Plugin "${plugin.id}" beforePreferenceCheck hook threw for workflow "${workflowMeta.workflowId}" step "${step.stepId}":`,
+								error,
+							);
+						}
+					}
+				}
+			}
+
+			if (!pluginOverride) {
+				const gateResult = preferenceGate(subscriberPrefs ?? undefined, workflowMeta, step.type, ctx.options.defaultPreferences);
+
+				// Run afterPreferenceCheck plugin hooks
+				await runAfterPreferenceHooks(ctx, subscriber.id, workflowMeta.workflowId, step.type, gateResult.allowed, gateResult.reason);
+
+				if (!gateResult.allowed) {
+					console.info(`[herald] Workflow "${workflowMeta.workflowId}" step "${step.stepId}": delivery blocked — ${gateResult.reason}`);
+					return result;
+				}
 			}
 
 			const recipient = resolveRecipient(step.type, subscriber);
 			if (!recipient) {
 				console.warn(
-					`[herald] Workflow "${workflowId}" step "${step.stepId}": subscriber "${subscriber.externalId}" has no recipient for channel "${step.type}", skipping delivery`,
+					`[herald] Workflow "${workflowMeta.workflowId}" step "${step.stepId}": subscriber "${subscriber.externalId}" has no recipient for channel "${step.type}", skipping delivery`,
 				);
 				return result;
 			}
@@ -62,7 +135,7 @@ function wrapStep(workflowId: string, step: NotificationWorkflow["steps"][number
 				layoutId: typeof result.data?.layoutId === "string" ? result.data.layoutId : undefined,
 				data: {
 					...result.data,
-					workflowId,
+					workflowId: workflowMeta.workflowId,
 					payload: context.payload,
 				},
 			});
@@ -70,6 +143,26 @@ function wrapStep(workflowId: string, step: NotificationWorkflow["steps"][number
 			return result;
 		},
 	};
+}
+
+async function runAfterPreferenceHooks(
+	ctx: HeraldContext,
+	subscriberId: string,
+	workflowId: string,
+	channel: ChannelType,
+	allowed: boolean,
+	reason: string,
+): Promise<void> {
+	if (!ctx.options.plugins) return;
+	for (const plugin of ctx.options.plugins) {
+		if (plugin.hooks?.afterPreferenceCheck) {
+			try {
+				await plugin.hooks.afterPreferenceCheck({ subscriberId, workflowId, channel, allowed, reason });
+			} catch (error) {
+				console.error(`[herald] Plugin "${plugin.id}" afterPreferenceCheck hook threw:`, error);
+			}
+		}
+	}
 }
 
 function isChannelStep(stepType: string): stepType is ChannelType {
