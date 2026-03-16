@@ -1,5 +1,8 @@
+import { z } from "zod";
 import type { HeraldContext, SubscriberRecord } from "../../types/config.js";
 import { jsonResponse, parseJsonBody } from "../router.js";
+
+const emailSchema = z.string().email();
 
 const typeValidators: Record<string, (v: unknown) => boolean> = {
 	string: (v) => typeof v === "string",
@@ -33,6 +36,10 @@ export const subscriberRoutes = [
 			const externalId = typeof body.externalId === "string" ? body.externalId : "";
 			if (!externalId) {
 				return jsonResponse({ error: "externalId is required" }, 400);
+			}
+
+			if (typeof body.email === "string" && !emailSchema.safeParse(body.email).success) {
+				return jsonResponse({ error: "Invalid email format" }, 400);
 			}
 
 			const subscriberData = {
@@ -115,6 +122,10 @@ export const subscriberRoutes = [
 
 			if (!existing) {
 				return jsonResponse({ error: "Subscriber not found" }, 404);
+			}
+
+			if ("email" in body && typeof body.email === "string" && !emailSchema.safeParse(body.email).success) {
+				return jsonResponse({ error: "Invalid email format" }, 400);
 			}
 
 			const updateBody: Record<string, unknown> = {};

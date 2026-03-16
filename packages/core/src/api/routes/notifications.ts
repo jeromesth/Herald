@@ -9,9 +9,9 @@ export const notificationRoutes = [
 			const url = new URL(request.url);
 			const limit = Number.parseInt(url.searchParams.get("limit") ?? "20", 10);
 			const offset = Number.parseInt(url.searchParams.get("offset") ?? "0", 10);
-			const read = url.searchParams.has("read") ? url.searchParams.get("read") === "true" : undefined;
-			const seen = url.searchParams.has("seen") ? url.searchParams.get("seen") === "true" : undefined;
-			const archived = url.searchParams.has("archived") ? url.searchParams.get("archived") === "true" : undefined;
+			const read = url.searchParams.has("read") ? url.searchParams.get("read") !== "false" : undefined;
+			const seen = url.searchParams.has("seen") ? url.searchParams.get("seen") !== "false" : undefined;
+			const archived = url.searchParams.has("archived") ? url.searchParams.get("archived") !== "false" : undefined;
 
 			// Resolve subscriber internal ID from external ID
 			const subscriber = await ctx.db.findOne<{ id: string }>({
@@ -53,7 +53,7 @@ export const notificationRoutes = [
 		pattern: "/notifications/:subscriberId/count",
 		handler: async (request: Request, ctx: HeraldContext, params: Record<string, string>) => {
 			const url = new URL(request.url);
-			const read = url.searchParams.has("read") ? url.searchParams.get("read") === "true" : undefined;
+			const read = url.searchParams.has("read") ? url.searchParams.get("read") !== "false" : undefined;
 
 			const subscriber = await ctx.db.findOne<{ id: string }>({
 				model: "subscriber",

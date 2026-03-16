@@ -49,6 +49,7 @@ export type {
 	HeraldContext,
 	Herald,
 	HeraldAPI,
+	CorsConfig,
 	ChannelConfig,
 	EmailChannelConfig,
 	InAppChannelConfig,

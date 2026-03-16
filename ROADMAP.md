@@ -127,6 +127,8 @@ Priority: **Low** | Comparable: Knock/Novu enterprise features
 - [ ] **Comprehensive documentation** — guides, tutorials, API reference
 - [ ] **Performance benchmarks** — load testing and optimization
 - [ ] **Security audit** — rate limiting, input validation, CSRF protection
+- [ ] **CORS multi-origin verification** — manually verify CORS preflight with multi-origin config reflects the correct `Access-Control-Allow-Origin` for each request origin
+- [ ] **Zod email validation edge cases** — verify Zod `z.string().email()` rejects edge cases the old custom regex accepted (e.g. missing TLD, quoted local parts)
 
 ---
 

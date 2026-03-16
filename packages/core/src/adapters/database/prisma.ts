@@ -13,6 +13,7 @@
  * const adapter = prismaAdapter(prisma, { provider: "postgresql" });
  * ```
  */
+import { HeraldNotFoundError, HeraldValidationError } from "../../errors.js";
 import type { DatabaseAdapter, Where, WhereOperator } from "../../types/adapter.js";
 
 export interface PrismaAdapterConfig {
@@ -61,7 +62,7 @@ export function prismaAdapter(prisma: PrismaClientLike, config: PrismaAdapterCon
 			| undefined;
 
 		if (!delegate) {
-			throw new Error(
+			throw new HeraldValidationError(
 				`[herald/prisma] Model "${modelName}" not found in Prisma Client. ` +
 					`Make sure your Prisma schema includes a model named "${modelName}".`,
 			);
@@ -123,7 +124,7 @@ export function prismaAdapter(prisma: PrismaClientLike, config: PrismaAdapterCon
 
 		const prismaOp = operatorMap[operator];
 		if (!prismaOp) {
-			throw new Error(`[herald/prisma] Unsupported operator: ${operator}`);
+			throw new HeraldValidationError(`[herald/prisma] Unsupported operator: ${operator}`);
 		}
 
 		return { [field]: { [prismaOp]: value } };
@@ -223,7 +224,7 @@ export function prismaAdapter(prisma: PrismaClientLike, config: PrismaAdapterCon
 				})) as { id: string } | null;
 
 				if (!existing) {
-					throw new Error(`[herald/prisma] Record not found for update in "${args.model}"`);
+					throw new HeraldNotFoundError(args.model, `[herald/prisma] Record not found for update in "${args.model}"`);
 				}
 
 				const result = await delegate.update({
@@ -264,7 +265,7 @@ export function prismaAdapter(prisma: PrismaClientLike, config: PrismaAdapterCon
 				})) as { id: string } | null;
 
 				if (!existing) {
-					throw new Error(`[herald/prisma] Record not found for delete in "${args.model}"`);
+					throw new HeraldNotFoundError(args.model, `[herald/prisma] Record not found for delete in "${args.model}"`);
 				}
 
 				await delegate.delete({

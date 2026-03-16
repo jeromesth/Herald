@@ -253,6 +253,15 @@ export function checkThrottle(ctx: HeraldContext, config: ThrottleConfig): Throt
 	const windowMs = toMs(config.window, config.unit);
 	const state = ctx.throttleState.get(config.key);
 
+	// Periodically clean up expired throttle entries to prevent unbounded memory growth
+	if (ctx.throttleState.size > 1000) {
+		for (const [key, entry] of ctx.throttleState) {
+			if (now - entry.windowStart >= windowMs * 2) {
+				ctx.throttleState.delete(key);
+			}
+		}
+	}
+
 	if (!state || now - state.windowStart >= windowMs) {
 		ctx.throttleState.set(config.key, { count: 1, windowStart: now });
 		return { throttled: false, count: 1, limit: config.limit };

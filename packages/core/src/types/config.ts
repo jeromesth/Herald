@@ -88,6 +88,12 @@ export interface HeraldOptions {
 	realtime?: boolean | { heartbeatMs?: number };
 
 	/**
+	 * CORS configuration for API responses.
+	 * Set to `true` to allow all origins, or provide specific options.
+	 */
+	cors?: boolean | CorsConfig;
+
+	/**
 	 * Custom channel providers (alternative to channels config).
 	 * Directly provide ChannelProvider instances.
 	 */
@@ -100,6 +106,20 @@ export interface HeraldOptions {
 		/** Generate unique IDs. Defaults to crypto.randomUUID(). */
 		generateId?: () => string;
 	};
+}
+
+/**
+ * CORS configuration for Herald API responses.
+ */
+export interface CorsConfig {
+	/** Allowed origins. Use `"*"` for all origins. @default "*" */
+	origin?: string | string[];
+	/** Allowed HTTP methods. @default ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"] */
+	methods?: string[];
+	/** Allowed headers. @default ["Content-Type", "Authorization"] */
+	allowedHeaders?: string[];
+	/** Max age for preflight cache in seconds. @default 86400 */
+	maxAge?: number;
 }
 
 /**

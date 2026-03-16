@@ -1,3 +1,4 @@
+import { HeraldProviderError } from "../errors.js";
 import { renderEmail } from "../templates/layouts.js";
 import type { TemplateContext } from "../templates/types.js";
 import type { HeraldContext } from "../types/config.js";
@@ -75,7 +76,7 @@ export async function sendThroughProvider(
 ): Promise<{ messageId: string; status: string }> {
 	const provider = ctx.channels.get(initialMessage.channel);
 	if (!provider) {
-		throw new Error(`No provider registered for channel "${initialMessage.channel}"`);
+		throw new HeraldProviderError(`No provider registered for channel "${initialMessage.channel}"`);
 	}
 
 	const message: ProviderSendArgs = {
@@ -155,16 +156,20 @@ export async function sendThroughProvider(
 		console.error(`[herald] Provider "${provider.providerId}" failed to send to ${message.to}: ${result.error ?? "unknown error"}`);
 	}
 
-	// Run afterSend hooks
+	// Run afterSend hooks — errors are logged but do not propagate since delivery already succeeded
 	if (ctx.options.plugins) {
 		for (const plugin of ctx.options.plugins) {
 			if (plugin.hooks?.afterSend) {
-				await plugin.hooks.afterSend({
-					subscriberId: message.subscriberId,
-					channel: message.channel,
-					messageId: result.messageId,
-					status: result.status,
-				});
+				try {
+					await plugin.hooks.afterSend({
+						subscriberId: message.subscriberId,
+						channel: message.channel,
+						messageId: result.messageId,
+						status: result.status,
+					});
+				} catch (hookError) {
+					console.error(`[herald] Plugin "${plugin.id}" afterSend hook threw:`, hookError);
+				}
 			}
 		}
 	}

@@ -14,6 +14,7 @@
  * ```
  */
 import { conditionsPass, performFetch, toMs } from "../../core/workflow-runtime.js";
+import { HeraldConfigError, HeraldValidationError } from "../../errors.js";
 import type {
 	CancelArgs,
 	DigestedEvent,
@@ -132,10 +133,15 @@ export type PostgresWorkflowAdapter = WorkflowAdapter & {
 
 export function postgresWorkflowAdapter(config: PostgresWorkflowConfig): PostgresWorkflowAdapter {
 	if (!config.pool && !config.connectionString) {
-		throw new Error("postgresWorkflowAdapter requires either a `pool` or `connectionString` option");
+		throw new HeraldConfigError("postgresWorkflowAdapter requires either a `pool` or `connectionString` option");
 	}
 
 	const prefix = config.tablePrefix ?? "herald_wf";
+	if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(prefix)) {
+		throw new HeraldValidationError(
+			`Invalid tablePrefix "${prefix}": must contain only alphanumeric characters and underscores, and start with a letter or underscore`,
+		);
+	}
 	const pollInterval = config.pollInterval ?? 1000;
 	const concurrency = config.concurrency ?? 10;
 	const maxRetries = config.maxRetries ?? 3;
@@ -159,9 +165,10 @@ export function postgresWorkflowAdapter(config: PostgresWorkflowConfig): Postgre
 		if (config.pool) {
 			pool = config.pool;
 		} else {
-			// Dynamic import so pg is only required when using connectionString
-			// @ts-expect-error — pg types not required; we type against PgPool
-			const pgModule = (await import("pg")) as Record<string, unknown>;
+			// Dynamic import so pg is only required when using connectionString.
+			// The import is untyped because pg is an optional peer dependency.
+			const pgModulePath = "pg";
+			const pgModule = (await import(pgModulePath)) as Record<string, unknown>;
 			const defaultExport = pgModule.default as Record<string, unknown> | undefined;
 			const PoolCtor = defaultExport?.Pool ?? pgModule.Pool;
 			pool = new (PoolCtor as new (opts: { connectionString?: string }) => PgPool)({

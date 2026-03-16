@@ -3,6 +3,7 @@ import { resendProvider } from "../channels/email/resend.js";
 import { sendgridProvider } from "../channels/email/sendgrid.js";
 import { sesProvider } from "../channels/email/ses.js";
 import type { ChannelProvider, ChannelProviderMessage, ChannelProviderResult } from "../channels/provider.js";
+import { HeraldConfigError } from "../errors.js";
 /**
  * Build a ChannelProvider from the EmailChannelConfig shorthand.
  */
@@ -10,7 +11,7 @@ import type { EmailChannelConfig } from "../types/config.js";
 
 function requireApiKey(config: EmailChannelConfig, providerName: string): string {
 	if (!config.apiKey) {
-		throw new Error(`${providerName} provider requires an apiKey`);
+		throw new HeraldConfigError(`${providerName} provider requires an apiKey`);
 	}
 	return config.apiKey;
 }
@@ -38,7 +39,7 @@ export function buildEmailProvider(config: EmailChannelConfig): ChannelProvider 
 		case "ses": {
 			const sesSend = config.send;
 			if (!sesSend) {
-				throw new Error("SES provider requires a custom send function");
+				throw new HeraldConfigError("SES provider requires a custom send function");
 			}
 			return sesProvider({
 				from: config.from,
@@ -52,13 +53,15 @@ export function buildEmailProvider(config: EmailChannelConfig): ChannelProvider 
 		case "custom": {
 			const customSend = config.send;
 			if (!customSend) {
-				throw new Error("Custom email provider requires a send function");
+				throw new HeraldConfigError("Custom email provider requires a send function");
 			}
 			return createCustomEmailProvider({ ...config, send: customSend });
 		}
 
 		default:
-			throw new Error(`Unknown email provider "${config.provider}". Supported providers: sendgrid, resend, postmark, ses, custom`);
+			throw new HeraldConfigError(
+				`Unknown email provider "${config.provider}". Supported providers: sendgrid, resend, postmark, ses, custom`,
+			);
 	}
 }
 
