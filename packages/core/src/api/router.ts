@@ -57,8 +57,8 @@ export function createRouter(
 		}
 	}
 
-	// Initialize CORS headers from config
-	setCorsHeaders(ctx.options.cors);
+	// Initialize CORS config
+	setCorsConfig(ctx.options.cors);
 
 	return async (request: Request): Promise<Response> => {
 		if (pluginsReady) {
@@ -67,7 +67,8 @@ export function createRouter(
 
 		// Handle CORS preflight requests
 		if (request.method === "OPTIONS" && ctx.options.cors) {
-			return new Response(null, { status: 204, headers: activeCorsHeaders });
+			const requestOrigin = request.headers.get("origin");
+			return new Response(null, { status: 204, headers: buildCorsHeaders(ctx.options.cors, requestOrigin) });
 		}
 
 		const url = new URL(request.url);
@@ -121,34 +122,65 @@ function matchRoute(pattern: string, path: string): Record<string, string> | nul
 	return params;
 }
 
-function buildCorsHeaders(corsOption: boolean | CorsConfig | undefined): Record<string, string> {
+/**
+ * Build CORS response headers from config.
+ *
+ * NOTE: Most CORS libraries (e.g. `cors` on npm) are Express/Connect middleware
+ * and require `req`/`res` objects. Herald uses web-standard Request/Response,
+ * so we implement CORS directly. The logic here is intentionally simple —
+ * Herald is a notification API, not a general-purpose web framework.
+ *
+ * Key behaviour:
+ * - `cors: true` → wildcard origin, standard methods/headers.
+ * - `cors: { origin: ["https://a.com", "https://b.com"] }` → the first
+ *   matching origin is reflected (per the spec, `Access-Control-Allow-Origin`
+ *   only accepts a single origin or `*`). A `Vary: Origin` header is added
+ *   so caches don't serve the wrong origin.
+ */
+export function buildCorsHeaders(corsOption: boolean | CorsConfig | undefined, requestOrigin?: string | null): Record<string, string> {
 	if (!corsOption) return {};
 
 	const config: CorsConfig = corsOption === true ? {} : corsOption;
-	const origin = config.origin ?? "*";
+	const configuredOrigin = config.origin ?? "*";
 	const methods = config.methods ?? ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"];
 	const allowedHeaders = config.allowedHeaders ?? ["Content-Type", "Authorization"];
 	const maxAge = config.maxAge ?? 86400;
 
-	return {
-		"Access-Control-Allow-Origin": Array.isArray(origin) ? origin.join(", ") : origin,
-		"Access-Control-Allow-Methods": methods.join(", "),
-		"Access-Control-Allow-Headers": allowedHeaders.join(", "),
-		"Access-Control-Max-Age": String(maxAge),
-	};
+	let resolvedOrigin: string;
+	const headers: Record<string, string> = {};
+
+	if (Array.isArray(configuredOrigin)) {
+		// Per spec, Access-Control-Allow-Origin must be a single origin or "*".
+		// Reflect the request origin if it's in the allow-list.
+		if (requestOrigin && configuredOrigin.includes(requestOrigin)) {
+			resolvedOrigin = requestOrigin;
+		} else {
+			resolvedOrigin = configuredOrigin[0] ?? "*";
+		}
+		headers.Vary = "Origin";
+	} else {
+		resolvedOrigin = configuredOrigin;
+	}
+
+	headers["Access-Control-Allow-Origin"] = resolvedOrigin;
+	headers["Access-Control-Allow-Methods"] = methods.join(", ");
+	headers["Access-Control-Allow-Headers"] = allowedHeaders.join(", ");
+	headers["Access-Control-Max-Age"] = String(maxAge);
+
+	return headers;
 }
 
-/** Active CORS headers — set once by createRouter, used by jsonResponse. */
-let activeCorsHeaders: Record<string, string> = {};
+/** Active CORS config — set once by createRouter. */
+let activeCorsConfig: boolean | CorsConfig | undefined;
 
-export function setCorsHeaders(corsOption: boolean | CorsConfig | undefined): void {
-	activeCorsHeaders = buildCorsHeaders(corsOption);
+export function setCorsConfig(corsOption: boolean | CorsConfig | undefined): void {
+	activeCorsConfig = corsOption;
 }
 
 export function jsonResponse(data: unknown, status = 200): Response {
 	return new Response(JSON.stringify(data), {
 		status,
-		headers: { "Content-Type": "application/json", ...activeCorsHeaders },
+		headers: { "Content-Type": "application/json", ...buildCorsHeaders(activeCorsConfig) },
 	});
 }
 

@@ -14,6 +14,7 @@
  * ```
  */
 import { conditionsPass, performFetch, toMs } from "../../core/workflow-runtime.js";
+import { HeraldConfigError, HeraldValidationError } from "../../errors.js";
 import type {
 	CancelArgs,
 	DigestedEvent,
@@ -132,12 +133,12 @@ export type PostgresWorkflowAdapter = WorkflowAdapter & {
 
 export function postgresWorkflowAdapter(config: PostgresWorkflowConfig): PostgresWorkflowAdapter {
 	if (!config.pool && !config.connectionString) {
-		throw new Error("postgresWorkflowAdapter requires either a `pool` or `connectionString` option");
+		throw new HeraldConfigError("postgresWorkflowAdapter requires either a `pool` or `connectionString` option");
 	}
 
 	const prefix = config.tablePrefix ?? "herald_wf";
 	if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(prefix)) {
-		throw new Error(
+		throw new HeraldValidationError(
 			`Invalid tablePrefix "${prefix}": must contain only alphanumeric characters and underscores, and start with a letter or underscore`,
 		);
 	}

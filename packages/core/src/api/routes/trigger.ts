@@ -1,5 +1,36 @@
 import type { HeraldContext } from "../../types/config.js";
+import type { HeraldPlugin } from "../../types/plugin.js";
 import { jsonResponse, parseJsonBody } from "../router.js";
+
+type PluginHooks = NonNullable<HeraldPlugin["hooks"]>;
+type HookArgs<K extends keyof PluginHooks> = PluginHooks[K] extends ((a: infer A) => unknown) | undefined ? A : never;
+
+/**
+ * Run a named plugin hook across all configured plugins.
+ * `beforeTrigger` hooks throw on failure (caller decides whether to abort).
+ * `afterTrigger` hooks are fire-and-forget — errors are logged but never propagate.
+ */
+async function runPluginHook<K extends "beforeTrigger" | "afterTrigger">(
+	plugins: HeraldPlugin[] | undefined,
+	hookName: K,
+	args: HookArgs<K>,
+): Promise<void> {
+	if (!plugins) return;
+	for (const plugin of plugins) {
+		const hookFn = plugin.hooks?.[hookName] as ((a: typeof args) => Promise<void>) | undefined;
+		if (!hookFn) continue;
+
+		if (hookName === "afterTrigger") {
+			try {
+				await hookFn(args);
+			} catch (hookError) {
+				console.error(`[herald] Plugin "${plugin.id}" ${hookName} hook threw:`, hookError);
+			}
+		} else {
+			await hookFn(args);
+		}
+	}
+}
 
 export const triggerRoutes = [
 	{
@@ -32,18 +63,11 @@ export const triggerRoutes = [
 			ctx.transactionWorkflowMap.set(transactionId, body.workflowId);
 
 			try {
-				// Run plugin beforeTrigger hooks
-				if (ctx.options.plugins) {
-					for (const plugin of ctx.options.plugins) {
-						if (plugin.hooks?.beforeTrigger) {
-							await plugin.hooks.beforeTrigger({
-								workflowId: body.workflowId,
-								to: body.to,
-								payload: body.payload ?? {},
-							});
-						}
-					}
-				}
+				await runPluginHook(ctx.options.plugins, "beforeTrigger", {
+					workflowId: body.workflowId,
+					to: body.to,
+					payload: body.payload ?? {},
+				});
 
 				await ctx.workflow.trigger({
 					workflowId: body.workflowId,
@@ -54,21 +78,10 @@ export const triggerRoutes = [
 					transactionId,
 				});
 
-				// Run plugin afterTrigger hooks — errors logged but don't fail the trigger
-				if (ctx.options.plugins) {
-					for (const plugin of ctx.options.plugins) {
-						if (plugin.hooks?.afterTrigger) {
-							try {
-								await plugin.hooks.afterTrigger({
-									workflowId: body.workflowId,
-									transactionId,
-								});
-							} catch (hookError) {
-								console.error(`[herald] Plugin "${plugin.id}" afterTrigger hook threw:`, hookError);
-							}
-						}
-					}
-				}
+				await runPluginHook(ctx.options.plugins, "afterTrigger", {
+					workflowId: body.workflowId,
+					transactionId,
+				});
 
 				return jsonResponse({ transactionId, status: "triggered" });
 			} finally {
@@ -104,17 +117,11 @@ export const triggerRoutes = [
 					ctx.transactionWorkflowMap.set(transactionId, event.workflowId);
 
 					try {
-						if (ctx.options.plugins) {
-							for (const plugin of ctx.options.plugins) {
-								if (plugin.hooks?.beforeTrigger) {
-									await plugin.hooks.beforeTrigger({
-										workflowId: event.workflowId,
-										to: event.to,
-										payload: event.payload ?? {},
-									});
-								}
-							}
-						}
+						await runPluginHook(ctx.options.plugins, "beforeTrigger", {
+							workflowId: event.workflowId,
+							to: event.to,
+							payload: event.payload ?? {},
+						});
 
 						await ctx.workflow.trigger({
 							workflowId: event.workflowId,
@@ -125,20 +132,11 @@ export const triggerRoutes = [
 							transactionId,
 						});
 
-						if (ctx.options.plugins) {
-							for (const plugin of ctx.options.plugins) {
-								if (plugin.hooks?.afterTrigger) {
-									try {
-										await plugin.hooks.afterTrigger({
-											workflowId: event.workflowId,
-											transactionId,
-										});
-									} catch (hookError) {
-										console.error(`[herald] Plugin "${plugin.id}" afterTrigger hook threw:`, hookError);
-									}
-								}
-							}
-						}
+						await runPluginHook(ctx.options.plugins, "afterTrigger", {
+							workflowId: event.workflowId,
+							transactionId,
+						});
+
 						return { transactionId, workflowId: event.workflowId, status: "triggered" as const };
 					} finally {
 						ctx.transactionWorkflowMap.delete(transactionId);

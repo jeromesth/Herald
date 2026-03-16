@@ -1,10 +1,8 @@
+import { z } from "zod";
 import type { HeraldContext, SubscriberRecord } from "../../types/config.js";
 import { jsonResponse, parseJsonBody } from "../router.js";
 
-/** Basic email format check — not exhaustive, just catches obvious mistakes. */
-function isValidEmail(value: string): boolean {
-	return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-}
+const emailSchema = z.string().email();
 
 const typeValidators: Record<string, (v: unknown) => boolean> = {
 	string: (v) => typeof v === "string",
@@ -40,7 +38,7 @@ export const subscriberRoutes = [
 				return jsonResponse({ error: "externalId is required" }, 400);
 			}
 
-			if (typeof body.email === "string" && !isValidEmail(body.email)) {
+			if (typeof body.email === "string" && !emailSchema.safeParse(body.email).success) {
 				return jsonResponse({ error: "Invalid email format" }, 400);
 			}
 
@@ -126,7 +124,7 @@ export const subscriberRoutes = [
 				return jsonResponse({ error: "Subscriber not found" }, 404);
 			}
 
-			if ("email" in body && typeof body.email === "string" && !isValidEmail(body.email)) {
+			if ("email" in body && typeof body.email === "string" && !emailSchema.safeParse(body.email).success) {
 				return jsonResponse({ error: "Invalid email format" }, 400);
 			}
 

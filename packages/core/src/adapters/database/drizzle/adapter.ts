@@ -17,6 +17,7 @@
 import type { SQL, SQLWrapper } from "drizzle-orm";
 import { and, asc, desc, eq, gt, gte, inArray, like, lt, lte, ne, notInArray, or, sql } from "drizzle-orm";
 import type { PgColumn, PgDatabase, PgQueryResultHKT, PgTableWithColumns } from "drizzle-orm/pg-core";
+import { HeraldNotFoundError, HeraldValidationError } from "../../../errors.js";
 import type { DatabaseAdapter, Where, WhereOperator } from "../../../types/adapter.js";
 import { channels, notifications, preferences, subscribers, topicSubscribers, topics } from "./schema.js";
 
@@ -44,7 +45,9 @@ const MODEL_MAP: Record<string, HeraldTable> = {
 function getTable(model: string): HeraldTable {
 	const table = MODEL_MAP[model];
 	if (!table) {
-		throw new Error(`[herald/drizzle] Unknown model "${model}". ` + `Available models: ${Object.keys(MODEL_MAP).join(", ")}`);
+		throw new HeraldValidationError(
+			`[herald/drizzle] Unknown model "${model}". ` + `Available models: ${Object.keys(MODEL_MAP).join(", ")}`,
+		);
 	}
 	return table;
 }
@@ -52,7 +55,7 @@ function getTable(model: string): HeraldTable {
 function getColumn(table: HeraldTable, field: string): PgColumn {
 	const col = (table as Record<string, unknown>)[field] as PgColumn | undefined;
 	if (!col) {
-		throw new Error(`[herald/drizzle] Unknown field "${field}" on table`);
+		throw new HeraldValidationError(`[herald/drizzle] Unknown field "${field}" on table`);
 	}
 	return col;
 }
@@ -82,7 +85,7 @@ function convertOperator(column: PgColumn, value: unknown, operator?: WhereOpera
 		case "ends_with":
 			return like(column, `%${value}`);
 		default:
-			throw new Error(`[herald/drizzle] Unsupported operator: ${operator}`);
+			throw new HeraldValidationError(`[herald/drizzle] Unsupported operator: ${operator}`);
 	}
 }
 
@@ -235,7 +238,7 @@ export function drizzleAdapter(db: DrizzlePgLike, config?: DrizzleAdapterConfig)
 			const existing = await db.select({ id: table.id }).from(table).where(whereClause).limit(1);
 
 			if (!existing || existing.length === 0) {
-				throw new Error(`[herald/drizzle] Record not found for update in "${args.model}"`);
+				throw new HeraldNotFoundError(args.model, `[herald/drizzle] Record not found for update in "${args.model}"`);
 			}
 
 			const [result] = await db.update(table).set(args.update).where(eq(table.id, existing[0]?.id)).returning();
@@ -274,7 +277,7 @@ export function drizzleAdapter(db: DrizzlePgLike, config?: DrizzleAdapterConfig)
 			const existing = await db.select({ id: table.id }).from(table).where(whereClause).limit(1);
 
 			if (!existing || existing.length === 0) {
-				throw new Error(`[herald/drizzle] Record not found for delete in "${args.model}"`);
+				throw new HeraldNotFoundError(args.model, `[herald/drizzle] Record not found for delete in "${args.model}"`);
 			}
 
 			await db.delete(table).where(eq(table.id, existing[0]?.id));

@@ -13,6 +13,7 @@
  * const workflow = inngestAdapter({ client: inngest });
  * ```
  */
+import { HeraldConfigError } from "../../errors.js";
 import type {
 	CancelArgs,
 	NotificationWorkflow,
@@ -374,7 +375,7 @@ export function inngestAdapter(config: InngestAdapterConfig): WorkflowAdapter {
  */
 export function getInngestFunctions(adapter: WorkflowAdapter): InngestFunction[] {
 	if (adapter.adapterId !== "inngest") {
-		throw new Error("getInngestFunctions can only be used with the Inngest adapter");
+		throw new HeraldConfigError("getInngestFunctions can only be used with the Inngest adapter");
 	}
 
 	return (adapter as Partial<InngestAdapter>).__functions ?? [];

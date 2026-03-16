@@ -1,3 +1,4 @@
+import { HeraldPluginError } from "../errors.js";
 import type { HeraldContext, HeraldOptions } from "../types/config.js";
 
 /** Keys that plugins are NOT allowed to overwrite on HeraldContext. */
@@ -32,7 +33,8 @@ export async function initializePlugins(ctx: HeraldContext, plugins?: HeraldOpti
 				}
 			}
 		} catch (err) {
-			throw new Error(
+			throw new HeraldPluginError(
+				plugin.id,
 				`Herald initialization failed: plugin "${plugin.id}" init error: ${err instanceof Error ? err.message : String(err)}`,
 			);
 		}

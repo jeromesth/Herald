@@ -2,6 +2,7 @@
  * In-memory database adapter for Herald.
  * Used for testing and development — not for production.
  */
+import { HeraldNotFoundError } from "../../errors.js";
 import type { DatabaseAdapter, Where } from "../../types/adapter.js";
 
 export function memoryAdapter(): DatabaseAdapter {
@@ -156,7 +157,7 @@ export function memoryAdapter(): DatabaseAdapter {
 					return updated as T;
 				}
 			}
-			throw new Error(`Record not found for update in "${args.model}"`);
+			throw new HeraldNotFoundError(args.model, `Record not found for update in "${args.model}"`);
 		},
 
 		async updateMany(args: {
@@ -187,7 +188,7 @@ export function memoryAdapter(): DatabaseAdapter {
 					return;
 				}
 			}
-			throw new Error(`Record not found for delete in "${args.model}"`);
+			throw new HeraldNotFoundError(args.model, `Record not found for delete in "${args.model}"`);
 		},
 
 		async deleteMany(args: {
