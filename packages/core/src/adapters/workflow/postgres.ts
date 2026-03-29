@@ -13,7 +13,7 @@
  * });
  * ```
  */
-import { stepConditionsPass, isBranchStep, performFetch, resolveBranch, toMs } from "../../core/workflow-runtime.js";
+import { isBranchStep, performFetch, resolveBranch, stepConditionsPass, toMs } from "../../core/workflow-runtime.js";
 import { HeraldConfigError, HeraldValidationError } from "../../errors.js";
 import type {
 	ActionStep,

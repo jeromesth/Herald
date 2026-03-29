@@ -231,20 +231,6 @@ function resolveStepConditionValue(field: string, context: StepContext): unknown
 	);
 }
 
-function resolvePath(source: Record<string, unknown>, path: string): unknown {
-	const parts = path.split(".").filter(Boolean);
-	let current: unknown = source;
-
-	for (const part of parts) {
-		if (current == null || typeof current !== "object") {
-			return undefined;
-		}
-		current = (current as Record<string, unknown>)[part];
-	}
-
-	return current;
-}
-
 export function isBranchStep(step: WorkflowStep): step is BranchStep {
 	return step.type === "branch";
 }
