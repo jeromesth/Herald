@@ -1,4 +1,4 @@
-import { checkThrottle, conditionsPass, isBranchStep, performFetch, resolveBranch } from "../../core/workflow-runtime.js";
+import { checkThrottle, isBranchStep, performFetch, resolveBranch, stepConditionsPass } from "../../core/workflow-runtime.js";
 import type { HeraldContext } from "../../types/config.js";
 /**
  * In-memory workflow adapter for Herald.
@@ -116,7 +116,7 @@ export function memoryWorkflowAdapter(heraldCtx?: HeraldContext): WorkflowAdapte
 									fetch: async () => ({ status: 200, data: null, headers: {} }),
 								},
 							};
-							if (!conditionsPass(actionStep.conditions, condCtx, actionStep.conditionMode)) {
+							if (!stepConditionsPass(actionStep.conditions, condCtx, actionStep.conditionMode)) {
 								continue;
 							}
 						}

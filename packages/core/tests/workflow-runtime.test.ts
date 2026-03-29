@@ -145,9 +145,9 @@ describe("stepConditionsPass", () => {
 		it("returns undefined for deeply nested path through null/primitive", () => {
 			const conditions: StepCondition[] = [{ field: "payload.a.b.c", operator: "exists", value: true }];
 			// a is a string, not an object — path resolution should bail out
-			expect(conditionsPass(conditions, makeContext({ a: "not-an-object" }))).toBe(false);
+			expect(stepConditionsPass(conditions, makeContext({ a: "not-an-object" }))).toBe(false);
 			// a is null
-			expect(conditionsPass(conditions, makeContext({ a: null }))).toBe(false);
+			expect(stepConditionsPass(conditions, makeContext({ a: null }))).toBe(false);
 		});
 	});
 

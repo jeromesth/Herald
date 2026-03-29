@@ -237,7 +237,7 @@ export function isBranchStep(step: WorkflowStep): step is BranchStep {
 
 export function resolveBranch(step: BranchStep, context: StepContext): WorkflowStep[] {
 	for (const branch of step.branches) {
-		if (conditionsPass(branch.conditions, context, branch.conditionMode)) {
+		if (stepConditionsPass(branch.conditions, context, branch.conditionMode)) {
 			return branch.steps;
 		}
 	}
