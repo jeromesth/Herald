@@ -106,6 +106,53 @@ describe("preferenceGate()", () => {
 		expect(result.allowed).toBe(true);
 	});
 
+	it("explicit subscriber purpose true overrides config default purpose false", () => {
+		const prefs: PreferenceRecord = { subscriberId: "s1", purposes: { marketing: true } };
+		const defaults = { purposes: { marketing: false } };
+		const meta: WorkflowMeta = { workflowId: "promo", purpose: "marketing" };
+		const result = preferenceGate({ subscriberPrefs: prefs, workflowMeta: meta, channel: "email", defaultPreferences: defaults });
+		expect(result.allowed).toBe(true);
+	});
+
+	it("explicit subscriber purpose true overrides operator non-enforced purpose default false", () => {
+		const prefs: PreferenceRecord = { subscriberId: "s1", purposes: { marketing: true } };
+		const opPrefs = { purposes: { marketing: { enabled: false } } };
+		const meta: WorkflowMeta = { workflowId: "promo", purpose: "marketing" };
+		const result = preferenceGate({
+			subscriberPrefs: prefs,
+			workflowMeta: meta,
+			channel: "email",
+			operatorPreferences: opPrefs,
+		});
+		expect(result.allowed).toBe(true);
+	});
+
+	it("operator non-enforced category default disabled blocks when subscriber has no category pref", () => {
+		const opPrefs = { categories: { billing: { enabled: false } } };
+		const meta: WorkflowMeta = { workflowId: "invoice", category: "billing" };
+		const result = preferenceGate({
+			subscriberPrefs: undefined,
+			workflowMeta: meta,
+			channel: "email",
+			operatorPreferences: opPrefs,
+		});
+		expect(result.allowed).toBe(false);
+		expect(result.reason).toContain("operator default disabled category");
+	});
+
+	it("explicit subscriber category enabled overrides operator non-enforced category default disabled", () => {
+		const prefs: PreferenceRecord = { subscriberId: "s1", categories: { billing: { enabled: true } } };
+		const opPrefs = { categories: { billing: { enabled: false } } };
+		const meta: WorkflowMeta = { workflowId: "invoice", category: "billing" };
+		const result = preferenceGate({
+			subscriberPrefs: prefs,
+			workflowMeta: meta,
+			channel: "email",
+			operatorPreferences: opPrefs,
+		});
+		expect(result.allowed).toBe(true);
+	});
+
 	it("channel kill switch (step 4) beats workflow enable (step 5)", () => {
 		const prefs: PreferenceRecord = {
 			subscriberId: "s1",
