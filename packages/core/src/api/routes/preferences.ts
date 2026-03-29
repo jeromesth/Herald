@@ -10,6 +10,11 @@ import type { HeraldContext, PreferenceRecord } from "../../types/config.js";
 import { CHANNEL_TYPES } from "../../types/workflow.js";
 import { jsonResponse, parseJsonBody } from "../router.js";
 
+/**
+ * Preference writes go through `upsertPreferenceInternal` / `bulkUpdatePreferencesInternal` in
+ * `core/preferences.ts` — same merge semantics as `herald.api.updatePreferences` (deepMerge + defaults).
+ */
+
 const channelTypeSchema = z.enum(CHANNEL_TYPES);
 
 const preferenceConditionSchema = z.object({
@@ -34,7 +39,8 @@ const categoryPreferenceSchema = z
 	})
 	.strict();
 
-const putPreferencesBodySchema = z
+/** Shared shape for PUT body and each bulk update row (minus `subscriberId`). */
+const preferencePatchBodySchema = z
 	.object({
 		channels: z.record(channelTypeSchema, z.boolean()).optional(),
 		workflows: z.record(z.string().min(1), workflowChannelPreferenceSchema).optional(),
@@ -43,22 +49,18 @@ const putPreferencesBodySchema = z
 	})
 	.strict();
 
+const putPreferencesBodySchema = preferencePatchBodySchema;
+
+const bulkPreferenceUpdateItemSchema = z
+	.object({
+		subscriberId: z.string().min(1),
+	})
+	.merge(preferencePatchBodySchema)
+	.strict();
+
 const bulkPreferencesBodySchema = z
 	.object({
-		updates: z
-			.array(
-				z
-					.object({
-						subscriberId: z.string().min(1),
-						channels: z.record(channelTypeSchema, z.boolean()).optional(),
-						workflows: z.record(z.string().min(1), workflowChannelPreferenceSchema).optional(),
-						categories: z.record(z.string().min(1), categoryPreferenceSchema).optional(),
-						purposes: z.record(z.string().min(1), z.boolean()).optional(),
-					})
-					.strict(),
-			)
-			.min(0)
-			.max(100),
+		updates: z.array(bulkPreferenceUpdateItemSchema).min(0).max(100),
 	})
 	.strict();
 
