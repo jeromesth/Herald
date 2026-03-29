@@ -72,15 +72,44 @@ export interface FetchResult {
 }
 
 /**
- * A single step in a notification workflow.
+ * A regular (non-branch) workflow step with a handler.
  */
-export interface WorkflowStep {
+export interface ActionStep {
 	stepId: string;
-	type: StepType;
+	type: Exclude<StepType, "branch">;
 	handler: (context: StepContext) => Promise<StepResult>;
 	conditions?: StepCondition[];
 	conditionMode?: "all" | "any";
 }
+
+/**
+ * A conditional branch within a branch step.
+ */
+export interface BranchDefinition {
+	key: string;
+	conditions: StepCondition[];
+	conditionMode?: "all" | "any";
+	steps: WorkflowStep[];
+}
+
+/**
+ * A branch step — declarative conditional routing within workflows.
+ * The engine evaluates each branch's conditions in order and executes
+ * the first matching branch's steps. No handler — branching is an
+ * engine primitive, not user-land code.
+ */
+export interface BranchStep {
+	stepId: string;
+	type: "branch";
+	branches: BranchDefinition[];
+	defaultBranch?: string;
+}
+
+/**
+ * A single step in a notification workflow.
+ * Either an action step (with handler) or a branch step (declarative routing).
+ */
+export type WorkflowStep = ActionStep | BranchStep;
 
 /**
  * Context passed to step handler functions.

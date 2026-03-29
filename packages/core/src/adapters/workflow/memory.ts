@@ -1,4 +1,4 @@
-import { checkThrottle, performFetch } from "../../core/workflow-runtime.js";
+import { checkThrottle, conditionsPass, isBranchStep, performFetch, resolveBranch } from "../../core/workflow-runtime.js";
 import type { HeraldContext } from "../../types/config.js";
 /**
  * In-memory workflow adapter for Herald.
@@ -6,13 +6,17 @@ import type { HeraldContext } from "../../types/config.js";
  * Executes workflow steps synchronously without a real workflow engine.
  */
 import type {
+	ActionStep,
 	CancelArgs,
 	DigestedEvent,
 	NotificationWorkflow,
+	StepContext,
+	StepResult,
 	TriggerArgs,
 	TriggerResult,
 	WorkflowAdapter,
 	WorkflowHandler,
+	WorkflowStep,
 } from "../../types/workflow.js";
 
 export interface MemoryWorkflowEvent {
@@ -75,14 +79,55 @@ export function memoryWorkflowAdapter(heraldCtx?: HeraldContext): WorkflowAdapte
 			}
 			if (workflow) {
 				for (const recipient of recipients) {
-					for (const step of workflow.steps) {
-						const result = await step.handler({
+					const stepQueue: WorkflowStep[] = [...workflow.steps];
+					let aborted = false;
+
+					while (stepQueue.length > 0 && !aborted) {
+						const step = stepQueue.shift();
+						if (!step) break;
+
+						if (isBranchStep(step)) {
+							const ctx: StepContext = {
+								subscriber: { id: recipient, externalId: recipient },
+								payload: handlerPayload,
+								step: {
+									delay: async () => {},
+									digest: async () => [],
+									throttle: async (c) => ({ throttled: false, count: 0, limit: c.limit }),
+									fetch: async () => ({ status: 200, data: null, headers: {} }),
+								},
+							};
+							const branchSteps = resolveBranch(step, ctx);
+							stepQueue.unshift(...branchSteps);
+							continue;
+						}
+
+						const actionStep = step as ActionStep;
+
+						// Check step-level conditions
+						if (actionStep.conditions?.length) {
+							const condCtx: StepContext = {
+								subscriber: { id: recipient, externalId: recipient },
+								payload: handlerPayload,
+								step: {
+									delay: async () => {},
+									digest: async () => [],
+									throttle: async (c) => ({ throttled: false, count: 0, limit: c.limit }),
+									fetch: async () => ({ status: 200, data: null, headers: {} }),
+								},
+							};
+							if (!conditionsPass(actionStep.conditions, condCtx, actionStep.conditionMode)) {
+								continue;
+							}
+						}
+
+						const result = await actionStep.handler({
 							subscriber: { id: recipient, externalId: recipient },
 							payload: handlerPayload,
 							step: {
 								delay: async () => {},
 								digest: async (config) => {
-									const key = config.key ?? `${args.workflowId}:${step.stepId}`;
+									const key = config.key ?? `${args.workflowId}:${actionStep.stepId}`;
 									const collected = digestBuffer.get(key) ?? [];
 									digestBuffer.delete(key);
 									return collected;
@@ -99,11 +144,11 @@ export function memoryWorkflowAdapter(heraldCtx?: HeraldContext): WorkflowAdapte
 							},
 						});
 
-						if (step.type === "throttle" && result._internal?.throttled) {
-							break;
+						if (actionStep.type === "throttle" && result._internal?.throttled) {
+							aborted = true;
 						}
 
-						if (step.type === "fetch" && result._internal?.fetchResult != null) {
+						if (actionStep.type === "fetch" && result._internal?.fetchResult != null) {
 							if (typeof result._internal.fetchResult === "object") {
 								Object.assign(handlerPayload, result._internal.fetchResult);
 							}

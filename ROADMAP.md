@@ -48,14 +48,13 @@ The Inngest adapter is powerful for teams that scale, but most developers starti
 - [ ] **Migration guide** — document how to migrate from Postgres workflow adapter to Inngest/Temporal when scaling
 - [ ] **Tests** — full test suite covering durability, retries, delays, crash recovery
 
-## v0.3 — Workflow Steps `IN REVIEW`
+## v0.3 — Workflow Steps `COMPLETE`
 
 Priority: **High** | Comparable: Novu Digest/Delay, Knock Function Steps
-Branch: `Workflow-Steps` — implementation complete, in code review
 
 - [x] **Delay step** — pause workflow execution for a configurable duration
 - [x] **Digest/batch step** — aggregate multiple triggers into a single notification
-- [ ] **Branch step** — conditional logic within workflows (if/else)
+- [x] **Branch step** — declarative conditional logic within workflows (if/else)
 - [x] **Throttle step** — rate-limit notifications per subscriber
 - [x] **Fetch step** — HTTP request to pull external data into workflow context
 

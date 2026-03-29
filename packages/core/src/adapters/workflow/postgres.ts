@@ -13,9 +13,10 @@
  * });
  * ```
  */
-import { performFetch, stepConditionsPass, toMs } from "../../core/workflow-runtime.js";
+import { stepConditionsPass, isBranchStep, performFetch, resolveBranch, toMs } from "../../core/workflow-runtime.js";
 import { HeraldConfigError, HeraldValidationError } from "../../errors.js";
 import type {
+	ActionStep,
 	CancelArgs,
 	DigestedEvent,
 	NotificationWorkflow,
@@ -343,9 +344,11 @@ export function postgresWorkflowAdapter(config: PostgresWorkflowConfig): Postgre
 
 			const handlerPayload = { ...job.payload };
 
-			// Resume from current_step (supports crash recovery)
-			for (let i = job.current_step; i < workflow.steps.length; i++) {
-				const currentStep = workflow.steps[i];
+			// Flatten steps into a mutable queue for branch support.
+			// Resume from current_step (supports crash recovery).
+			const flatSteps: WorkflowStep[] = [...workflow.steps];
+			for (let i = job.current_step; i < flatSteps.length; i++) {
+				const currentStep = flatSteps[i];
 				if (!currentStep) continue;
 
 				const subscriberCtx = { id: job.subscriber_id, externalId: job.subscriber_id };
@@ -360,6 +363,16 @@ export function postgresWorkflowAdapter(config: PostgresWorkflowConfig): Postgre
 					},
 				};
 
+				// Handle branch steps — resolve and splice into the queue
+				if (isBranchStep(currentStep)) {
+					const branchSteps = resolveBranch(currentStep, stepContext);
+					flatSteps.splice(i + 1, 0, ...branchSteps);
+					await advanceStep(p, job.id, i + 1);
+					continue;
+				}
+
+				const actionStep = currentStep as ActionStep;
+
 				// Check conditions
 				if (!stepConditionsPass(currentStep.conditions, stepContext, currentStep.conditionMode)) {
 					await advanceStep(p, job.id, i + 1);
@@ -367,20 +380,20 @@ export function postgresWorkflowAdapter(config: PostgresWorkflowConfig): Postgre
 				}
 
 				// Handle special step types
-				if (currentStep.type === "delay") {
-					const action = await handleDelayStep(p, job, currentStep, i, stepContext);
+				if (actionStep.type === "delay") {
+					const action = await handleDelayStep(p, job, actionStep, i, stepContext);
 					if (action === "parked") return;
 					continue;
 				}
 
-				if (currentStep.type === "digest") {
-					const action = await handleDigestStep(p, job, currentStep, i, stepContext);
+				if (actionStep.type === "digest") {
+					const action = await handleDigestStep(p, job, actionStep, i, stepContext);
 					if (action === "parked") return;
 					continue;
 				}
 
-				if (currentStep.type === "throttle") {
-					const throttled = await handleThrottleStep(p, job, currentStep, stepContext);
+				if (actionStep.type === "throttle") {
+					const throttled = await handleThrottleStep(p, job, actionStep, stepContext);
 					if (throttled) {
 						await p.query(`UPDATE ${prefix}_jobs SET status = '${COMPLETED}', updated_at = NOW() WHERE id = $1`, [job.id]);
 						return;
@@ -389,8 +402,8 @@ export function postgresWorkflowAdapter(config: PostgresWorkflowConfig): Postgre
 					continue;
 				}
 
-				if (currentStep.type === "fetch") {
-					const result = await currentStep.handler(stepContext);
+				if (actionStep.type === "fetch") {
+					const result = await actionStep.handler(stepContext);
 					if (result._internal?.fetchResult != null && typeof result._internal.fetchResult === "object") {
 						Object.assign(handlerPayload, result._internal.fetchResult);
 					}
@@ -399,7 +412,7 @@ export function postgresWorkflowAdapter(config: PostgresWorkflowConfig): Postgre
 				}
 
 				// Channel steps (email, in_app, sms, push, chat, webhook)
-				await currentStep.handler(stepContext);
+				await actionStep.handler(stepContext);
 				await advanceStep(p, job.id, i + 1);
 			}
 
@@ -423,7 +436,7 @@ export function postgresWorkflowAdapter(config: PostgresWorkflowConfig): Postgre
 	async function handleDelayStep(
 		p: PgPool,
 		job: JobRow,
-		step: WorkflowStep,
+		step: ActionStep,
 		stepIndex: number,
 		context: StepContext,
 	): Promise<"parked" | "continue"> {
@@ -462,7 +475,7 @@ export function postgresWorkflowAdapter(config: PostgresWorkflowConfig): Postgre
 	async function handleDigestStep(
 		p: PgPool,
 		job: JobRow,
-		step: WorkflowStep,
+		step: ActionStep,
 		stepIndex: number,
 		context: StepContext,
 	): Promise<"parked" | "continue"> {
@@ -524,7 +537,7 @@ export function postgresWorkflowAdapter(config: PostgresWorkflowConfig): Postgre
 		return "continue";
 	}
 
-	async function handleThrottleStep(p: PgPool, job: JobRow, step: WorkflowStep, context: StepContext): Promise<boolean> {
+	async function handleThrottleStep(p: PgPool, job: JobRow, step: ActionStep, context: StepContext): Promise<boolean> {
 		let capturedConfig: {
 			key: string;
 			limit: number;

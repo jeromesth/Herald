@@ -78,6 +78,28 @@ describe("checkThrottle", () => {
 		const resultB = checkThrottle(ctx, configB);
 		expect(resultB.throttled).toBe(false);
 	});
+
+	it("cleans up expired entries when throttle state exceeds 1000 entries", () => {
+		const ctx = makeThrottleCtx();
+		const config = { key: "test", limit: 10, window: 1, unit: "seconds" as const };
+
+		// Fill the throttle state with > 1000 expired entries
+		const windowMs = 1000; // 1 second
+		for (let i = 0; i < 1010; i++) {
+			ctx.throttleState.set(`expired-${i}`, {
+				count: 1,
+				windowStart: Date.now() - windowMs * 3, // expired (> 2x window)
+			});
+		}
+
+		expect(ctx.throttleState.size).toBe(1010);
+
+		// Trigger cleanup by calling checkThrottle
+		checkThrottle(ctx, config);
+
+		// Expired entries should have been cleaned up
+		expect(ctx.throttleState.size).toBeLessThan(1010);
+	});
 });
 
 describe("performFetch", () => {
@@ -140,6 +162,19 @@ describe("performFetch", () => {
 
 		const result = await performFetch({ url: "https://example.com/text" });
 		expect(result.data).toBeNull();
+	});
+
+	it("aborts request when timeout is exceeded", async () => {
+		fetchSpy.mockImplementation(async (_url: string, opts: { signal: AbortSignal }) => {
+			// Simulate a slow request that gets aborted
+			return new Promise((_resolve, reject) => {
+				opts.signal.addEventListener("abort", () => {
+					reject(new DOMException("The operation was aborted.", "AbortError"));
+				});
+			});
+		});
+
+		await expect(performFetch({ url: "https://example.com/slow", timeout: 1 })).rejects.toThrow("aborted");
 	});
 });
 
