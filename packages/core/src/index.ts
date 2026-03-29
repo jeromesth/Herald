@@ -12,8 +12,8 @@ export {
 	HeraldPluginError,
 } from "./errors.js";
 export type { WorkflowMeta, PreferenceGateResult, ConditionContext, PreferenceGateInput } from "./core/preferences.js";
-export { conditionsPass, evaluateCondition, resolvePath } from "./core/conditions.js";
-export type { Condition } from "./core/conditions.js";
+export { CONDITION_OPERATORS, conditionsPass, evaluateCondition, resolvePath } from "./core/conditions.js";
+export type { Condition, ConditionOperator } from "./core/conditions.js";
 
 // Schema
 export { coreSchema, mergeSchemas } from "./db/schema.js";
@@ -31,6 +31,9 @@ export { renderEmail, defaultEmailLayout, LayoutRegistry } from "./templates/lay
 
 // Real-time
 export { SSEManager } from "./realtime/sse.js";
+
+// Channel identifiers (value + types)
+export { CHANNEL_TYPES } from "./types/workflow.js";
 
 // Types — re-export everything
 export type {

@@ -2,8 +2,11 @@ import type { z } from "zod";
 
 /**
  * Notification channel types supported by Herald.
+ * Single source of truth for channel keys (TypeScript types, Zod, runtime checks).
  */
-export type ChannelType = "in_app" | "email" | "sms" | "push" | "chat" | "webhook";
+export const CHANNEL_TYPES = ["in_app", "email", "sms", "push", "chat", "webhook"] as const;
+
+export type ChannelType = (typeof CHANNEL_TYPES)[number];
 
 /**
  * Message delivery status — tracks the lifecycle of a sent message.

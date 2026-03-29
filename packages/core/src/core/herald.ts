@@ -19,10 +19,10 @@ import { initializePlugins } from "./plugins.js";
 import {
 	buildReadOnlyChannels,
 	bulkUpdatePreferencesInternal,
-	deepMerge,
 	defaultPreferenceRecord,
 	normalizePreferenceRecord,
 	stripReadOnlyOverrides,
+	upsertPreferenceInternal,
 } from "./preferences.js";
 import { buildEmailProvider } from "./providers.js";
 import { sendThroughProvider } from "./send.js";
@@ -307,46 +307,8 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 			await pluginsReady;
 			const preferences = stripReadOnlyOverrides(rawPreferences, ctx.readOnlyChannels);
 			const internalSubscriberId = (await resolveSubscriberInternalId(db, subscriberId)) ?? subscriberId;
-			const now = new Date();
-			const existing = await db.findOne<PreferenceRecord>({
-				model: "preference",
-				where: [{ field: "subscriberId", value: internalSubscriberId }],
-			});
-
-			if (existing) {
-				const merged: PreferenceRecord = {
-					subscriberId: internalSubscriberId,
-					channels: deepMerge(existing.channels, preferences.channels),
-					workflows: deepMerge(existing.workflows, preferences.workflows),
-					categories: deepMerge(existing.categories, preferences.categories),
-					purposes: deepMerge(existing.purposes, preferences.purposes),
-				};
-
-				await db.update({
-					model: "preference",
-					where: [{ field: "subscriberId", value: internalSubscriberId }],
-					update: { ...merged, updatedAt: now },
-				});
-
-				return merged;
-			}
-
-			const id = ctx.generateId();
-			const defaults = defaultPreferenceRecord(ctx, internalSubscriberId);
-			const newPref: PreferenceRecord = {
-				subscriberId: internalSubscriberId,
-				channels: deepMerge(defaults.channels, preferences.channels),
-				workflows: deepMerge(defaults.workflows, preferences.workflows),
-				categories: deepMerge(defaults.categories, preferences.categories),
-				purposes: deepMerge(defaults.purposes, preferences.purposes),
-			};
-
-			await db.create({
-				model: "preference",
-				data: { id, ...newPref, updatedAt: now },
-			});
-
-			return newPref;
+			const { record } = await upsertPreferenceInternal(db, ctx, generateId, internalSubscriberId, preferences);
+			return record;
 		},
 
 		async bulkUpdatePreferences(updates) {

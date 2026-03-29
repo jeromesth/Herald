@@ -233,6 +233,17 @@ describe("operator-level preference overrides", () => {
 		expect(result.reason).toContain("operator enforced purpose");
 	});
 
+	it("when channel and workflow are both enforce:true and conflict, channel tier wins (checked first)", () => {
+		const opPrefs: OperatorPreferences = {
+			channels: { email: { enabled: false, enforce: true } },
+			workflows: { invoice: { enabled: true, enforce: true } },
+		};
+		const meta: WorkflowMeta = { workflowId: "invoice" };
+		const result = preferenceGate({ subscriberPrefs: undefined, workflowMeta: meta, channel: "email", operatorPreferences: opPrefs });
+		expect(result.allowed).toBe(false);
+		expect(result.reason).toContain("operator enforced channel");
+	});
+
 	it("critical bypass takes precedence over operator overrides", () => {
 		const opPrefs: OperatorPreferences = {
 			channels: { email: { enabled: false, enforce: true } },
@@ -303,6 +314,11 @@ describe("shared conditions utility", () => {
 	it("evaluateCondition — exists", () => {
 		expect(evaluateCondition({ field: "x", operator: "exists", value: true }, "hello")).toBe(true);
 		expect(evaluateCondition({ field: "x", operator: "exists", value: true }, undefined)).toBe(false);
+	});
+
+	it("evaluateCondition — eq with undefined actual value", () => {
+		expect(evaluateCondition({ field: "x", operator: "eq", value: "pro" }, undefined)).toBe(false);
+		expect(evaluateCondition({ field: "x", operator: "eq", value: undefined }, undefined)).toBe(true);
 	});
 
 	it("conditionsPass — all mode (default)", () => {
@@ -411,6 +427,40 @@ describe("preference conditions in preferenceGate", () => {
 		const result = preferenceGate({ subscriberPrefs: undefined, workflowMeta: meta, channel: "email" });
 		expect(result.allowed).toBe(true);
 	});
+
+	it("workflow condition on missing nested path — exists is false, comparisons do not match absent plan", () => {
+		const meta: WorkflowMeta = {
+			workflowId: "tiered",
+			preferences: {
+				conditions: [
+					{ field: "subscriber.data.plan", operator: "exists", value: true },
+					{ field: "subscriber.data.plan", operator: "eq", value: "pro" },
+				],
+			},
+		};
+		const condCtx: ConditionContext = {
+			subscriber: { id: "s1", externalId: "e1" },
+			payload: {},
+		};
+		const existsOnly = preferenceGate({
+			subscriberPrefs: undefined,
+			workflowMeta: {
+				...meta,
+				preferences: { conditions: [{ field: "subscriber.data.plan", operator: "exists", value: true }] },
+			},
+			channel: "email",
+			conditionContext: condCtx,
+		});
+		expect(existsOnly.allowed).toBe(false);
+
+		const eqResult = preferenceGate({
+			subscriberPrefs: undefined,
+			workflowMeta: meta,
+			channel: "email",
+			conditionContext: condCtx,
+		});
+		expect(eqResult.allowed).toBe(false);
+	});
 });
 
 // ---- Feature 5: Bulk Preference API ----
@@ -506,6 +556,34 @@ describe("bulk preference updates", () => {
 			method: "PUT",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({}),
+		});
+
+		const response = await app.handler(request);
+		expect(response.status).toBe(400);
+	});
+
+	it("bulk REST endpoint accepts empty updates array", async () => {
+		const basePath = "/api/notifications";
+		const request = new Request(`http://localhost${basePath}/preferences/bulk`, {
+			method: "PUT",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ updates: [] }),
+		});
+
+		const response = await app.handler(request);
+		expect(response.status).toBe(200);
+		const body = await response.json();
+		expect(body.results).toEqual([]);
+	});
+
+	it("bulk REST endpoint returns 400 for invalid payload shapes", async () => {
+		const basePath = "/api/notifications";
+		const request = new Request(`http://localhost${basePath}/preferences/bulk`, {
+			method: "PUT",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				updates: [{ subscriberId: "user-1", channels: { email: "no" } }],
+			}),
 		});
 
 		const response = await app.handler(request);
@@ -657,6 +735,40 @@ describe("normalizePreferenceRecord", () => {
 // ---- Edge case: readOnly enforcement at API write layer ----
 
 describe("readOnly enforcement at API write layer", () => {
+	it("deepMerge replaces workflow conditions when patch includes an explicit conditions array", async () => {
+		const db = memoryAdapter();
+		const wf = memoryWorkflowAdapter();
+		const workflow: NotificationWorkflow = {
+			id: "wf-cond",
+			name: "WF",
+			steps: [{ stepId: "send", type: "email", handler: async () => ({ subject: "Hi", body: "Test" }) }],
+		};
+
+		const app = herald({
+			database: db,
+			workflow: wf,
+			workflows: [workflow],
+			channels: { email: { provider: "custom", from: "a@b.com", send: async () => {} } },
+		});
+		const { id: subscriberId } = await app.api.upsertSubscriber({ externalId: "user-1" });
+
+		await app.api.updatePreferences(subscriberId, {
+			workflows: {
+				"wf-cond": {
+					enabled: true,
+					conditions: [{ field: "payload.x", operator: "eq", value: 1 }],
+				},
+			},
+		});
+
+		await app.api.updatePreferences(subscriberId, {
+			workflows: { "wf-cond": { enabled: true, conditions: [] } },
+		});
+
+		const prefs = await app.api.getPreferences(subscriberId);
+		expect(prefs.workflows?.["wf-cond"]?.conditions).toEqual([]);
+	});
+
 	it("strips readOnly channel overrides from updatePreferences", async () => {
 		const db = memoryAdapter();
 		const wf = memoryWorkflowAdapter();

@@ -1,17 +1,18 @@
 import type { HeraldContext, PreferenceRecord } from "../types/config.js";
-import type {
-	ActionStep,
-	BranchStep,
-	ChannelType,
-	FetchConfig,
-	FetchResult,
-	NotificationWorkflow,
-	StepCondition,
-	StepContext,
-	StepResult,
-	ThrottleConfig,
-	ThrottleResult,
-	WorkflowStep,
+import {
+	type ActionStep,
+	type BranchStep,
+	CHANNEL_TYPES,
+	type ChannelType,
+	type FetchConfig,
+	type FetchResult,
+	type NotificationWorkflow,
+	type StepCondition,
+	type StepContext,
+	type StepResult,
+	type ThrottleConfig,
+	type ThrottleResult,
+	type WorkflowStep,
 } from "../types/workflow.js";
 import { conditionsPass, resolvePath } from "./conditions.js";
 import type { WorkflowMeta } from "./preferences.js";
@@ -98,6 +99,7 @@ function wrapStep(workflowMeta: WorkflowMeta, step: ActionStep, ctx: HeraldConte
 								workflowId: workflowMeta.workflowId,
 								channel: step.type,
 								purpose: workflowMeta.purpose,
+								category: workflowMeta.category,
 								critical: workflowMeta.critical,
 							});
 							if (hookResult?.override !== undefined) {
@@ -194,14 +196,7 @@ async function runAfterPreferenceHooks(
 }
 
 function isChannelStep(stepType: string): stepType is ChannelType {
-	return (
-		stepType === "in_app" ||
-		stepType === "email" ||
-		stepType === "sms" ||
-		stepType === "push" ||
-		stepType === "chat" ||
-		stepType === "webhook"
-	);
+	return (CHANNEL_TYPES as readonly string[]).includes(stepType);
 }
 
 export function stepConditionsPass(conditions: StepCondition[] | undefined, context: StepContext, mode: "all" | "any" = "all"): boolean {

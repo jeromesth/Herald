@@ -374,69 +374,132 @@ export function stripReadOnlyOverrides(
 	return { ...preferences, workflows: sanitizedWorkflows };
 }
 
+export type PreferencePatch = Partial<Pick<PreferenceRecord, "channels" | "workflows" | "categories" | "purposes">>;
+
+export interface UpsertPreferenceResult {
+	record: PreferenceRecord;
+	/** Present when a new preference row was inserted (for REST 201 bodies). */
+	createdRowId?: string;
+	updatedAt: Date;
+}
+
+/**
+ * Merge `patch` into an existing preference row or create one with config defaults.
+ * Used by the programmatic API, REST handlers, and bulk updates so merge semantics stay identical.
+ */
+export async function upsertPreferenceInternal(
+	db: DatabaseAdapter,
+	ctx: HeraldContext,
+	generateId: () => string,
+	internalSubscriberId: string,
+	patch: PreferencePatch,
+): Promise<UpsertPreferenceResult> {
+	const now = new Date();
+	const existing = await db.findOne<PreferenceRecord>({
+		model: "preference",
+		where: [{ field: "subscriberId", value: internalSubscriberId }],
+	});
+
+	if (existing) {
+		const record: PreferenceRecord = {
+			subscriberId: internalSubscriberId,
+			channels: deepMerge(existing.channels, patch.channels),
+			workflows: deepMerge(existing.workflows, patch.workflows),
+			categories: deepMerge(existing.categories, patch.categories),
+			purposes: deepMerge(existing.purposes, patch.purposes),
+		};
+		await db.update({
+			model: "preference",
+			where: [{ field: "subscriberId", value: internalSubscriberId }],
+			update: { ...record, updatedAt: now },
+		});
+		return { record, updatedAt: now };
+	}
+
+	const id = generateId();
+	const defaults = defaultPreferenceRecord(ctx, internalSubscriberId);
+	const record: PreferenceRecord = {
+		subscriberId: internalSubscriberId,
+		channels: deepMerge(defaults.channels, patch.channels),
+		workflows: deepMerge(defaults.workflows, patch.workflows),
+		categories: deepMerge(defaults.categories, patch.categories),
+		purposes: deepMerge(defaults.purposes, patch.purposes),
+	};
+	await db.create({ model: "preference", data: { id, ...record, updatedAt: now } });
+	return { record, createdRowId: id, updatedAt: now };
+}
+
+type BulkPreferenceUpdateInput = { subscriberId: string; preferences: Partial<PreferenceRecord> };
+
+type BulkPreferenceItemSuccess = { subscriberId: string; preferences: PreferenceRecord };
+type BulkPreferenceItemFailure = { subscriberId: string; error: string };
+type BulkPreferenceItemResult = BulkPreferenceItemSuccess | BulkPreferenceItemFailure;
+
+function sanitizeBulkPreferenceUpdate(
+	raw: BulkPreferenceUpdateInput,
+	readOnlyChannels: HeraldContext["readOnlyChannels"],
+): BulkPreferenceUpdateInput {
+	return {
+		...raw,
+		preferences: stripReadOnlyOverrides(raw.preferences, readOnlyChannels),
+	};
+}
+
+async function processSingleBulkPreferenceUpdate(
+	db: DatabaseAdapter,
+	ctx: HeraldContext,
+	generateId: () => string,
+	update: BulkPreferenceUpdateInput,
+): Promise<BulkPreferenceItemResult> {
+	try {
+		const internalId = await resolveSubscriberInternalId(db, update.subscriberId);
+		if (!internalId) {
+			return { subscriberId: update.subscriberId, error: "Subscriber not found" };
+		}
+		const { record } = await upsertPreferenceInternal(db, ctx, generateId, internalId, update.preferences);
+		return { subscriberId: update.subscriberId, preferences: record };
+	} catch (err) {
+		console.error(`[herald] bulkUpdatePreferences failed for subscriber "${update.subscriberId}":`, err);
+		return { subscriberId: update.subscriberId, error: "Update failed" };
+	}
+}
+
+function mapSettledBulkResultToRow(
+	settled: PromiseSettledResult<BulkPreferenceItemResult>,
+	fallbackSubscriberId: string,
+): { subscriberId: string; preferences?: PreferenceRecord; error?: string } {
+	if (settled.status === "fulfilled") {
+		const value = settled.value;
+		if ("error" in value) {
+			return { subscriberId: value.subscriberId, error: value.error };
+		}
+		return { subscriberId: value.subscriberId, preferences: value.preferences };
+	}
+
+	console.error(`[herald] bulkUpdatePreferences unexpected rejection for subscriber "${fallbackSubscriberId}":`, settled.reason);
+	return { subscriberId: fallbackSubscriberId, error: "Update failed" };
+}
+
 /**
  * Shared bulk update logic used by both the programmatic API and REST endpoint.
+ * Runs each update concurrently via Promise.allSettled (CODING_STANDARDS bulk guidance).
  */
 export async function bulkUpdatePreferencesInternal(
 	db: DatabaseAdapter,
 	ctx: HeraldContext,
 	generateId: () => string,
-	updates: Array<{ subscriberId: string; preferences: Partial<PreferenceRecord> }>,
+	updates: BulkPreferenceUpdateInput[],
 ): Promise<Array<{ subscriberId: string; preferences?: PreferenceRecord; error?: string }>> {
 	if (updates.length > 100) {
 		throw new Error("bulkUpdatePreferences supports a maximum of 100 updates per call");
 	}
 
-	const results: Array<{ subscriberId: string; preferences?: PreferenceRecord; error?: string }> = [];
-	for (const rawUpdate of updates) {
-		// Strip readOnly channel overrides before persisting
-		const update = {
-			...rawUpdate,
-			preferences: stripReadOnlyOverrides(rawUpdate.preferences, ctx.readOnlyChannels),
-		};
-		try {
-			const internalId = await resolveSubscriberInternalId(db, update.subscriberId);
-			if (!internalId) {
-				results.push({ subscriberId: update.subscriberId, error: "Subscriber not found" });
-				continue;
-			}
-			const now = new Date();
-			const existing = await db.findOne<PreferenceRecord>({
-				model: "preference",
-				where: [{ field: "subscriberId", value: internalId }],
-			});
+	const tasks = updates.map((rawUpdate) => {
+		const sanitized = sanitizeBulkPreferenceUpdate(rawUpdate, ctx.readOnlyChannels);
+		return processSingleBulkPreferenceUpdate(db, ctx, generateId, sanitized);
+	});
 
-			let result: PreferenceRecord;
-			if (existing) {
-				result = {
-					subscriberId: internalId,
-					channels: deepMerge(existing.channels, update.preferences.channels),
-					workflows: deepMerge(existing.workflows, update.preferences.workflows),
-					categories: deepMerge(existing.categories, update.preferences.categories),
-					purposes: deepMerge(existing.purposes, update.preferences.purposes),
-				};
-				await db.update({
-					model: "preference",
-					where: [{ field: "subscriberId", value: internalId }],
-					update: { ...result, updatedAt: now },
-				});
-			} else {
-				const id = generateId();
-				const defaults = defaultPreferenceRecord(ctx, internalId);
-				result = {
-					subscriberId: internalId,
-					channels: deepMerge(defaults.channels, update.preferences.channels),
-					workflows: deepMerge(defaults.workflows, update.preferences.workflows),
-					categories: deepMerge(defaults.categories, update.preferences.categories),
-					purposes: deepMerge(defaults.purposes, update.preferences.purposes),
-				};
-				await db.create({ model: "preference", data: { id, ...result, updatedAt: now } });
-			}
-			results.push({ subscriberId: update.subscriberId, preferences: result });
-		} catch (err) {
-			console.error(`[herald] bulkUpdatePreferences failed for subscriber "${update.subscriberId}":`, err);
-			results.push({ subscriberId: update.subscriberId, error: "Update failed" });
-		}
-	}
-	return results;
+	const settled = await Promise.allSettled(tasks);
+
+	return settled.map((s, i) => mapSettledBulkResultToRow(s, updates[i]?.subscriberId ?? "unknown"));
 }

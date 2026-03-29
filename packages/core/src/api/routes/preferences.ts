@@ -1,6 +1,66 @@
-import { bulkUpdatePreferencesInternal, deepMerge, stripReadOnlyOverrides } from "../../core/preferences.js";
-import type { CategoryPreference, HeraldContext, PreferenceRecord, WorkflowChannelPreference } from "../../types/config.js";
+import { z } from "zod";
+import { CONDITION_OPERATORS } from "../../core/conditions.js";
+import {
+	type PreferencePatch,
+	bulkUpdatePreferencesInternal,
+	stripReadOnlyOverrides,
+	upsertPreferenceInternal,
+} from "../../core/preferences.js";
+import type { HeraldContext, PreferenceRecord } from "../../types/config.js";
+import { CHANNEL_TYPES } from "../../types/workflow.js";
 import { jsonResponse, parseJsonBody } from "../router.js";
+
+const channelTypeSchema = z.enum(CHANNEL_TYPES);
+
+const preferenceConditionSchema = z.object({
+	field: z.string().min(1),
+	operator: z.enum(CONDITION_OPERATORS),
+	/** Omitted in JSON is allowed; evaluators treat missing like `undefined`. */
+	value: z.unknown().optional(),
+});
+
+const workflowChannelPreferenceSchema = z
+	.object({
+		enabled: z.boolean(),
+		channels: z.record(channelTypeSchema, z.boolean()).optional(),
+		conditions: z.array(preferenceConditionSchema).optional(),
+	})
+	.strict();
+
+const categoryPreferenceSchema = z
+	.object({
+		enabled: z.boolean(),
+		channels: z.record(channelTypeSchema, z.boolean()).optional(),
+	})
+	.strict();
+
+const putPreferencesBodySchema = z
+	.object({
+		channels: z.record(channelTypeSchema, z.boolean()).optional(),
+		workflows: z.record(z.string().min(1), workflowChannelPreferenceSchema).optional(),
+		categories: z.record(z.string().min(1), categoryPreferenceSchema).optional(),
+		purposes: z.record(z.string().min(1), z.boolean()).optional(),
+	})
+	.strict();
+
+const bulkPreferencesBodySchema = z
+	.object({
+		updates: z
+			.array(
+				z
+					.object({
+						subscriberId: z.string().min(1),
+						channels: z.record(channelTypeSchema, z.boolean()).optional(),
+						workflows: z.record(z.string().min(1), workflowChannelPreferenceSchema).optional(),
+						categories: z.record(z.string().min(1), categoryPreferenceSchema).optional(),
+						purposes: z.record(z.string().min(1), z.boolean()).optional(),
+					})
+					.strict(),
+			)
+			.min(0)
+			.max(100),
+	})
+	.strict();
 
 export const preferenceRoutes = [
 	{
@@ -40,15 +100,14 @@ export const preferenceRoutes = [
 		method: "PUT",
 		pattern: "/subscribers/:id/preferences",
 		handler: async (request: Request, ctx: HeraldContext, params: Record<string, string>) => {
-			const body = await parseJsonBody<{
-				channels?: Record<string, boolean>;
-				workflows?: Record<string, WorkflowChannelPreference>;
-				categories?: Record<string, CategoryPreference>;
-				purposes?: Record<string, boolean>;
-			}>(request);
+			const raw = await parseJsonBody(request);
+			const parsed = putPreferencesBodySchema.safeParse(raw);
+			if (!parsed.success) {
+				return jsonResponse({ error: "Invalid request body", issues: parsed.error.issues }, 400);
+			}
+			const body = parsed.data;
 
-			// Strip readOnly channel overrides before persisting
-			const sanitized = stripReadOnlyOverrides(body, ctx.readOnlyChannels);
+			const sanitized = stripReadOnlyOverrides(body as PreferencePatch, ctx.readOnlyChannels);
 
 			const subscriber = await ctx.db.findOne<{ id: string }>({
 				model: "subscriber",
@@ -60,84 +119,34 @@ export const preferenceRoutes = [
 				return jsonResponse({ error: "Subscriber not found" }, 404);
 			}
 
-			const now = new Date();
-			const existing = await ctx.db.findOne<PreferenceRecord & { id: string }>({
-				model: "preference",
-				where: [{ field: "subscriberId", value: subscriber.id }],
-			});
+			const { record, createdRowId, updatedAt } = await upsertPreferenceInternal(ctx.db, ctx, ctx.generateId, subscriber.id, sanitized);
 
-			if (existing) {
-				const merged = {
-					channels: deepMerge(existing.channels, sanitized.channels),
-					workflows: deepMerge(existing.workflows, sanitized.workflows),
-					categories: deepMerge(existing.categories, sanitized.categories),
-					purposes: deepMerge(existing.purposes, sanitized.purposes),
-					updatedAt: now,
-				};
-
-				await ctx.db.update({
-					model: "preference",
-					where: [{ field: "subscriberId", value: subscriber.id }],
-					update: merged,
-				});
-
-				return jsonResponse({
-					subscriberId: subscriber.id,
-					...merged,
-				});
+			if (createdRowId) {
+				return jsonResponse({ id: createdRowId, ...record, updatedAt }, 201);
 			}
 
-			const id = ctx.generateId();
-			const defaultChannels = ctx.options.defaultPreferences?.channels ?? {};
-			const defaultWorkflows = ctx.options.defaultPreferences?.workflows ?? {};
-			const defaultCategories = ctx.options.defaultPreferences?.categories ?? {};
-			const defaultPurposes = ctx.options.defaultPreferences?.purposes ?? {};
-			const newPref = {
-				id,
-				subscriberId: subscriber.id,
-				channels: { ...defaultChannels, ...(sanitized.channels ?? {}) },
-				workflows: { ...defaultWorkflows, ...(sanitized.workflows ?? {}) },
-				categories: { ...defaultCategories, ...(sanitized.categories ?? {}) },
-				purposes: { ...defaultPurposes, ...(sanitized.purposes ?? {}) },
-				updatedAt: now,
-			};
-
-			await ctx.db.create({ model: "preference", data: newPref });
-
-			return jsonResponse(newPref, 201);
+			return jsonResponse({ ...record, updatedAt });
 		},
 	},
 	{
 		method: "PUT",
 		pattern: "/preferences/bulk",
 		handler: async (request: Request, ctx: HeraldContext) => {
-			const body = await parseJsonBody<{
-				updates: Array<{
-					subscriberId: string;
-					channels?: Record<string, boolean>;
-					workflows?: Record<string, WorkflowChannelPreference>;
-					categories?: Record<string, CategoryPreference>;
-					purposes?: Record<string, boolean>;
-				}>;
-			}>(request);
-
-			if (!body.updates || !Array.isArray(body.updates)) {
-				return jsonResponse({ error: "Missing 'updates' array" }, 400);
+			const raw = await parseJsonBody(request);
+			const parsed = bulkPreferencesBodySchema.safeParse(raw);
+			if (!parsed.success) {
+				return jsonResponse({ error: "Invalid request body", issues: parsed.error.issues }, 400);
 			}
+			const body = parsed.data;
 
-			if (body.updates.length > 100) {
-				return jsonResponse({ error: "Maximum 100 updates per request" }, 400);
-			}
-
-			// Reshape flat REST body into the internal { subscriberId, preferences } format
-			const normalized = body.updates.map((u) => ({
+			const normalized: Array<{ subscriberId: string; preferences: Partial<PreferenceRecord> }> = body.updates.map((u) => ({
 				subscriberId: u.subscriberId,
 				preferences: {
 					channels: u.channels,
 					workflows: u.workflows,
 					categories: u.categories,
 					purposes: u.purposes,
-				},
+				} as Partial<PreferenceRecord>,
 			}));
 
 			const results = await bulkUpdatePreferencesInternal(ctx.db, ctx, ctx.generateId, normalized);

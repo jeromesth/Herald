@@ -61,6 +61,7 @@ export interface HeraldPlugin {
 			workflowId: string;
 			channel: ChannelType;
 			purpose?: string;
+			category?: string;
 			critical?: boolean;
 		}) => Promise<{ override?: boolean } | undefined>;
 

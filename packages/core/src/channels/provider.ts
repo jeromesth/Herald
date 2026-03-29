@@ -3,6 +3,8 @@
  * Each provider (SendGrid, Resend, etc.) implements this interface.
  */
 
+import type { ChannelType } from "../types";
+
 export interface ChannelProviderMessage {
 	/** Recipient subscriber ID. */
 	subscriberId: string;
@@ -38,7 +40,7 @@ export interface ChannelProvider {
 	/** Unique provider identifier (e.g., "sendgrid", "resend"). */
 	readonly providerId: string;
 	/** Channel type this provider handles. */
-	readonly channelType: "email" | "in_app" | "sms" | "push" | "chat" | "webhook";
+	readonly channelType: ChannelType;
 	/** Send a message through this provider. */
 	send(message: ChannelProviderMessage): Promise<ChannelProviderResult>;
 }

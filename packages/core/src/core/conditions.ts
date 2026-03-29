@@ -3,9 +3,14 @@
  * and preference conditions.
  */
 
+/** Single source of truth for allowed `operator` values (runtime switch + Zod, etc.). */
+export const CONDITION_OPERATORS = ["eq", "ne", "gt", "lt", "in", "not_in", "exists"] as const;
+
+export type ConditionOperator = (typeof CONDITION_OPERATORS)[number];
+
 export interface Condition {
 	field: string;
-	operator: "eq" | "ne" | "gt" | "lt" | "in" | "not_in" | "exists";
+	operator: ConditionOperator;
 	value: unknown;
 }
 
