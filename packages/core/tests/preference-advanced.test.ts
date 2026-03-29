@@ -244,6 +244,17 @@ describe("operator-level preference overrides", () => {
 		expect(result.reason).toContain("operator enforced channel");
 	});
 
+	it("when channel enforce enables and workflow enforce disables, channel tier still wins (same ordering)", () => {
+		const opPrefs: OperatorPreferences = {
+			channels: { email: { enabled: true, enforce: true } },
+			workflows: { invoice: { enabled: false, enforce: true } },
+		};
+		const meta: WorkflowMeta = { workflowId: "invoice" };
+		const result = preferenceGate({ subscriberPrefs: undefined, workflowMeta: meta, channel: "email", operatorPreferences: opPrefs });
+		expect(result.allowed).toBe(true);
+		expect(result.reason).toContain("operator enforced channel");
+	});
+
 	it("critical bypass takes precedence over operator overrides", () => {
 		const opPrefs: OperatorPreferences = {
 			channels: { email: { enabled: false, enforce: true } },
@@ -304,6 +315,14 @@ describe("shared conditions utility", () => {
 	it("evaluateCondition — gt/lt", () => {
 		expect(evaluateCondition({ field: "x", operator: "gt", value: 10 }, 20)).toBe(true);
 		expect(evaluateCondition({ field: "x", operator: "lt", value: 10 }, 5)).toBe(true);
+		expect(evaluateCondition({ field: "x", operator: "gt", value: 10 }, "20")).toBe(true);
+	});
+
+	it("evaluateCondition — gt/lt throw when operands are not finite numbers", () => {
+		expect(() => evaluateCondition({ field: "score", operator: "gt", value: 5 }, "hello")).toThrow(TypeError);
+		expect(() => evaluateCondition({ field: "score", operator: "lt", value: 5 }, "hello")).toThrow(TypeError);
+		expect(() => evaluateCondition({ field: "score", operator: "gt", value: "nope" }, 10)).toThrow(TypeError);
+		expect(() => evaluateCondition({ field: "score", operator: "lt", value: Number.NaN }, 10)).toThrow(TypeError);
 	});
 
 	it("evaluateCondition — in/not_in", () => {
@@ -319,6 +338,14 @@ describe("shared conditions utility", () => {
 	it("evaluateCondition — eq with undefined actual value", () => {
 		expect(evaluateCondition({ field: "x", operator: "eq", value: "pro" }, undefined)).toBe(false);
 		expect(evaluateCondition({ field: "x", operator: "eq", value: undefined }, undefined)).toBe(true);
+	});
+
+	it("evaluateCondition — ne/gt/lt/in/not_in with undefined actual value", () => {
+		expect(evaluateCondition({ field: "x", operator: "ne", value: "free" }, undefined)).toBe(true);
+		expect(evaluateCondition({ field: "x", operator: "gt", value: 0 }, undefined)).toBe(false);
+		expect(evaluateCondition({ field: "x", operator: "lt", value: 0 }, undefined)).toBe(false);
+		expect(evaluateCondition({ field: "x", operator: "in", value: ["a", "b"] }, undefined)).toBe(false);
+		expect(evaluateCondition({ field: "x", operator: "not_in", value: ["a", "b"] }, undefined)).toBe(true);
 	});
 
 	it("conditionsPass — all mode (default)", () => {
@@ -511,6 +538,11 @@ describe("bulk preference updates", () => {
 		await expect(app.api.bulkUpdatePreferences(updates)).rejects.toThrow("maximum of 100");
 	});
 
+	it("bulkUpdatePreferences accepts empty updates array", async () => {
+		const results = await app.api.bulkUpdatePreferences([]);
+		expect(results).toEqual([]);
+	});
+
 	it("bulk REST endpoint works", async () => {
 		const basePath = "/api/notifications";
 		const request = new Request(`http://localhost${basePath}/preferences/bulk`, {
@@ -619,6 +651,8 @@ describe("readOnly metadata in preference GET response", () => {
 // ---- Edge case: Operator enforced vs ReadOnly interaction ----
 
 describe("operator enforced vs readOnly interaction", () => {
+	// Operator tier is step 2; readOnly author defaults are step 3 — enforced operator always wins when both apply.
+
 	it("operator enforced disable takes precedence over readOnly enable", () => {
 		const opPrefs: OperatorPreferences = {
 			channels: { email: { enabled: false, enforce: true } },
@@ -659,6 +693,18 @@ describe("category enabled short-circuits to allow", () => {
 		const result = preferenceGate({ subscriberPrefs: prefs, workflowMeta: meta, channel: "email" });
 		expect(result.allowed).toBe(true);
 		expect(result.reason).toContain("subscriber enabled category");
+	});
+
+	it("purpose disabled blocks when workflow has category but subscriber never set category (step 6 skipped, step 7 applies)", () => {
+		const prefs: PreferenceRecord = {
+			subscriberId: "s1",
+			purposes: { promotional: false },
+		};
+		const meta: WorkflowMeta = { workflowId: "promo", category: "marketing", purpose: "promotional" };
+		const result = preferenceGate({ subscriberPrefs: prefs, workflowMeta: meta, channel: "email" });
+		expect(result.allowed).toBe(false);
+		expect(result.reason).toContain("purpose");
+		expect(result.reason).toContain("promotional");
 	});
 
 	it("category enabled overrides config default disabled below it", () => {

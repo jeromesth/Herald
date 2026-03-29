@@ -31,6 +31,27 @@ export function resolvePath(source: Record<string, unknown>, path: string): unkn
 	return current;
 }
 
+function assertFiniteComparableNumber(value: unknown, condition: Condition, role: "condition value" | "resolved value"): number {
+	const n = Number(value);
+	if (!Number.isFinite(n)) {
+		throw new TypeError(
+			`[herald] Condition on field "${condition.field}" uses operator "${condition.operator}" with non-finite numeric ${role}: ${JSON.stringify(value)}`,
+		);
+	}
+	return n;
+}
+
+/**
+ * For gt/lt, undefined/null actual means the condition is not satisfied (same as before, but without NaN).
+ * Any other non-numeric value throws so mis-typed fields do not silently compare as false.
+ */
+function numericActualForOrderComparison(actualValue: unknown, condition: Condition): number | null {
+	if (actualValue === undefined || actualValue === null) {
+		return null;
+	}
+	return assertFiniteComparableNumber(actualValue, condition, "resolved value");
+}
+
 /**
  * Evaluate a single condition against a value resolver.
  */
@@ -40,10 +61,22 @@ export function evaluateCondition(condition: Condition, actualValue: unknown): b
 			return actualValue === condition.value;
 		case "ne":
 			return actualValue !== condition.value;
-		case "gt":
-			return Number(actualValue) > Number(condition.value);
-		case "lt":
-			return Number(actualValue) < Number(condition.value);
+		case "gt": {
+			const threshold = assertFiniteComparableNumber(condition.value, condition, "condition value");
+			const left = numericActualForOrderComparison(actualValue, condition);
+			if (left === null) {
+				return false;
+			}
+			return left > threshold;
+		}
+		case "lt": {
+			const threshold = assertFiniteComparableNumber(condition.value, condition, "condition value");
+			const left = numericActualForOrderComparison(actualValue, condition);
+			if (left === null) {
+				return false;
+			}
+			return left < threshold;
+		}
 		case "in":
 			return Array.isArray(condition.value) && condition.value.includes(actualValue);
 		case "not_in":
