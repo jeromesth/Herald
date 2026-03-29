@@ -333,6 +333,49 @@ describe("preference enforcement — integration", () => {
 		expect(notifications).toHaveLength(1);
 	});
 
+	it("beforePreferenceCheck receives category and purpose from workflow", async () => {
+		const categorizedWorkflow: NotificationWorkflow = {
+			id: "promo-email",
+			name: "Promo",
+			category: "marketing",
+			purpose: "promotional",
+			steps: [{ stepId: "send-email", type: "email", handler: async () => ({ subject: "Hi", body: "Promo" }) }],
+		};
+		const beforeHook = vi.fn();
+		const pluginDb = memoryAdapter();
+		const pluginWorkflow = memoryWorkflowAdapter();
+		const pluginApp = herald({
+			database: pluginDb,
+			workflow: pluginWorkflow,
+			workflows: [categorizedWorkflow],
+			channels: { email: { provider: "custom", from: "noreply@test.com", send: async () => {} } },
+			plugins: [
+				{
+					id: "category-spy",
+					hooks: { beforePreferenceCheck: beforeHook },
+				},
+			],
+		});
+
+		const { id: subscriberId } = await pluginApp.api.upsertSubscriber({
+			externalId: "user-1",
+			email: "user@test.com",
+		});
+
+		await pluginApp.api.trigger({ workflowId: "promo-email", to: "user-1", payload: {} });
+
+		expect(beforeHook).toHaveBeenCalled();
+		expect(beforeHook).toHaveBeenCalledWith(
+			expect.objectContaining({
+				subscriberId,
+				workflowId: "promo-email",
+				channel: "email",
+				category: "marketing",
+				purpose: "promotional",
+			}),
+		);
+	});
+
 	it("afterPreferenceCheck hook receives correct arguments", async () => {
 		const inAppOnlyWorkflow: NotificationWorkflow = {
 			id: "notify",
