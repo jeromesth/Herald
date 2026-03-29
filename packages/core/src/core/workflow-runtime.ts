@@ -1,5 +1,7 @@
 import type { HeraldContext, PreferenceRecord } from "../types/config.js";
 import type {
+	ActionStep,
+	BranchStep,
 	ChannelType,
 	FetchConfig,
 	FetchResult,
@@ -9,6 +11,7 @@ import type {
 	StepResult,
 	ThrottleConfig,
 	ThrottleResult,
+	WorkflowStep,
 } from "../types/workflow.js";
 import type { WorkflowMeta } from "./preferences.js";
 import { preferenceGate } from "./preferences.js";
@@ -24,11 +27,26 @@ export function wrapWorkflow(workflow: NotificationWorkflow, ctx: HeraldContext)
 	};
 	return {
 		...workflow,
-		steps: workflow.steps.map((step) => wrapStep(meta, step, ctx)),
+		steps: wrapSteps(meta, workflow.steps, ctx),
 	};
 }
 
-function wrapStep(workflowMeta: WorkflowMeta, step: NotificationWorkflow["steps"][number], ctx: HeraldContext) {
+function wrapSteps(meta: WorkflowMeta, steps: WorkflowStep[], ctx: HeraldContext): WorkflowStep[] {
+	return steps.map((step) => {
+		if (isBranchStep(step)) {
+			return {
+				...step,
+				branches: step.branches.map((branch) => ({
+					...branch,
+					steps: wrapSteps(meta, branch.steps, ctx),
+				})),
+			};
+		}
+		return wrapStep(meta, step, ctx);
+	});
+}
+
+function wrapStep(workflowMeta: WorkflowMeta, step: ActionStep, ctx: HeraldContext) {
 	const originalHandler = step.handler;
 
 	return {
@@ -241,6 +259,27 @@ function resolvePath(source: Record<string, unknown>, path: string): unknown {
 	}
 
 	return current;
+}
+
+export function isBranchStep(step: WorkflowStep): step is BranchStep {
+	return step.type === "branch";
+}
+
+export function resolveBranch(step: BranchStep, context: StepContext): WorkflowStep[] {
+	for (const branch of step.branches) {
+		if (conditionsPass(branch.conditions, context, branch.conditionMode)) {
+			return branch.steps;
+		}
+	}
+
+	if (step.defaultBranch) {
+		const fallback = step.branches.find((b) => b.key === step.defaultBranch);
+		if (fallback) {
+			return fallback.steps;
+		}
+	}
+
+	return [];
 }
 
 export function toMs(amount: number, unit: "seconds" | "minutes" | "hours" | "days"): number {
