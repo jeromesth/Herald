@@ -1,3 +1,4 @@
+import type { DatabaseAdapter } from "../types/adapter.js";
 import type {
 	CategoryPreference,
 	DefaultPreferences,
@@ -9,6 +10,7 @@ import type {
 } from "../types/config.js";
 import type { ChannelType, SubscriberData } from "../types/workflow.js";
 import { conditionsPass, resolvePath } from "./conditions.js";
+import { resolveSubscriberInternalId } from "./subscriber.js";
 
 /**
  * Deep merge two plain objects. Nested objects are recursively merged rather than overwritten.
@@ -283,4 +285,66 @@ export function defaultPreferenceRecord(ctx: HeraldContext, subscriberId: string
 		categories: { ...(ctx.options.defaultPreferences?.categories ?? {}) },
 		purposes: { ...(ctx.options.defaultPreferences?.purposes ?? {}) },
 	};
+}
+
+/**
+ * Shared bulk update logic used by both the programmatic API and REST endpoint.
+ */
+export async function bulkUpdatePreferencesInternal(
+	db: DatabaseAdapter,
+	ctx: HeraldContext,
+	generateId: () => string,
+	updates: Array<{ subscriberId: string; preferences: Partial<PreferenceRecord> }>,
+): Promise<Array<{ subscriberId: string; preferences?: PreferenceRecord; error?: string }>> {
+	if (updates.length > 100) {
+		throw new Error("bulkUpdatePreferences supports a maximum of 100 updates per call");
+	}
+
+	const results: Array<{ subscriberId: string; preferences?: PreferenceRecord; error?: string }> = [];
+	for (const update of updates) {
+		try {
+			const internalId = await resolveSubscriberInternalId(db, update.subscriberId);
+			if (!internalId) {
+				results.push({ subscriberId: update.subscriberId, error: "Subscriber not found" });
+				continue;
+			}
+			const now = new Date();
+			const existing = await db.findOne<PreferenceRecord>({
+				model: "preference",
+				where: [{ field: "subscriberId", value: internalId }],
+			});
+
+			let result: PreferenceRecord;
+			if (existing) {
+				result = {
+					subscriberId: internalId,
+					channels: deepMerge(existing.channels, update.preferences.channels),
+					workflows: deepMerge(existing.workflows, update.preferences.workflows),
+					categories: deepMerge(existing.categories, update.preferences.categories),
+					purposes: deepMerge(existing.purposes, update.preferences.purposes),
+				};
+				await db.update({
+					model: "preference",
+					where: [{ field: "subscriberId", value: internalId }],
+					update: { ...result, updatedAt: now },
+				});
+			} else {
+				const id = generateId();
+				const defaults = defaultPreferenceRecord(ctx, internalId);
+				result = {
+					subscriberId: internalId,
+					channels: deepMerge(defaults.channels, update.preferences.channels),
+					workflows: deepMerge(defaults.workflows, update.preferences.workflows),
+					categories: deepMerge(defaults.categories, update.preferences.categories),
+					purposes: deepMerge(defaults.purposes, update.preferences.purposes),
+				};
+				await db.create({ model: "preference", data: { id, ...result, updatedAt: now } });
+			}
+			results.push({ subscriberId: update.subscriberId, preferences: result });
+		} catch (err) {
+			console.error(`[herald] bulkUpdatePreferences failed for subscriber "${update.subscriberId}":`, err);
+			results.push({ subscriberId: update.subscriberId, error: "Update failed" });
+		}
+	}
+	return results;
 }

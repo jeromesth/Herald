@@ -1,4 +1,4 @@
-import { deepMerge } from "../../core/preferences.js";
+import { bulkUpdatePreferencesInternal, deepMerge } from "../../core/preferences.js";
 import type { CategoryPreference, HeraldContext, PreferenceRecord, WorkflowChannelPreference } from "../../types/config.js";
 import type { ChannelType } from "../../types/workflow.js";
 import { jsonResponse, parseJsonBody } from "../router.js";
@@ -147,77 +147,19 @@ export const preferenceRoutes = [
 				return jsonResponse({ error: "Maximum 100 updates per request" }, 400);
 			}
 
-			const results: Array<{ subscriberId: string; preferences?: PreferenceRecord; error?: string }> = [];
-			let hasErrors = false;
+			// Reshape flat REST body into the internal { subscriberId, preferences } format
+			const normalized = body.updates.map((u) => ({
+				subscriberId: u.subscriberId,
+				preferences: {
+					channels: u.channels,
+					workflows: u.workflows,
+					categories: u.categories,
+					purposes: u.purposes,
+				},
+			}));
 
-			for (const update of body.updates) {
-				const subscriber = await ctx.db.findOne<{ id: string }>({
-					model: "subscriber",
-					where: [{ field: "externalId", value: update.subscriberId }],
-					select: ["id"],
-				});
-
-				if (!subscriber) {
-					results.push({ subscriberId: update.subscriberId, error: "Subscriber not found" });
-					hasErrors = true;
-					continue;
-				}
-
-				const now = new Date();
-				const existing = await ctx.db.findOne<PreferenceRecord & { id: string }>({
-					model: "preference",
-					where: [{ field: "subscriberId", value: subscriber.id }],
-				});
-
-				if (existing) {
-					const merged = {
-						channels: deepMerge(existing.channels, update.channels),
-						workflows: deepMerge(existing.workflows, update.workflows),
-						categories: deepMerge(existing.categories, update.categories),
-						purposes: deepMerge(existing.purposes, update.purposes),
-						updatedAt: now,
-					};
-
-					await ctx.db.update({
-						model: "preference",
-						where: [{ field: "subscriberId", value: subscriber.id }],
-						update: merged,
-					});
-
-					results.push({
-						subscriberId: update.subscriberId,
-						preferences: { subscriberId: subscriber.id, ...merged },
-					});
-				} else {
-					const id = ctx.generateId();
-					const defaultChannels = ctx.options.defaultPreferences?.channels ?? {};
-					const defaultWorkflows = ctx.options.defaultPreferences?.workflows ?? {};
-					const defaultCategories = ctx.options.defaultPreferences?.categories ?? {};
-					const defaultPurposes = ctx.options.defaultPreferences?.purposes ?? {};
-					const newPref = {
-						id,
-						subscriberId: subscriber.id,
-						channels: { ...defaultChannels, ...(update.channels ?? {}) },
-						workflows: { ...defaultWorkflows, ...(update.workflows ?? {}) },
-						categories: { ...defaultCategories, ...(update.categories ?? {}) },
-						purposes: { ...defaultPurposes, ...(update.purposes ?? {}) },
-						updatedAt: now,
-					};
-
-					await ctx.db.create({ model: "preference", data: newPref });
-
-					results.push({
-						subscriberId: update.subscriberId,
-						preferences: {
-							subscriberId: subscriber.id,
-							channels: newPref.channels,
-							workflows: newPref.workflows,
-							categories: newPref.categories,
-							purposes: newPref.purposes,
-						},
-					});
-				}
-			}
+			const results = await bulkUpdatePreferencesInternal(ctx.db, ctx, ctx.generateId, normalized);
+			const hasErrors = results.some((r) => r.error);
 
 			return jsonResponse({ results }, hasErrors ? 207 : 200);
 		},
