@@ -518,6 +518,20 @@ describe("bulk preference updates", () => {
 		expect(results[1]?.error).toBeUndefined();
 	});
 
+	it("bulkUpdatePreferences chains patches for the same subscriber in order", async () => {
+		const results = await app.api.bulkUpdatePreferences([
+			{ subscriberId: "user-1", preferences: { channels: { email: false } } },
+			{ subscriberId: "user-1", preferences: { channels: { sms: false } } },
+		]);
+
+		expect(results).toHaveLength(2);
+		expect(results[0]?.preferences?.channels?.email).toBe(false);
+		expect(results[1]?.preferences?.channels?.email).toBe(false);
+		expect(results[1]?.preferences?.channels?.sms).toBe(false);
+		expect(results[0]?.error).toBeUndefined();
+		expect(results[1]?.error).toBeUndefined();
+	});
+
 	it("bulkUpdatePreferences reports errors for unknown subscribers", async () => {
 		const results = await app.api.bulkUpdatePreferences([
 			{ subscriberId: "user-1", preferences: { channels: { email: false } } },
