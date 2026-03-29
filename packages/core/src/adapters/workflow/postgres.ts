@@ -374,7 +374,7 @@ export function postgresWorkflowAdapter(config: PostgresWorkflowConfig): Postgre
 				const actionStep = currentStep as ActionStep;
 
 				// Check conditions
-				if (!stepConditionsPass(currentStep.conditions, stepContext, currentStep.conditionMode)) {
+				if (!stepConditionsPass(actionStep.conditions, stepContext, actionStep.conditionMode)) {
 					await advanceStep(p, job.id, i + 1);
 					continue;
 				}
