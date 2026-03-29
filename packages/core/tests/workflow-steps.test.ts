@@ -78,6 +78,28 @@ describe("checkThrottle", () => {
 		const resultB = checkThrottle(ctx, configB);
 		expect(resultB.throttled).toBe(false);
 	});
+
+	it("cleans up expired entries when throttle state exceeds 1000 entries", () => {
+		const ctx = makeThrottleCtx();
+		const config = { key: "test", limit: 10, window: 1, unit: "seconds" as const };
+
+		// Fill the throttle state with > 1000 expired entries
+		const windowMs = 1000; // 1 second
+		for (let i = 0; i < 1010; i++) {
+			ctx.throttleState.set(`expired-${i}`, {
+				count: 1,
+				windowStart: Date.now() - windowMs * 3, // expired (> 2x window)
+			});
+		}
+
+		expect(ctx.throttleState.size).toBe(1010);
+
+		// Trigger cleanup by calling checkThrottle
+		checkThrottle(ctx, config);
+
+		// Expired entries should have been cleaned up
+		expect(ctx.throttleState.size).toBeLessThan(1010);
+	});
 });
 
 describe("performFetch", () => {

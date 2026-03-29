@@ -141,6 +141,14 @@ describe("conditionsPass", () => {
 			const conditions: StepCondition[] = [{ field: "plan", operator: "eq", value: "pro" }];
 			expect(conditionsPass(conditions, makeContext({ plan: "pro" }))).toBe(true);
 		});
+
+		it("returns undefined for deeply nested path through null/primitive", () => {
+			const conditions: StepCondition[] = [{ field: "payload.a.b.c", operator: "exists", value: true }];
+			// a is a string, not an object — path resolution should bail out
+			expect(conditionsPass(conditions, makeContext({ a: "not-an-object" }))).toBe(false);
+			// a is null
+			expect(conditionsPass(conditions, makeContext({ a: null }))).toBe(false);
+		});
 	});
 
 	describe("multiple conditions (AND logic)", () => {
