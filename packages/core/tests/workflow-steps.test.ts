@@ -141,6 +141,19 @@ describe("performFetch", () => {
 		const result = await performFetch({ url: "https://example.com/text" });
 		expect(result.data).toBeNull();
 	});
+
+	it("aborts request when timeout is exceeded", async () => {
+		fetchSpy.mockImplementation(async (_url: string, opts: { signal: AbortSignal }) => {
+			// Simulate a slow request that gets aborted
+			return new Promise((_resolve, reject) => {
+				opts.signal.addEventListener("abort", () => {
+					reject(new DOMException("The operation was aborted.", "AbortError"));
+				});
+			});
+		});
+
+		await expect(performFetch({ url: "https://example.com/slow", timeout: 1 })).rejects.toThrow("aborted");
+	});
 });
 
 describe("memory adapter — workflow steps", () => {

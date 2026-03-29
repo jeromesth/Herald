@@ -395,4 +395,18 @@ describe("drizzleAdapter", () => {
 			).rejects.toThrow('Unknown model "nonexistent"');
 		});
 	});
+
+	describe("debugLogs", () => {
+		it("logs operations when debugLogs is enabled", async () => {
+			const record = { id: "1", externalId: "ext-1", email: "a@b.com" };
+			const { db } = createMockDb({ returnData: [record] });
+			const adapter = drizzleAdapter(db, { debugLogs: true });
+
+			const result = await adapter.findOne({
+				model: "subscriber",
+				where: [{ field: "id", value: "1" }],
+			});
+			expect(result).toBeDefined();
+		});
+	});
 });

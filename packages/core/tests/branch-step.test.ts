@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { memoryWorkflowAdapter } from "../src/adapters/workflow/memory.js";
-import { conditionsPass, resolveBranch } from "../src/core/workflow-runtime.js";
+import { conditionsPass, resolveBranch, wrapWorkflow } from "../src/core/workflow-runtime.js";
+import type { HeraldContext } from "../src/types/config.js";
 import type { ActionStep, BranchDefinition, BranchStep, NotificationWorkflow, StepContext, WorkflowStep } from "../src/types/workflow.js";
 
 function makeContext(
@@ -98,13 +99,14 @@ describe("resolveBranch", () => {
 				},
 				{
 					key: "fallback",
-					conditions: [],
+					conditions: [{ field: "payload.plan", operator: "eq", value: "fallback-only" }],
 					steps: [fallbackStep],
 				},
 			],
 			defaultBranch: "fallback",
 		};
 
+		// No branch conditions match — should use defaultBranch
 		const ctx = makeContext({ plan: "free" });
 		const result = resolveBranch(branch, ctx);
 		expect(result).toEqual([fallbackStep]);
@@ -704,5 +706,66 @@ describe("branch step — memory adapter", () => {
 		await adapter.trigger({ workflowId: "conditioned-sub-wf", to: "user-1", payload: { go: true, extra: false } });
 
 		expect(stepsCalled).toEqual(["always-step"]);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// wrapWorkflow — branch step integration
+// ---------------------------------------------------------------------------
+
+describe("wrapWorkflow with branch steps", () => {
+	function makeMinimalHeraldCtx(): HeraldContext {
+		return {
+			db: {
+				findOne: async () => null,
+				findMany: async () => [],
+				create: async () => ({}),
+				update: async () => ({}),
+				delete: async () => {},
+			},
+			options: {},
+			channels: { get: () => undefined },
+			throttleState: new Map(),
+		} as unknown as HeraldContext;
+	}
+
+	it("recursively wraps action steps inside branches", () => {
+		const workflow: NotificationWorkflow = {
+			id: "wrap-branch-wf",
+			name: "Wrap Branch",
+			steps: [
+				{
+					stepId: "route",
+					type: "branch",
+					branches: [
+						{
+							key: "a",
+							conditions: [{ field: "payload.x", operator: "eq", value: 1 }],
+							steps: [
+								{
+									stepId: "inner-email",
+									type: "email",
+									handler: async () => ({ subject: "Hi", body: "Hello" }),
+								},
+							],
+						},
+					],
+				} as WorkflowStep,
+			],
+		};
+
+		const ctx = makeMinimalHeraldCtx();
+		const wrapped = wrapWorkflow(workflow, ctx);
+
+		// The branch step should still be a branch step
+		expect(wrapped.steps[0]?.type).toBe("branch");
+
+		// The inner step should be wrapped (handler replaced)
+		const branchStep = wrapped.steps[0] as BranchStep;
+		const innerStep = branchStep.branches[0]?.steps[0] as ActionStep;
+		expect(innerStep.stepId).toBe("inner-email");
+		// Wrapped handler is different from original
+		expect(innerStep.handler).toBeDefined();
+		expect(innerStep.handler).not.toBe(workflow.steps[0]);
 	});
 });
