@@ -191,12 +191,9 @@ export interface CategoryPreference {
 
 /**
  * Preference condition for dynamic evaluation based on subscriber/payload data.
+ * Type alias for the shared Condition interface in conditions.ts.
  */
-export interface PreferenceCondition {
-	field: string;
-	operator: "eq" | "ne" | "gt" | "lt" | "in" | "not_in" | "exists";
-	value: unknown;
-}
+export type PreferenceCondition = import("../core/conditions.js").Condition;
 
 /**
  * Operator-level preferences that can override subscriber preferences.
