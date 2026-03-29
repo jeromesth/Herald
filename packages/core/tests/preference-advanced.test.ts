@@ -3,7 +3,7 @@ import { memoryAdapter } from "../src/adapters/database/memory.js";
 import { memoryWorkflowAdapter } from "../src/adapters/workflow/memory.js";
 import { conditionsPass, evaluateCondition, resolvePath } from "../src/core/conditions.js";
 import { herald } from "../src/core/herald.js";
-import { preferenceGate } from "../src/core/preferences.js";
+import { normalizePreferenceRecord, preferenceGate } from "../src/core/preferences.js";
 import type { ConditionContext, WorkflowMeta } from "../src/core/preferences.js";
 import type { CategoryPreference, Herald, NotificationWorkflow, OperatorPreferences, PreferenceRecord } from "../src/types/index.js";
 
@@ -535,5 +535,148 @@ describe("readOnly metadata in preference GET response", () => {
 		expect(body.readOnlyChannels).toBeDefined();
 		expect(body.readOnlyChannels["account-alert"]?.email).toBe(true);
 		expect(body.readOnlyChannels["account-alert"]?.in_app).toBeUndefined();
+	});
+});
+
+// ---- Edge case: Operator enforced vs ReadOnly interaction ----
+
+describe("operator enforced vs readOnly interaction", () => {
+	it("operator enforced disable takes precedence over readOnly enable", () => {
+		const opPrefs: OperatorPreferences = {
+			channels: { email: { enabled: false, enforce: true } },
+		};
+		const meta: WorkflowMeta = {
+			workflowId: "alerts",
+			preferences: { channels: { email: { enabled: true, readOnly: true } } },
+		};
+		const result = preferenceGate({ workflowMeta: meta, channel: "email", operatorPreferences: opPrefs });
+		expect(result.allowed).toBe(false);
+		expect(result.reason).toContain("operator enforced");
+	});
+
+	it("operator enforced enable takes precedence over readOnly disable", () => {
+		const opPrefs: OperatorPreferences = {
+			channels: { email: { enabled: true, enforce: true } },
+		};
+		const meta: WorkflowMeta = {
+			workflowId: "legacy",
+			preferences: { channels: { email: { enabled: false, readOnly: true } } },
+		};
+		const result = preferenceGate({ workflowMeta: meta, channel: "email", operatorPreferences: opPrefs });
+		expect(result.allowed).toBe(true);
+		expect(result.reason).toContain("operator enforced");
+	});
+});
+
+// ---- Edge case: Category enabled short-circuits to allow ----
+
+describe("category enabled short-circuits to allow", () => {
+	it("category enabled overrides purpose disabled below it", () => {
+		const prefs: PreferenceRecord = {
+			subscriberId: "s1",
+			categories: { marketing: { enabled: true } },
+			purposes: { promotional: false },
+		};
+		const meta: WorkflowMeta = { workflowId: "promo", category: "marketing", purpose: "promotional" };
+		const result = preferenceGate({ subscriberPrefs: prefs, workflowMeta: meta, channel: "email" });
+		expect(result.allowed).toBe(true);
+		expect(result.reason).toContain("subscriber enabled category");
+	});
+
+	it("category enabled overrides config default disabled below it", () => {
+		const prefs: PreferenceRecord = {
+			subscriberId: "s1",
+			categories: { marketing: { enabled: true } },
+		};
+		const meta: WorkflowMeta = { workflowId: "promo", category: "marketing" };
+		const defaults = { channels: { email: false as const } };
+		const result = preferenceGate({ subscriberPrefs: prefs, workflowMeta: meta, channel: "email", defaultPreferences: defaults });
+		expect(result.allowed).toBe(true);
+		expect(result.reason).toContain("subscriber enabled category");
+	});
+});
+
+// ---- Edge case: exists operator with value: false ----
+
+describe("exists operator with value: false", () => {
+	it("value: false checks for non-existence", () => {
+		expect(evaluateCondition({ field: "x", operator: "exists", value: false }, undefined)).toBe(true);
+		expect(evaluateCondition({ field: "x", operator: "exists", value: false }, null)).toBe(true);
+	});
+
+	it("value: false fails when field exists", () => {
+		expect(evaluateCondition({ field: "x", operator: "exists", value: false }, "hello")).toBe(false);
+		expect(evaluateCondition({ field: "x", operator: "exists", value: false }, 0)).toBe(false);
+	});
+});
+
+// ---- Edge case: Boolean-to-object migration normalizer ----
+
+describe("normalizePreferenceRecord", () => {
+	it("coerces boolean workflow values to object form", () => {
+		const raw = {
+			subscriberId: "s1",
+			workflows: { "wf-1": true, "wf-2": false },
+		} as unknown as PreferenceRecord;
+
+		const normalized = normalizePreferenceRecord(raw);
+		expect(normalized.workflows?.["wf-1"]).toEqual({ enabled: true });
+		expect(normalized.workflows?.["wf-2"]).toEqual({ enabled: false });
+	});
+
+	it("coerces boolean category values to object form", () => {
+		const raw = {
+			subscriberId: "s1",
+			categories: { marketing: true, billing: false },
+		} as unknown as PreferenceRecord;
+
+		const normalized = normalizePreferenceRecord(raw);
+		expect(normalized.categories?.marketing).toEqual({ enabled: true });
+		expect(normalized.categories?.billing).toEqual({ enabled: false });
+	});
+
+	it("leaves already-normalized values unchanged", () => {
+		const raw: PreferenceRecord = {
+			subscriberId: "s1",
+			workflows: { "wf-1": { enabled: true, channels: { email: false } } },
+			categories: { marketing: { enabled: true, channels: { sms: false } } },
+		};
+
+		const normalized = normalizePreferenceRecord(raw);
+		expect(normalized.workflows?.["wf-1"]).toEqual({ enabled: true, channels: { email: false } });
+		expect(normalized.categories?.marketing).toEqual({ enabled: true, channels: { sms: false } });
+	});
+
+	it("handles missing workflows and categories gracefully", () => {
+		const raw: PreferenceRecord = { subscriberId: "s1" };
+		const normalized = normalizePreferenceRecord(raw);
+		expect(normalized).toEqual(raw);
+	});
+});
+
+// ---- Edge case: readOnly enforcement at API write layer ----
+
+describe("readOnly enforcement at API write layer", () => {
+	it("strips readOnly channel overrides from updatePreferences", async () => {
+		const db = memoryAdapter();
+		const wf = memoryWorkflowAdapter();
+		const workflow: NotificationWorkflow = {
+			id: "secure-alerts",
+			name: "Secure Alerts",
+			preferences: { channels: { email: { enabled: true, readOnly: true } } },
+			steps: [{ stepId: "send", type: "email", handler: async () => ({ subject: "Alert", body: "Test" }) }],
+		};
+
+		const app = herald({ database: db, workflow: wf, workflows: [workflow] });
+		const { id: subscriberId } = await app.api.upsertSubscriber({ externalId: "user-1" });
+
+		// Try to override the readOnly channel via workflow-specific preferences
+		await app.api.updatePreferences(subscriberId, {
+			workflows: { "secure-alerts": { enabled: true, channels: { email: false } } },
+		});
+
+		const prefs = await app.api.getPreferences(subscriberId);
+		// The email channel override for secure-alerts should have been stripped
+		expect(prefs.workflows?.["secure-alerts"]?.channels?.email).toBeUndefined();
 	});
 });
