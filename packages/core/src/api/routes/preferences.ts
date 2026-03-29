@@ -1,4 +1,4 @@
-import { bulkUpdatePreferencesInternal, deepMerge } from "../../core/preferences.js";
+import { bulkUpdatePreferencesInternal, deepMerge, stripReadOnlyOverrides } from "../../core/preferences.js";
 import type { CategoryPreference, HeraldContext, PreferenceRecord, WorkflowChannelPreference } from "../../types/config.js";
 import { jsonResponse, parseJsonBody } from "../router.js";
 
@@ -47,6 +47,9 @@ export const preferenceRoutes = [
 				purposes?: Record<string, boolean>;
 			}>(request);
 
+			// Strip readOnly channel overrides before persisting
+			const sanitized = stripReadOnlyOverrides(body, ctx.readOnlyChannels);
+
 			const subscriber = await ctx.db.findOne<{ id: string }>({
 				model: "subscriber",
 				where: [{ field: "externalId", value: params.id }],
@@ -65,10 +68,10 @@ export const preferenceRoutes = [
 
 			if (existing) {
 				const merged = {
-					channels: deepMerge(existing.channels, body.channels),
-					workflows: deepMerge(existing.workflows, body.workflows),
-					categories: deepMerge(existing.categories, body.categories),
-					purposes: deepMerge(existing.purposes, body.purposes),
+					channels: deepMerge(existing.channels, sanitized.channels),
+					workflows: deepMerge(existing.workflows, sanitized.workflows),
+					categories: deepMerge(existing.categories, sanitized.categories),
+					purposes: deepMerge(existing.purposes, sanitized.purposes),
 					updatedAt: now,
 				};
 
@@ -92,10 +95,10 @@ export const preferenceRoutes = [
 			const newPref = {
 				id,
 				subscriberId: subscriber.id,
-				channels: { ...defaultChannels, ...(body.channels ?? {}) },
-				workflows: { ...defaultWorkflows, ...(body.workflows ?? {}) },
-				categories: { ...defaultCategories, ...(body.categories ?? {}) },
-				purposes: { ...defaultPurposes, ...(body.purposes ?? {}) },
+				channels: { ...defaultChannels, ...(sanitized.channels ?? {}) },
+				workflows: { ...defaultWorkflows, ...(sanitized.workflows ?? {}) },
+				categories: { ...defaultCategories, ...(sanitized.categories ?? {}) },
+				purposes: { ...defaultPurposes, ...(sanitized.purposes ?? {}) },
 				updatedAt: now,
 			};
 

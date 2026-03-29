@@ -16,7 +16,13 @@ import type {
 	SubscriberRecord,
 } from "../types/config.js";
 import { initializePlugins } from "./plugins.js";
-import { buildReadOnlyChannels, bulkUpdatePreferencesInternal, deepMerge, defaultPreferenceRecord } from "./preferences.js";
+import {
+	buildReadOnlyChannels,
+	bulkUpdatePreferencesInternal,
+	deepMerge,
+	defaultPreferenceRecord,
+	stripReadOnlyOverrides,
+} from "./preferences.js";
 import { buildEmailProvider } from "./providers.js";
 import { sendThroughProvider } from "./send.js";
 import { resolveSubscriberInternalId } from "./subscriber.js";
@@ -296,8 +302,9 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 			return pref ?? defaultPreferenceRecord(ctx, internalSubscriberId);
 		},
 
-		async updatePreferences(subscriberId, preferences) {
+		async updatePreferences(subscriberId, rawPreferences) {
 			await pluginsReady;
+			const preferences = stripReadOnlyOverrides(rawPreferences, ctx.readOnlyChannels);
 			const internalSubscriberId = (await resolveSubscriberInternalId(db, subscriberId)) ?? subscriberId;
 			const now = new Date();
 			const existing = await db.findOne<PreferenceRecord>({

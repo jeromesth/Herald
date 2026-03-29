@@ -307,6 +307,33 @@ export function buildReadOnlyChannels(workflows?: NotificationWorkflow[]): Recor
 }
 
 /**
+ * Strip preference overrides for channels that are marked readOnly by workflow authors.
+ * This prevents subscribers from storing contradictory state.
+ */
+export function stripReadOnlyOverrides(
+	preferences: Partial<PreferenceRecord>,
+	readOnlyChannels: Record<string, Partial<Record<ChannelType, boolean>>>,
+): Partial<PreferenceRecord> {
+	if (!preferences.workflows || Object.keys(readOnlyChannels).length === 0) {
+		return preferences;
+	}
+
+	const sanitizedWorkflows = { ...preferences.workflows };
+	for (const [workflowId, roChannels] of Object.entries(readOnlyChannels)) {
+		const wfPref = sanitizedWorkflows[workflowId];
+		if (wfPref?.channels) {
+			const sanitizedChannels = { ...wfPref.channels };
+			for (const ch of Object.keys(roChannels)) {
+				delete sanitizedChannels[ch as ChannelType];
+			}
+			sanitizedWorkflows[workflowId] = { ...wfPref, channels: sanitizedChannels };
+		}
+	}
+
+	return { ...preferences, workflows: sanitizedWorkflows };
+}
+
+/**
  * Shared bulk update logic used by both the programmatic API and REST endpoint.
  */
 export async function bulkUpdatePreferencesInternal(
@@ -320,7 +347,12 @@ export async function bulkUpdatePreferencesInternal(
 	}
 
 	const results: Array<{ subscriberId: string; preferences?: PreferenceRecord; error?: string }> = [];
-	for (const update of updates) {
+	for (const rawUpdate of updates) {
+		// Strip readOnly channel overrides before persisting
+		const update = {
+			...rawUpdate,
+			preferences: stripReadOnlyOverrides(rawUpdate.preferences, ctx.readOnlyChannels),
+		};
 		try {
 			const internalId = await resolveSubscriberInternalId(db, update.subscriberId);
 			if (!internalId) {
