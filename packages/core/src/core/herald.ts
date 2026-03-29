@@ -16,7 +16,14 @@ import type {
 	SubscriberRecord,
 } from "../types/config.js";
 import { initializePlugins } from "./plugins.js";
-import { deepMerge, defaultPreferenceRecord } from "./preferences.js";
+import {
+	buildReadOnlyChannels,
+	bulkUpdatePreferencesInternal,
+	defaultPreferenceRecord,
+	normalizePreferenceRecord,
+	stripReadOnlyOverrides,
+	upsertPreferenceInternal,
+} from "./preferences.js";
 import { buildEmailProvider } from "./providers.js";
 import { sendThroughProvider } from "./send.js";
 import { resolveSubscriberInternalId } from "./subscriber.js";
@@ -103,6 +110,7 @@ export function herald(options: HeraldOptions): Herald {
 		transactionWorkflowMap: new Map<string, string>(),
 		throttleState: new Map(),
 		sse,
+		readOnlyChannels: buildReadOnlyChannels(options.workflows),
 	};
 
 	const pluginsReady = initializePlugins(ctx, options.plugins);
@@ -292,52 +300,20 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 				where: [{ field: "subscriberId", value: internalSubscriberId }],
 			});
 
-			return pref ?? defaultPreferenceRecord(ctx, internalSubscriberId);
+			return pref ? normalizePreferenceRecord(pref) : defaultPreferenceRecord(ctx, internalSubscriberId);
 		},
 
-		async updatePreferences(subscriberId, preferences) {
+		async updatePreferences(subscriberId, rawPreferences) {
 			await pluginsReady;
+			const preferences = stripReadOnlyOverrides(rawPreferences, ctx.readOnlyChannels);
 			const internalSubscriberId = (await resolveSubscriberInternalId(db, subscriberId)) ?? subscriberId;
-			const now = new Date();
-			const existing = await db.findOne<PreferenceRecord>({
-				model: "preference",
-				where: [{ field: "subscriberId", value: internalSubscriberId }],
-			});
+			const { record } = await upsertPreferenceInternal(db, ctx, generateId, internalSubscriberId, preferences);
+			return record;
+		},
 
-			if (existing) {
-				const merged: PreferenceRecord = {
-					subscriberId: internalSubscriberId,
-					channels: deepMerge(existing.channels, preferences.channels),
-					workflows: deepMerge(existing.workflows, preferences.workflows),
-					categories: deepMerge(existing.categories, preferences.categories),
-					purposes: deepMerge(existing.purposes, preferences.purposes),
-				};
-
-				await db.update({
-					model: "preference",
-					where: [{ field: "subscriberId", value: internalSubscriberId }],
-					update: { ...merged, updatedAt: now },
-				});
-
-				return merged;
-			}
-
-			const id = ctx.generateId();
-			const defaults = defaultPreferenceRecord(ctx, internalSubscriberId);
-			const newPref: PreferenceRecord = {
-				subscriberId: internalSubscriberId,
-				channels: deepMerge(defaults.channels, preferences.channels),
-				workflows: deepMerge(defaults.workflows, preferences.workflows),
-				categories: deepMerge(defaults.categories, preferences.categories),
-				purposes: deepMerge(defaults.purposes, preferences.purposes),
-			};
-
-			await db.create({
-				model: "preference",
-				data: { id, ...newPref, updatedAt: now },
-			});
-
-			return newPref;
+		async bulkUpdatePreferences(updates) {
+			await pluginsReady;
+			return bulkUpdatePreferencesInternal(db, ctx, generateId, updates);
 		},
 
 		async addToTopic(args) {

@@ -1,20 +1,22 @@
 import type { HeraldContext, PreferenceRecord } from "../types/config.js";
-import type {
-	ActionStep,
-	BranchStep,
-	ChannelType,
-	FetchConfig,
-	FetchResult,
-	NotificationWorkflow,
-	StepCondition,
-	StepContext,
-	StepResult,
-	ThrottleConfig,
-	ThrottleResult,
-	WorkflowStep,
+import {
+	type ActionStep,
+	type BranchStep,
+	CHANNEL_TYPES,
+	type ChannelType,
+	type FetchConfig,
+	type FetchResult,
+	type NotificationWorkflow,
+	type StepCondition,
+	type StepContext,
+	type StepResult,
+	type ThrottleConfig,
+	type ThrottleResult,
+	type WorkflowStep,
 } from "../types/workflow.js";
+import { conditionsPass, resolvePath } from "./conditions.js";
 import type { WorkflowMeta } from "./preferences.js";
-import { preferenceGate } from "./preferences.js";
+import { normalizePreferenceRecord, preferenceGate } from "./preferences.js";
 import { sendThroughProvider } from "./send.js";
 import { resolveRecipient, resolveSubscriberForStep } from "./subscriber.js";
 
@@ -23,6 +25,7 @@ export function wrapWorkflow(workflow: NotificationWorkflow, ctx: HeraldContext)
 		workflowId: workflow.id,
 		critical: workflow.critical,
 		purpose: workflow.purpose,
+		category: workflow.category,
 		preferences: workflow.preferences,
 	};
 	return {
@@ -52,7 +55,7 @@ function wrapStep(workflowMeta: WorkflowMeta, step: ActionStep, ctx: HeraldConte
 	return {
 		...step,
 		handler: async (context: StepContext): Promise<StepResult> => {
-			if (!conditionsPass(step.conditions, context, step.conditionMode)) {
+			if (!stepConditionsPass(step.conditions, context, step.conditionMode)) {
 				return { body: "" };
 			}
 
@@ -73,10 +76,11 @@ function wrapStep(workflowMeta: WorkflowMeta, step: ActionStep, ctx: HeraldConte
 			// Load subscriber preferences and run preference gate
 			let subscriberPrefs: PreferenceRecord | null = null;
 			try {
-				subscriberPrefs = await ctx.db.findOne<PreferenceRecord>({
+				const raw = await ctx.db.findOne<PreferenceRecord>({
 					model: "preference",
 					where: [{ field: "subscriberId", value: subscriber.id }],
 				});
+				subscriberPrefs = raw ? normalizePreferenceRecord(raw) : null;
 			} catch (error) {
 				console.error(
 					`[herald] Workflow "${workflowMeta.workflowId}" step "${step.stepId}": failed to load preferences for subscriber "${subscriber.id}", proceeding with defaults`,
@@ -95,6 +99,7 @@ function wrapStep(workflowMeta: WorkflowMeta, step: ActionStep, ctx: HeraldConte
 								workflowId: workflowMeta.workflowId,
 								channel: step.type,
 								purpose: workflowMeta.purpose,
+								category: workflowMeta.category,
 								critical: workflowMeta.critical,
 							});
 							if (hookResult?.override !== undefined) {
@@ -124,7 +129,14 @@ function wrapStep(workflowMeta: WorkflowMeta, step: ActionStep, ctx: HeraldConte
 			}
 
 			if (!pluginOverride) {
-				const gateResult = preferenceGate(subscriberPrefs ?? undefined, workflowMeta, step.type, ctx.options.defaultPreferences);
+				const gateResult = preferenceGate({
+					subscriberPrefs: subscriberPrefs ?? undefined,
+					workflowMeta,
+					channel: step.type,
+					defaultPreferences: ctx.options.defaultPreferences,
+					operatorPreferences: ctx.options.operatorPreferences,
+					conditionContext: { subscriber: context.subscriber, payload: context.payload },
+				});
 
 				// Run afterPreferenceCheck plugin hooks
 				await runAfterPreferenceHooks(ctx, subscriber.id, workflowMeta.workflowId, step.type, gateResult.allowed, gateResult.reason);
@@ -184,47 +196,14 @@ async function runAfterPreferenceHooks(
 }
 
 function isChannelStep(stepType: string): stepType is ChannelType {
-	return (
-		stepType === "in_app" ||
-		stepType === "email" ||
-		stepType === "sms" ||
-		stepType === "push" ||
-		stepType === "chat" ||
-		stepType === "webhook"
-	);
+	return (CHANNEL_TYPES as readonly string[]).includes(stepType);
 }
 
-export function conditionsPass(conditions: StepCondition[] | undefined, context: StepContext, mode: "all" | "any" = "all"): boolean {
-	if (!conditions?.length) {
-		return true;
-	}
-
-	const check = mode === "any" ? conditions.some.bind(conditions) : conditions.every.bind(conditions);
-	return check((condition: StepCondition) => {
-		const actualValue = resolveConditionValue(condition.field, context);
-
-		switch (condition.operator) {
-			case "eq":
-				return actualValue === condition.value;
-			case "ne":
-				return actualValue !== condition.value;
-			case "gt":
-				return Number(actualValue) > Number(condition.value);
-			case "lt":
-				return Number(actualValue) < Number(condition.value);
-			case "in":
-				return Array.isArray(condition.value) && condition.value.includes(actualValue);
-			case "not_in":
-				return Array.isArray(condition.value) && !condition.value.includes(actualValue);
-			case "exists":
-				return actualValue !== undefined && actualValue !== null;
-			default:
-				return false;
-		}
-	});
+export function stepConditionsPass(conditions: StepCondition[] | undefined, context: StepContext, mode: "all" | "any" = "all"): boolean {
+	return conditionsPass(conditions, (field) => resolveStepConditionValue(field, context), mode);
 }
 
-function resolveConditionValue(field: string, context: StepContext): unknown {
+function resolveStepConditionValue(field: string, context: StepContext): unknown {
 	if (field.startsWith("payload.")) {
 		return resolvePath(context.payload, field.slice("payload.".length));
 	}
@@ -247,27 +226,13 @@ function resolveConditionValue(field: string, context: StepContext): unknown {
 	);
 }
 
-function resolvePath(source: Record<string, unknown>, path: string): unknown {
-	const parts = path.split(".").filter(Boolean);
-	let current: unknown = source;
-
-	for (const part of parts) {
-		if (current == null || typeof current !== "object") {
-			return undefined;
-		}
-		current = (current as Record<string, unknown>)[part];
-	}
-
-	return current;
-}
-
 export function isBranchStep(step: WorkflowStep): step is BranchStep {
 	return step.type === "branch";
 }
 
 export function resolveBranch(step: BranchStep, context: StepContext): WorkflowStep[] {
 	for (const branch of step.branches) {
-		if (conditionsPass(branch.conditions, context, branch.conditionMode)) {
+		if (stepConditionsPass(branch.conditions, context, branch.conditionMode)) {
 			return branch.steps;
 		}
 	}

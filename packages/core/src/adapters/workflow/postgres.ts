@@ -13,7 +13,7 @@
  * });
  * ```
  */
-import { conditionsPass, isBranchStep, performFetch, resolveBranch, toMs } from "../../core/workflow-runtime.js";
+import { isBranchStep, performFetch, resolveBranch, stepConditionsPass, toMs } from "../../core/workflow-runtime.js";
 import { HeraldConfigError, HeraldValidationError } from "../../errors.js";
 import type {
 	ActionStep,
@@ -374,7 +374,7 @@ export function postgresWorkflowAdapter(config: PostgresWorkflowConfig): Postgre
 				const actionStep = currentStep as ActionStep;
 
 				// Check conditions
-				if (!conditionsPass(actionStep.conditions, stepContext, actionStep.conditionMode)) {
+				if (!stepConditionsPass(actionStep.conditions, stepContext, actionStep.conditionMode)) {
 					await advanceStep(p, job.id, i + 1);
 					continue;
 				}

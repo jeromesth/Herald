@@ -58,6 +58,11 @@ export interface HeraldOptions {
 	defaultPreferences?: DefaultPreferences;
 
 	/**
+	 * Operator-level preferences that can enforce or override subscriber settings.
+	 */
+	operatorPreferences?: OperatorPreferences;
+
+	/**
 	 * Subscriber configuration.
 	 */
 	subscriber?: {
@@ -171,9 +176,44 @@ export interface PushChannelConfig {
  */
 export interface DefaultPreferences {
 	channels?: Partial<Record<ChannelType, boolean>>;
-	workflows?: Partial<Record<string, boolean>>;
-	categories?: Partial<Record<string, boolean>>;
+	workflows?: Partial<Record<string, WorkflowChannelPreference>>;
+	categories?: Partial<Record<string, CategoryPreference>>;
 	purposes?: Partial<Record<string, boolean>>;
+}
+
+/**
+ * Category preference with optional per-channel granularity.
+ */
+export interface CategoryPreference {
+	enabled: boolean;
+	channels?: Partial<Record<ChannelType, boolean>>;
+}
+
+/**
+ * Preference condition for dynamic evaluation based on subscriber/payload data.
+ * Type alias for the shared Condition interface in conditions.ts.
+ */
+export type PreferenceCondition = import("../core/conditions.js").Condition;
+
+/**
+ * Operator-level preferences that can override subscriber preferences.
+ *
+ * When multiple `enforce: true` overrides conflict, evaluation priority is:
+ * channel > workflow > category > purpose (broadest scope wins).
+ */
+export interface OperatorPreferences {
+	channels?: Partial<Record<ChannelType, PreferenceOverride>>;
+	workflows?: Partial<Record<string, PreferenceOverride>>;
+	categories?: Partial<Record<string, PreferenceOverride>>;
+	purposes?: Partial<Record<string, PreferenceOverride>>;
+}
+
+/**
+ * A single preference override entry. When `enforce` is true, subscribers cannot override.
+ */
+export interface PreferenceOverride {
+	enabled: boolean;
+	enforce?: boolean;
 }
 
 /**
@@ -191,6 +231,8 @@ export interface HeraldContext {
 	transactionWorkflowMap: Map<string, string>;
 	throttleState: Map<string, { count: number; windowStart: number }>;
 	sse?: SSEManager;
+	/** Precomputed map of workflow ID → channels that are readOnly. Computed once at init. */
+	readOnlyChannels: Record<string, Partial<Record<ChannelType, boolean>>>;
 }
 
 /**
@@ -282,6 +324,11 @@ export interface HeraldAPI {
 	/** Update subscriber preferences. */
 	updatePreferences: (subscriberId: string, preferences: Partial<PreferenceRecord>) => Promise<PreferenceRecord>;
 
+	/** Bulk update preferences for multiple subscribers (max 100). */
+	bulkUpdatePreferences: (
+		updates: Array<{ subscriberId: string; preferences: Partial<PreferenceRecord> }>,
+	) => Promise<Array<{ subscriberId: string; preferences?: PreferenceRecord; error?: string }>>;
+
 	/** Add subscribers to a topic. */
 	addToTopic: (args: {
 		topicKey: string;
@@ -358,12 +405,13 @@ export interface NotificationRecord {
 export interface WorkflowChannelPreference {
 	enabled: boolean;
 	channels?: Partial<Record<ChannelType, boolean>>;
+	conditions?: PreferenceCondition[];
 }
 
 export interface PreferenceRecord {
 	subscriberId: string;
 	channels?: Partial<Record<ChannelType, boolean>>;
-	workflows?: Partial<Record<string, boolean | WorkflowChannelPreference>>;
-	categories?: Partial<Record<string, boolean>>;
+	workflows?: Partial<Record<string, WorkflowChannelPreference>>;
+	categories?: Partial<Record<string, CategoryPreference>>;
 	purposes?: Partial<Record<string, boolean>>;
 }

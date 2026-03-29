@@ -2,8 +2,11 @@ import type { z } from "zod";
 
 /**
  * Notification channel types supported by Herald.
+ * Single source of truth for channel keys (TypeScript types, Zod, runtime checks).
  */
-export type ChannelType = "in_app" | "email" | "sms" | "push" | "chat" | "webhook";
+export const CHANNEL_TYPES = ["in_app", "email", "sms", "push", "chat", "webhook"] as const;
+
+export type ChannelType = (typeof CHANNEL_TYPES)[number];
 
 /**
  * Message delivery status — tracks the lifecycle of a sent message.
@@ -152,11 +155,10 @@ export interface DigestedEvent {
 /**
  * Condition to evaluate before executing a step.
  */
-export interface StepCondition {
-	field: string;
-	operator: "eq" | "ne" | "gt" | "lt" | "in" | "not_in" | "exists";
-	value: unknown;
-}
+/**
+ * Step condition type alias for the shared Condition interface.
+ */
+export type StepCondition = import("../core/conditions.js").Condition;
 
 /**
  * Subscriber data available in workflow context.
@@ -184,6 +186,7 @@ export interface NotificationWorkflow<TPayload extends z.ZodType = z.ZodType> {
 	tags?: string[];
 	critical?: boolean;
 	purpose?: string;
+	category?: string;
 	payloadSchema?: TPayload;
 	preferences?: WorkflowPreferences;
 	steps: WorkflowStep[];
@@ -193,7 +196,8 @@ export interface NotificationWorkflow<TPayload extends z.ZodType = z.ZodType> {
  * Default channel preferences for a workflow.
  */
 export interface WorkflowPreferences {
-	channels?: Partial<Record<ChannelType, { enabled: boolean }>>;
+	channels?: Partial<Record<ChannelType, { enabled: boolean; readOnly?: boolean }>>;
+	conditions?: import("./config.js").PreferenceCondition[];
 }
 
 /**

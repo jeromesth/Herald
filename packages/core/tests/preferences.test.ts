@@ -12,20 +12,20 @@ describe("preferenceGate()", () => {
 	const baseMeta: WorkflowMeta = { workflowId: "comment-reply" };
 
 	it("allows delivery when no preferences are set", () => {
-		const result = preferenceGate(undefined, baseMeta, "email");
+		const result = preferenceGate({ subscriberPrefs: undefined, workflowMeta: baseMeta, channel: "email" });
 		expect(result).toEqual({ allowed: true, reason: "default" });
 	});
 
 	it("critical bypass — always allowed", () => {
 		const prefs: PreferenceRecord = { subscriberId: "s1", channels: { email: false }, purposes: { social: false } };
 		const meta: WorkflowMeta = { workflowId: "password-reset", critical: true };
-		const result = preferenceGate(prefs, meta, "email");
+		const result = preferenceGate({ subscriberPrefs: prefs, workflowMeta: meta, channel: "email" });
 		expect(result).toEqual({ allowed: true, reason: "critical" });
 	});
 
 	it("channel disabled — blocked", () => {
 		const prefs: PreferenceRecord = { subscriberId: "s1", channels: { email: false } };
-		const result = preferenceGate(prefs, baseMeta, "email");
+		const result = preferenceGate({ subscriberPrefs: prefs, workflowMeta: baseMeta, channel: "email" });
 		expect(result.allowed).toBe(false);
 		expect(result.reason).toContain("channel");
 	});
@@ -33,14 +33,14 @@ describe("preferenceGate()", () => {
 	it("purpose disabled — blocked", () => {
 		const prefs: PreferenceRecord = { subscriberId: "s1", purposes: { social: false } };
 		const meta: WorkflowMeta = { workflowId: "like-notification", purpose: "social" };
-		const result = preferenceGate(prefs, meta, "in_app");
+		const result = preferenceGate({ subscriberPrefs: prefs, workflowMeta: meta, channel: "in_app" });
 		expect(result.allowed).toBe(false);
 		expect(result.reason).toContain("purpose");
 	});
 
 	it("workflow disabled — blocked", () => {
-		const prefs: PreferenceRecord = { subscriberId: "s1", workflows: { "comment-reply": false } };
-		const result = preferenceGate(prefs, baseMeta, "email");
+		const prefs: PreferenceRecord = { subscriberId: "s1", workflows: { "comment-reply": { enabled: false } } };
+		const result = preferenceGate({ subscriberPrefs: prefs, workflowMeta: baseMeta, channel: "email" });
 		expect(result.allowed).toBe(false);
 		expect(result.reason).toContain("workflow");
 	});
@@ -49,10 +49,10 @@ describe("preferenceGate()", () => {
 		const prefs: PreferenceRecord = {
 			subscriberId: "s1",
 			purposes: { social: false },
-			workflows: { "comment-reply": true },
+			workflows: { "comment-reply": { enabled: true } },
 		};
 		const meta: WorkflowMeta = { workflowId: "comment-reply", purpose: "social" };
-		const result = preferenceGate(prefs, meta, "email");
+		const result = preferenceGate({ subscriberPrefs: prefs, workflowMeta: meta, channel: "email" });
 		expect(result.allowed).toBe(true);
 		expect(result.reason).toContain("workflow");
 	});
@@ -64,12 +64,12 @@ describe("preferenceGate()", () => {
 				"comment-reply": { enabled: true, channels: { email: false } },
 			},
 		};
-		const emailResult = preferenceGate(prefs, baseMeta, "email");
+		const emailResult = preferenceGate({ subscriberPrefs: prefs, workflowMeta: baseMeta, channel: "email" });
 		expect(emailResult.allowed).toBe(false);
 		expect(emailResult.reason).toContain("channel");
 		expect(emailResult.reason).toContain("workflow");
 
-		const inAppResult = preferenceGate(prefs, baseMeta, "in_app");
+		const inAppResult = preferenceGate({ subscriberPrefs: prefs, workflowMeta: baseMeta, channel: "in_app" });
 		expect(inAppResult.allowed).toBe(true);
 	});
 
@@ -78,7 +78,7 @@ describe("preferenceGate()", () => {
 			workflowId: "digest",
 			preferences: { channels: { sms: { enabled: false } } },
 		};
-		const result = preferenceGate(undefined, meta, "sms");
+		const result = preferenceGate({ subscriberPrefs: undefined, workflowMeta: meta, channel: "sms" });
 		expect(result.allowed).toBe(false);
 		expect(result.reason).toContain("workflow author");
 	});
@@ -86,41 +86,88 @@ describe("preferenceGate()", () => {
 	it("config default per-purpose — marketing defaults false", () => {
 		const defaults = { purposes: { marketing: false } };
 		const meta: WorkflowMeta = { workflowId: "promo", purpose: "marketing" };
-		const result = preferenceGate(undefined, meta, "email", defaults);
+		const result = preferenceGate({ subscriberPrefs: undefined, workflowMeta: meta, channel: "email", defaultPreferences: defaults });
 		expect(result.allowed).toBe(false);
 		expect(result.reason).toContain("config default");
 	});
 
 	it("config default per-channel — blocked", () => {
 		const defaults = { channels: { sms: false as const } };
-		const result = preferenceGate(undefined, baseMeta, "sms", defaults);
+		const result = preferenceGate({ subscriberPrefs: undefined, workflowMeta: baseMeta, channel: "sms", defaultPreferences: defaults });
 		expect(result.allowed).toBe(false);
 		expect(result.reason).toContain("config default");
 	});
 
 	it("explicit subscriber true overrides config default false", () => {
-		const prefs: PreferenceRecord = { subscriberId: "s1", workflows: { promo: true } };
-		const defaults = { workflows: { promo: false } };
+		const prefs: PreferenceRecord = { subscriberId: "s1", workflows: { promo: { enabled: true } } };
+		const defaults = { workflows: { promo: { enabled: false } } };
 		const meta: WorkflowMeta = { workflowId: "promo" };
-		const result = preferenceGate(prefs, meta, "email", defaults);
+		const result = preferenceGate({ subscriberPrefs: prefs, workflowMeta: meta, channel: "email", defaultPreferences: defaults });
 		expect(result.allowed).toBe(true);
 	});
 
-	it("channel kill switch (step 2) beats workflow enable (step 3)", () => {
+	it("explicit subscriber purpose true overrides config default purpose false", () => {
+		const prefs: PreferenceRecord = { subscriberId: "s1", purposes: { marketing: true } };
+		const defaults = { purposes: { marketing: false } };
+		const meta: WorkflowMeta = { workflowId: "promo", purpose: "marketing" };
+		const result = preferenceGate({ subscriberPrefs: prefs, workflowMeta: meta, channel: "email", defaultPreferences: defaults });
+		expect(result.allowed).toBe(true);
+	});
+
+	it("explicit subscriber purpose true overrides operator non-enforced purpose default false", () => {
+		const prefs: PreferenceRecord = { subscriberId: "s1", purposes: { marketing: true } };
+		const opPrefs = { purposes: { marketing: { enabled: false } } };
+		const meta: WorkflowMeta = { workflowId: "promo", purpose: "marketing" };
+		const result = preferenceGate({
+			subscriberPrefs: prefs,
+			workflowMeta: meta,
+			channel: "email",
+			operatorPreferences: opPrefs,
+		});
+		expect(result.allowed).toBe(true);
+	});
+
+	it("operator non-enforced category default disabled blocks when subscriber has no category pref", () => {
+		const opPrefs = { categories: { billing: { enabled: false } } };
+		const meta: WorkflowMeta = { workflowId: "invoice", category: "billing" };
+		const result = preferenceGate({
+			subscriberPrefs: undefined,
+			workflowMeta: meta,
+			channel: "email",
+			operatorPreferences: opPrefs,
+		});
+		expect(result.allowed).toBe(false);
+		expect(result.reason).toContain("operator default disabled category");
+	});
+
+	it("explicit subscriber category enabled overrides operator non-enforced category default disabled", () => {
+		const prefs: PreferenceRecord = { subscriberId: "s1", categories: { billing: { enabled: true } } };
+		const opPrefs = { categories: { billing: { enabled: false } } };
+		const meta: WorkflowMeta = { workflowId: "invoice", category: "billing" };
+		const result = preferenceGate({
+			subscriberPrefs: prefs,
+			workflowMeta: meta,
+			channel: "email",
+			operatorPreferences: opPrefs,
+		});
+		expect(result.allowed).toBe(true);
+	});
+
+	it("channel kill switch (step 4) beats workflow enable (step 5)", () => {
 		const prefs: PreferenceRecord = {
 			subscriberId: "s1",
 			channels: { email: false },
-			workflows: { "comment-reply": true },
+			workflows: { "comment-reply": { enabled: true } },
 		};
-		const result = preferenceGate(prefs, baseMeta, "email");
+		const result = preferenceGate({ subscriberPrefs: prefs, workflowMeta: baseMeta, channel: "email" });
 		expect(result.allowed).toBe(false);
 		expect(result.reason).toContain("subscriber disabled channel");
 	});
 
-	it("config default per-workflow blocks delivery (step 6)", () => {
-		const defaults = { workflows: { digest: false } };
+	it("config default per-workflow blocks delivery (step 10)", () => {
+		const defaults = { workflows: { digest: { enabled: false } } };
 		const meta: WorkflowMeta = { workflowId: "digest" };
-		const result = preferenceGate(undefined, meta, "email", defaults);
+		const result = preferenceGate({ subscriberPrefs: undefined, workflowMeta: meta, channel: "email", defaultPreferences: defaults });
 		expect(result.allowed).toBe(false);
 		expect(result.reason).toContain("config default disabled workflow");
 	});
@@ -130,7 +177,7 @@ describe("preferenceGate()", () => {
 			subscriberId: "s1",
 			workflows: { "comment-reply": { enabled: false } },
 		};
-		const result = preferenceGate(prefs, baseMeta, "email");
+		const result = preferenceGate({ subscriberPrefs: prefs, workflowMeta: baseMeta, channel: "email" });
 		expect(result.allowed).toBe(false);
 		expect(result.reason).toContain("subscriber disabled workflow");
 	});
@@ -221,7 +268,7 @@ describe("preference enforcement — integration", () => {
 
 		await app.api.updatePreferences(subscriberId, {
 			channels: { in_app: false, email: false },
-			workflows: { "password-reset": false },
+			workflows: { "password-reset": { enabled: false } },
 		});
 
 		await app.api.trigger({
@@ -331,6 +378,49 @@ describe("preference enforcement — integration", () => {
 		// Delivery should still proceed despite plugin error
 		const { notifications } = await pluginApp.api.getNotifications({ subscriberId });
 		expect(notifications).toHaveLength(1);
+	});
+
+	it("beforePreferenceCheck receives category and purpose from workflow", async () => {
+		const categorizedWorkflow: NotificationWorkflow = {
+			id: "promo-email",
+			name: "Promo",
+			category: "marketing",
+			purpose: "promotional",
+			steps: [{ stepId: "send-email", type: "email", handler: async () => ({ subject: "Hi", body: "Promo" }) }],
+		};
+		const beforeHook = vi.fn();
+		const pluginDb = memoryAdapter();
+		const pluginWorkflow = memoryWorkflowAdapter();
+		const pluginApp = herald({
+			database: pluginDb,
+			workflow: pluginWorkflow,
+			workflows: [categorizedWorkflow],
+			channels: { email: { provider: "custom", from: "noreply@test.com", send: async () => {} } },
+			plugins: [
+				{
+					id: "category-spy",
+					hooks: { beforePreferenceCheck: beforeHook },
+				},
+			],
+		});
+
+		const { id: subscriberId } = await pluginApp.api.upsertSubscriber({
+			externalId: "user-1",
+			email: "user@test.com",
+		});
+
+		await pluginApp.api.trigger({ workflowId: "promo-email", to: "user-1", payload: {} });
+
+		expect(beforeHook).toHaveBeenCalled();
+		expect(beforeHook).toHaveBeenCalledWith(
+			expect.objectContaining({
+				subscriberId,
+				workflowId: "promo-email",
+				channel: "email",
+				category: "marketing",
+				purpose: "promotional",
+			}),
+		);
 	});
 
 	it("afterPreferenceCheck hook receives correct arguments", async () => {

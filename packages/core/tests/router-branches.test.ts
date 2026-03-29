@@ -198,7 +198,7 @@ describe("Router — branch coverage", () => {
 				workflows: [testWorkflow],
 				defaultPreferences: {
 					channels: { email: true, sms: false },
-					workflows: { "test-notif": true },
+					workflows: { "test-notif": { enabled: true } },
 					purposes: { marketing: false },
 				},
 			});

@@ -190,11 +190,11 @@ describe("herald.api — preferences", () => {
 
 		const updated = await app.api.updatePreferences(id, {
 			channels: { email: false, in_app: true },
-			workflows: { "weekly-digest": false },
+			workflows: { "weekly-digest": { enabled: false } },
 		});
 
 		expect(updated.channels).toEqual({ email: false, in_app: true });
-		expect(updated.workflows).toEqual({ "weekly-digest": false });
+		expect(updated.workflows).toEqual({ "weekly-digest": { enabled: false } });
 
 		const retrieved = await app.api.getPreferences(id);
 		expect(retrieved.channels).toEqual({ email: false, in_app: true });
