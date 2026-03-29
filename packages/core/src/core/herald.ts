@@ -16,7 +16,7 @@ import type {
 	SubscriberRecord,
 } from "../types/config.js";
 import { initializePlugins } from "./plugins.js";
-import { bulkUpdatePreferencesInternal, deepMerge, defaultPreferenceRecord } from "./preferences.js";
+import { buildReadOnlyChannels, bulkUpdatePreferencesInternal, deepMerge, defaultPreferenceRecord } from "./preferences.js";
 import { buildEmailProvider } from "./providers.js";
 import { sendThroughProvider } from "./send.js";
 import { resolveSubscriberInternalId } from "./subscriber.js";
@@ -103,6 +103,7 @@ export function herald(options: HeraldOptions): Herald {
 		transactionWorkflowMap: new Map<string, string>(),
 		throttleState: new Map(),
 		sse,
+		readOnlyChannels: buildReadOnlyChannels(options.workflows),
 	};
 
 	const pluginsReady = initializePlugins(ctx, options.plugins);

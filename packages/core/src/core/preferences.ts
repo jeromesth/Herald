@@ -8,7 +8,7 @@ import type {
 	PreferenceRecord,
 	WorkflowChannelPreference,
 } from "../types/config.js";
-import type { ChannelType, SubscriberData } from "../types/workflow.js";
+import type { ChannelType, NotificationWorkflow, SubscriberData } from "../types/workflow.js";
 import { conditionsPass, resolvePath } from "./conditions.js";
 import { resolveSubscriberInternalId } from "./subscriber.js";
 
@@ -281,6 +281,29 @@ export function defaultPreferenceRecord(ctx: HeraldContext, subscriberId: string
 		categories: { ...(ctx.options.defaultPreferences?.categories ?? {}) },
 		purposes: { ...(ctx.options.defaultPreferences?.purposes ?? {}) },
 	};
+}
+
+/**
+ * Build a map of workflow ID → readOnly channels. Computed once at init.
+ */
+export function buildReadOnlyChannels(workflows?: NotificationWorkflow[]): Record<string, Partial<Record<ChannelType, boolean>>> {
+	const result: Record<string, Partial<Record<ChannelType, boolean>>> = {};
+	for (const wf of workflows ?? []) {
+		if (wf.preferences?.channels) {
+			const readOnlyMap: Partial<Record<ChannelType, boolean>> = {};
+			let hasReadOnly = false;
+			for (const [ch, pref] of Object.entries(wf.preferences.channels)) {
+				if (pref?.readOnly) {
+					readOnlyMap[ch as ChannelType] = true;
+					hasReadOnly = true;
+				}
+			}
+			if (hasReadOnly) {
+				result[wf.id] = readOnlyMap;
+			}
+		}
+	}
+	return result;
 }
 
 /**

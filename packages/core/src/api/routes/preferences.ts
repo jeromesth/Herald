@@ -1,27 +1,6 @@
 import { bulkUpdatePreferencesInternal, deepMerge } from "../../core/preferences.js";
 import type { CategoryPreference, HeraldContext, PreferenceRecord, WorkflowChannelPreference } from "../../types/config.js";
-import type { ChannelType } from "../../types/workflow.js";
 import { jsonResponse, parseJsonBody } from "../router.js";
-
-function getReadOnlyChannels(ctx: HeraldContext): Record<string, Partial<Record<ChannelType, boolean>>> {
-	const result: Record<string, Partial<Record<ChannelType, boolean>>> = {};
-	for (const wf of ctx.options.workflows ?? []) {
-		if (wf.preferences?.channels) {
-			const readOnlyMap: Partial<Record<ChannelType, boolean>> = {};
-			let hasReadOnly = false;
-			for (const [ch, pref] of Object.entries(wf.preferences.channels)) {
-				if (pref?.readOnly) {
-					readOnlyMap[ch as ChannelType] = true;
-					hasReadOnly = true;
-				}
-			}
-			if (hasReadOnly) {
-				result[wf.id] = readOnlyMap;
-			}
-		}
-	}
-	return result;
-}
 
 export const preferenceRoutes = [
 	{
@@ -43,7 +22,7 @@ export const preferenceRoutes = [
 				where: [{ field: "subscriberId", value: subscriber.id }],
 			});
 
-			const readOnlyChannels = getReadOnlyChannels(ctx);
+			const readOnlyChannels = ctx.readOnlyChannels;
 
 			return jsonResponse({
 				...(pref ?? {

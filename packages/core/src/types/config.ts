@@ -228,6 +228,8 @@ export interface HeraldContext {
 	transactionWorkflowMap: Map<string, string>;
 	throttleState: Map<string, { count: number; windowStart: number }>;
 	sse?: SSEManager;
+	/** Precomputed map of workflow ID → channels that are readOnly. Computed once at init. */
+	readOnlyChannels: Record<string, Partial<Record<ChannelType, boolean>>>;
 }
 
 /**
