@@ -1,3 +1,4 @@
+import type { DatabaseAdapter } from "../types/adapter.js";
 import type {
 	CategoryPreference,
 	DefaultPreferences,
@@ -7,8 +8,9 @@ import type {
 	PreferenceRecord,
 	WorkflowChannelPreference,
 } from "../types/config.js";
-import type { ChannelType, SubscriberData } from "../types/workflow.js";
+import type { ChannelType, NotificationWorkflow, SubscriberData } from "../types/workflow.js";
 import { conditionsPass, resolvePath } from "./conditions.js";
+import { resolveSubscriberInternalId } from "./subscriber.js";
 
 /**
  * Deep merge two plain objects. Nested objects are recursively merged rather than overwritten.
@@ -61,6 +63,18 @@ export interface ConditionContext {
 }
 
 /**
+ * Input for the preference gate evaluation.
+ */
+export interface PreferenceGateInput {
+	subscriberPrefs?: PreferenceRecord;
+	workflowMeta: WorkflowMeta;
+	channel: ChannelType;
+	defaultPreferences?: DefaultPreferences;
+	operatorPreferences?: OperatorPreferences;
+	conditionContext?: ConditionContext;
+}
+
+/**
  * 12-level preference gate:
  *
  *  1. Critical bypass
@@ -76,22 +90,19 @@ export interface ConditionContext {
  * 11. Config/operator default per-channel
  * 12. Default allow
  */
-export function preferenceGate(
-	subscriberPrefs: PreferenceRecord | undefined,
-	workflowMeta: WorkflowMeta,
-	channel: ChannelType,
-	defaultPreferences?: DefaultPreferences,
-	operatorPreferences?: OperatorPreferences,
-	conditionContext?: ConditionContext,
-): PreferenceGateResult {
+export function preferenceGate(input: PreferenceGateInput): PreferenceGateResult {
+	const { subscriberPrefs, workflowMeta, channel, defaultPreferences, operatorPreferences, conditionContext } = input;
 	// 1. Critical bypass
 	if (workflowMeta.critical) {
 		return { allowed: true, reason: "critical" };
 	}
 
 	// 2. Operator enforced overrides
+	// Priority within this tier: channel > workflow > category > purpose.
+	// When two enforce:true rules conflict (e.g., channel disabled + workflow enabled),
+	// the broader scope (channel) wins because it's checked first.
 	if (operatorPreferences) {
-		// Check enforced channel override
+		// Check enforced channel override (broadest scope)
 		const opChannel = operatorPreferences.channels?.[channel];
 		if (opChannel?.enforce) {
 			return {
@@ -157,7 +168,7 @@ export function preferenceGate(
 	// 5. Workflow-specific preference
 	const workflowPref = subscriberPrefs?.workflows?.[workflowMeta.workflowId];
 	if (workflowPref !== undefined) {
-		const wcp = workflowPref as WorkflowChannelPreference;
+		const wcp = workflowPref;
 		if (!wcp.enabled) {
 			return { allowed: false, reason: `subscriber disabled workflow "${workflowMeta.workflowId}"` };
 		}
@@ -177,17 +188,18 @@ export function preferenceGate(
 		return { allowed: true, reason: `subscriber enabled workflow "${workflowMeta.workflowId}"` };
 	}
 
-	// 6. Category preference
+	// 6. Category preference (short-circuits to allow, like workflow preferences at level 5)
 	if (workflowMeta.category) {
 		const categoryPref = subscriberPrefs?.categories?.[workflowMeta.category];
 		if (categoryPref !== undefined) {
-			const cp = categoryPref as CategoryPreference;
+			const cp = categoryPref;
 			if (!cp.enabled) {
 				return { allowed: false, reason: `subscriber disabled category "${workflowMeta.category}"` };
 			}
 			if (cp.channels?.[channel] === false) {
 				return { allowed: false, reason: `subscriber disabled channel "${channel}" for category "${workflowMeta.category}"` };
 			}
+			return { allowed: true, reason: `subscriber enabled category "${workflowMeta.category}"` };
 		}
 	}
 
@@ -260,12 +272,8 @@ function evaluatePreferenceConditions(conditions: PreferenceCondition[], context
 		if (field.startsWith("payload.")) {
 			return resolvePath(context.payload, field.slice("payload.".length));
 		}
-		// Try payload first, then full context
-		const payloadValue = resolvePath(context.payload, field);
-		if (payloadValue !== undefined) {
-			return payloadValue;
-		}
-		return resolvePath({ subscriber: context.subscriber, payload: context.payload } as unknown as Record<string, unknown>, field);
+		// Unrecognized prefix — return undefined rather than guessing
+		return undefined;
 	});
 }
 
@@ -277,4 +285,158 @@ export function defaultPreferenceRecord(ctx: HeraldContext, subscriberId: string
 		categories: { ...(ctx.options.defaultPreferences?.categories ?? {}) },
 		purposes: { ...(ctx.options.defaultPreferences?.purposes ?? {}) },
 	};
+}
+
+/**
+ * Normalize a preference record loaded from the database, coercing legacy boolean
+ * values in `workflows` and `categories` to the current object form.
+ *
+ * Pre-v0.5 data may store `workflows: { "wf": true }` or `categories: { "cat": true }`,
+ * which this function converts to `{ enabled: true }` / `{ enabled: false }`.
+ */
+export function normalizePreferenceRecord(pref: PreferenceRecord): PreferenceRecord {
+	let normalized = pref;
+
+	if (pref.workflows) {
+		const normalizedWorkflows: Record<string, WorkflowChannelPreference> = {};
+		for (const [key, val] of Object.entries(pref.workflows)) {
+			if (typeof val === "boolean") {
+				normalizedWorkflows[key] = { enabled: val };
+			} else {
+				normalizedWorkflows[key] = val as WorkflowChannelPreference;
+			}
+		}
+		normalized = { ...normalized, workflows: normalizedWorkflows };
+	}
+
+	if (pref.categories) {
+		const normalizedCategories: Record<string, CategoryPreference> = {};
+		for (const [key, val] of Object.entries(pref.categories)) {
+			if (typeof val === "boolean") {
+				normalizedCategories[key] = { enabled: val };
+			} else {
+				normalizedCategories[key] = val as CategoryPreference;
+			}
+		}
+		normalized = { ...normalized, categories: normalizedCategories };
+	}
+
+	return normalized;
+}
+
+/**
+ * Build a map of workflow ID → readOnly channels. Computed once at init.
+ */
+export function buildReadOnlyChannels(workflows?: NotificationWorkflow[]): Record<string, Partial<Record<ChannelType, boolean>>> {
+	const result: Record<string, Partial<Record<ChannelType, boolean>>> = {};
+	for (const wf of workflows ?? []) {
+		if (wf.preferences?.channels) {
+			const readOnlyMap: Partial<Record<ChannelType, boolean>> = {};
+			let hasReadOnly = false;
+			for (const [ch, pref] of Object.entries(wf.preferences.channels)) {
+				if (pref?.readOnly) {
+					readOnlyMap[ch as ChannelType] = true;
+					hasReadOnly = true;
+				}
+			}
+			if (hasReadOnly) {
+				result[wf.id] = readOnlyMap;
+			}
+		}
+	}
+	return result;
+}
+
+/**
+ * Strip preference overrides for channels that are marked readOnly by workflow authors.
+ * This prevents subscribers from storing contradictory state.
+ */
+export function stripReadOnlyOverrides(
+	preferences: Partial<PreferenceRecord>,
+	readOnlyChannels: Record<string, Partial<Record<ChannelType, boolean>>>,
+): Partial<PreferenceRecord> {
+	if (!preferences.workflows || Object.keys(readOnlyChannels).length === 0) {
+		return preferences;
+	}
+
+	const sanitizedWorkflows = { ...preferences.workflows };
+	for (const [workflowId, roChannels] of Object.entries(readOnlyChannels)) {
+		const wfPref = sanitizedWorkflows[workflowId];
+		if (wfPref?.channels) {
+			const sanitizedChannels = { ...wfPref.channels };
+			for (const ch of Object.keys(roChannels)) {
+				delete sanitizedChannels[ch as ChannelType];
+			}
+			sanitizedWorkflows[workflowId] = { ...wfPref, channels: sanitizedChannels };
+		}
+	}
+
+	return { ...preferences, workflows: sanitizedWorkflows };
+}
+
+/**
+ * Shared bulk update logic used by both the programmatic API and REST endpoint.
+ */
+export async function bulkUpdatePreferencesInternal(
+	db: DatabaseAdapter,
+	ctx: HeraldContext,
+	generateId: () => string,
+	updates: Array<{ subscriberId: string; preferences: Partial<PreferenceRecord> }>,
+): Promise<Array<{ subscriberId: string; preferences?: PreferenceRecord; error?: string }>> {
+	if (updates.length > 100) {
+		throw new Error("bulkUpdatePreferences supports a maximum of 100 updates per call");
+	}
+
+	const results: Array<{ subscriberId: string; preferences?: PreferenceRecord; error?: string }> = [];
+	for (const rawUpdate of updates) {
+		// Strip readOnly channel overrides before persisting
+		const update = {
+			...rawUpdate,
+			preferences: stripReadOnlyOverrides(rawUpdate.preferences, ctx.readOnlyChannels),
+		};
+		try {
+			const internalId = await resolveSubscriberInternalId(db, update.subscriberId);
+			if (!internalId) {
+				results.push({ subscriberId: update.subscriberId, error: "Subscriber not found" });
+				continue;
+			}
+			const now = new Date();
+			const existing = await db.findOne<PreferenceRecord>({
+				model: "preference",
+				where: [{ field: "subscriberId", value: internalId }],
+			});
+
+			let result: PreferenceRecord;
+			if (existing) {
+				result = {
+					subscriberId: internalId,
+					channels: deepMerge(existing.channels, update.preferences.channels),
+					workflows: deepMerge(existing.workflows, update.preferences.workflows),
+					categories: deepMerge(existing.categories, update.preferences.categories),
+					purposes: deepMerge(existing.purposes, update.preferences.purposes),
+				};
+				await db.update({
+					model: "preference",
+					where: [{ field: "subscriberId", value: internalId }],
+					update: { ...result, updatedAt: now },
+				});
+			} else {
+				const id = generateId();
+				const defaults = defaultPreferenceRecord(ctx, internalId);
+				result = {
+					subscriberId: internalId,
+					channels: deepMerge(defaults.channels, update.preferences.channels),
+					workflows: deepMerge(defaults.workflows, update.preferences.workflows),
+					categories: deepMerge(defaults.categories, update.preferences.categories),
+					purposes: deepMerge(defaults.purposes, update.preferences.purposes),
+				};
+				await db.create({ model: "preference", data: { id, ...result, updatedAt: now } });
+			}
+			results.push({ subscriberId: update.subscriberId, preferences: result });
+		} catch (err) {
+			console.error(`[herald] bulkUpdatePreferences failed for subscriber "${update.subscriberId}":`, err);
+			results.push({ subscriberId: update.subscriberId, error: "Update failed" });
+		}
+	}
+	return results;
 }

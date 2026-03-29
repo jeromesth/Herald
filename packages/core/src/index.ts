@@ -11,7 +11,7 @@ export {
 	HeraldProviderError,
 	HeraldPluginError,
 } from "./errors.js";
-export type { WorkflowMeta, PreferenceGateResult, ConditionContext } from "./core/preferences.js";
+export type { WorkflowMeta, PreferenceGateResult, ConditionContext, PreferenceGateInput } from "./core/preferences.js";
 export { conditionsPass, evaluateCondition, resolvePath } from "./core/conditions.js";
 export type { Condition } from "./core/conditions.js";
 

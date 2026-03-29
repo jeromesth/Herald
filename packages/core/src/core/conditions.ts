@@ -44,6 +44,10 @@ export function evaluateCondition(condition: Condition, actualValue: unknown): b
 		case "not_in":
 			return Array.isArray(condition.value) && !condition.value.includes(actualValue);
 		case "exists":
+			// When value is false, asserts the field does NOT exist (undefined/null)
+			if (condition.value === false) {
+				return actualValue === undefined || actualValue === null;
+			}
 			return actualValue !== undefined && actualValue !== null;
 		default:
 			return false;

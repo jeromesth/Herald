@@ -191,15 +191,15 @@ export interface CategoryPreference {
 
 /**
  * Preference condition for dynamic evaluation based on subscriber/payload data.
+ * Type alias for the shared Condition interface in conditions.ts.
  */
-export interface PreferenceCondition {
-	field: string;
-	operator: "eq" | "ne" | "gt" | "lt" | "in" | "not_in" | "exists";
-	value: unknown;
-}
+export type PreferenceCondition = import("../core/conditions.js").Condition;
 
 /**
  * Operator-level preferences that can override subscriber preferences.
+ *
+ * When multiple `enforce: true` overrides conflict, evaluation priority is:
+ * channel > workflow > category > purpose (broadest scope wins).
  */
 export interface OperatorPreferences {
 	channels?: Partial<Record<ChannelType, PreferenceOverride>>;
@@ -231,6 +231,8 @@ export interface HeraldContext {
 	transactionWorkflowMap: Map<string, string>;
 	throttleState: Map<string, { count: number; windowStart: number }>;
 	sse?: SSEManager;
+	/** Precomputed map of workflow ID → channels that are readOnly. Computed once at init. */
+	readOnlyChannels: Record<string, Partial<Record<ChannelType, boolean>>>;
 }
 
 /**

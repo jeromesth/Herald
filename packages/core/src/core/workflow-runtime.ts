@@ -12,7 +12,7 @@ import type {
 } from "../types/workflow.js";
 import { conditionsPass, resolvePath } from "./conditions.js";
 import type { WorkflowMeta } from "./preferences.js";
-import { preferenceGate } from "./preferences.js";
+import { normalizePreferenceRecord, preferenceGate } from "./preferences.js";
 import { sendThroughProvider } from "./send.js";
 import { resolveRecipient, resolveSubscriberForStep } from "./subscriber.js";
 
@@ -57,10 +57,11 @@ function wrapStep(workflowMeta: WorkflowMeta, step: NotificationWorkflow["steps"
 			// Load subscriber preferences and run preference gate
 			let subscriberPrefs: PreferenceRecord | null = null;
 			try {
-				subscriberPrefs = await ctx.db.findOne<PreferenceRecord>({
+				const raw = await ctx.db.findOne<PreferenceRecord>({
 					model: "preference",
 					where: [{ field: "subscriberId", value: subscriber.id }],
 				});
+				subscriberPrefs = raw ? normalizePreferenceRecord(raw) : null;
 			} catch (error) {
 				console.error(
 					`[herald] Workflow "${workflowMeta.workflowId}" step "${step.stepId}": failed to load preferences for subscriber "${subscriber.id}", proceeding with defaults`,
@@ -108,14 +109,14 @@ function wrapStep(workflowMeta: WorkflowMeta, step: NotificationWorkflow["steps"
 			}
 
 			if (!pluginOverride) {
-				const gateResult = preferenceGate(
-					subscriberPrefs ?? undefined,
+				const gateResult = preferenceGate({
+					subscriberPrefs: subscriberPrefs ?? undefined,
 					workflowMeta,
-					step.type,
-					ctx.options.defaultPreferences,
-					ctx.options.operatorPreferences,
-					{ subscriber: context.subscriber, payload: context.payload },
-				);
+					channel: step.type,
+					defaultPreferences: ctx.options.defaultPreferences,
+					operatorPreferences: ctx.options.operatorPreferences,
+					conditionContext: { subscriber: context.subscriber, payload: context.payload },
+				});
 
 				// Run afterPreferenceCheck plugin hooks
 				await runAfterPreferenceHooks(ctx, subscriber.id, workflowMeta.workflowId, step.type, gateResult.allowed, gateResult.reason);

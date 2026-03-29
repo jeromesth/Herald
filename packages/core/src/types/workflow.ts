@@ -123,11 +123,10 @@ export interface DigestedEvent {
 /**
  * Condition to evaluate before executing a step.
  */
-export interface StepCondition {
-	field: string;
-	operator: "eq" | "ne" | "gt" | "lt" | "in" | "not_in" | "exists";
-	value: unknown;
-}
+/**
+ * Step condition type alias for the shared Condition interface.
+ */
+export type StepCondition = import("../core/conditions.js").Condition;
 
 /**
  * Subscriber data available in workflow context.
