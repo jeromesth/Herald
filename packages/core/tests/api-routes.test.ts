@@ -50,6 +50,13 @@ describe("API Routes — extended coverage", () => {
 			const body = await json(res);
 			expect(body.error).toContain("to");
 		});
+
+		it("returns 400 when to is an array with non-string items", async () => {
+			const res = await app.handler(makeRequest("POST", "/trigger", { workflowId: "test-notif", to: ["user-1", 123] }));
+			expect(res.status).toBe(400);
+			const body = await json(res);
+			expect(body.error).toContain("to must be a string or array");
+		});
 	});
 
 	describe("POST /trigger/bulk", () => {

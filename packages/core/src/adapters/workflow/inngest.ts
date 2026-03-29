@@ -13,14 +13,18 @@
  * const workflow = inngestAdapter({ client: inngest });
  * ```
  */
+import { isBranchStep, resolveBranch } from "../../core/workflow-runtime.js";
 import { HeraldConfigError } from "../../errors.js";
 import type {
+	ActionStep,
 	CancelArgs,
 	NotificationWorkflow,
+	StepContext,
 	TriggerArgs,
 	TriggerResult,
 	WorkflowAdapter,
 	WorkflowHandler,
+	WorkflowStep,
 } from "../../types/workflow.js";
 
 /**
@@ -145,7 +149,11 @@ export function inngestAdapter(config: InngestAdapterConfig): WorkflowAdapter {
 
 					// Execute workflow steps for each recipient
 					for (const subscriberId of recipients) {
-						for (const workflowStep of workflow.steps) {
+						const stepQueue: WorkflowStep[] = [...workflow.steps];
+
+						while (stepQueue.length > 0) {
+							const workflowStep = stepQueue.shift();
+							if (!workflowStep) break;
 							const subscriberCtx = { id: subscriberId, externalId: subscriberId };
 							const noopStep = {
 								delay: async () => {},
@@ -162,9 +170,23 @@ export function inngestAdapter(config: InngestAdapterConfig): WorkflowAdapter {
 								}),
 							};
 
-							if (workflowStep.type === "delay") {
-								const delayConfig = await step.run(`${workflowStep.stepId}-config-${subscriberId}`, async () => {
-									return workflowStep.handler({
+							// Handle branch steps — resolve conditions and splice into queue
+							if (isBranchStep(workflowStep)) {
+								const branchCtx: StepContext = {
+									subscriber: subscriberCtx,
+									payload: handlerPayload,
+									step: noopStep,
+								};
+								const branchSteps = resolveBranch(workflowStep, branchCtx);
+								stepQueue.unshift(...branchSteps);
+								continue;
+							}
+
+							const actionStep = workflowStep as ActionStep;
+
+							if (actionStep.type === "delay") {
+								const delayConfig = await step.run(`${actionStep.stepId}-config-${subscriberId}`, async () => {
+									return actionStep.handler({
 										subscriber: subscriberCtx,
 										payload: handlerPayload,
 										step: { ...noopStep, delay: async (c) => c as unknown as undefined },
@@ -174,15 +196,15 @@ export function inngestAdapter(config: InngestAdapterConfig): WorkflowAdapter {
 								if (delayConfig?.data) {
 									const d = delayConfig.data as { amount?: number; unit?: string };
 									const duration = `${d.amount ?? 1} ${d.unit ?? "hours"}`;
-									await step.sleep(`${workflowStep.stepId}-wait-${subscriberId}`, duration);
+									await step.sleep(`${actionStep.stepId}-wait-${subscriberId}`, duration);
 								}
 								continue;
 							}
 
-							if (workflowStep.type === "digest") {
-								const digestConfig = await step.run(`${workflowStep.stepId}-config-${subscriberId}`, async () => {
+							if (actionStep.type === "digest") {
+								const digestConfig = await step.run(`${actionStep.stepId}-config-${subscriberId}`, async () => {
 									let capturedConfig: { window?: number; unit?: string } = {};
-									await workflowStep.handler({
+									await actionStep.handler({
 										subscriber: subscriberCtx,
 										payload: handlerPayload,
 										step: {
@@ -197,13 +219,13 @@ export function inngestAdapter(config: InngestAdapterConfig): WorkflowAdapter {
 								});
 
 								const timeout = `${digestConfig.window ?? 5} ${digestConfig.unit ?? "minutes"}`;
-								const digestEventName = `${eventPrefix}/digest.${workflow.id}.${workflowStep.stepId}`;
+								const digestEventName = `${eventPrefix}/digest.${workflow.id}.${actionStep.stepId}`;
 
 								// Collect events during the digest window
 								const collected: InngestEvent[] = [];
 								let incoming: InngestEvent | null = null;
 								do {
-									incoming = await step.waitForEvent(`${workflowStep.stepId}-wait-${subscriberId}-${collected.length}`, {
+									incoming = await step.waitForEvent(`${actionStep.stepId}-wait-${subscriberId}-${collected.length}`, {
 										event: digestEventName,
 										timeout,
 										if: `async.data.subscriberId == '${subscriberId}'`,
@@ -212,12 +234,12 @@ export function inngestAdapter(config: InngestAdapterConfig): WorkflowAdapter {
 								} while (incoming);
 
 								// Re-run handler with collected events
-								await step.run(`${workflowStep.stepId}-process-${subscriberId}`, async () => {
+								await step.run(`${actionStep.stepId}-process-${subscriberId}`, async () => {
 									const events = collected.map((e) => ({
 										payload: (e.data.payload ?? {}) as Record<string, unknown>,
 										timestamp: new Date((e.data.timestamp as string) ?? Date.now()),
 									}));
-									return workflowStep.handler({
+									return actionStep.handler({
 										subscriber: subscriberCtx,
 										payload: handlerPayload,
 										step: { ...noopStep, digest: async () => events },
@@ -226,9 +248,9 @@ export function inngestAdapter(config: InngestAdapterConfig): WorkflowAdapter {
 								continue;
 							}
 
-							if (workflowStep.type === "throttle") {
-								const result = await step.run(`${workflowStep.stepId}-${subscriberId}`, async () => {
-									return workflowStep.handler({
+							if (actionStep.type === "throttle") {
+								const result = await step.run(`${actionStep.stepId}-${subscriberId}`, async () => {
+									return actionStep.handler({
 										subscriber: subscriberCtx,
 										payload: handlerPayload,
 										step: noopStep,
@@ -241,9 +263,9 @@ export function inngestAdapter(config: InngestAdapterConfig): WorkflowAdapter {
 								continue;
 							}
 
-							if (workflowStep.type === "fetch") {
-								const result = await step.run(`${workflowStep.stepId}-${subscriberId}`, async () => {
-									return workflowStep.handler({
+							if (actionStep.type === "fetch") {
+								const result = await step.run(`${actionStep.stepId}-${subscriberId}`, async () => {
+									return actionStep.handler({
 										subscriber: subscriberCtx,
 										payload: handlerPayload,
 										step: noopStep,
@@ -256,8 +278,8 @@ export function inngestAdapter(config: InngestAdapterConfig): WorkflowAdapter {
 								continue;
 							}
 
-							await step.run(`${workflowStep.stepId}-${subscriberId}`, async () => {
-								const result = await workflowStep.handler({
+							await step.run(`${actionStep.stepId}-${subscriberId}`, async () => {
+								const result = await actionStep.handler({
 									subscriber: subscriberCtx,
 									payload: handlerPayload,
 									step: noopStep,
@@ -269,7 +291,7 @@ export function inngestAdapter(config: InngestAdapterConfig): WorkflowAdapter {
 										workflowId: workflow.id,
 										stepId: workflowStep.stepId,
 										subscriberId,
-										channel: workflowStep.type,
+										channel: actionStep.type,
 										result,
 										transactionId: event.data.transactionId as string,
 									},

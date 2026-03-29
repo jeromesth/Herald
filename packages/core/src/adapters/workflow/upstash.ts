@@ -14,13 +14,17 @@
  * });
  * ```
  */
+import { isBranchStep, resolveBranch } from "../../core/workflow-runtime.js";
 import type {
+	ActionStep,
 	CancelArgs,
 	NotificationWorkflow,
+	StepContext,
 	TriggerArgs,
 	TriggerResult,
 	WorkflowAdapter,
 	WorkflowHandler,
+	WorkflowStep,
 } from "../../types/workflow.js";
 
 export interface UpstashWorkflowConfig {
@@ -68,7 +72,11 @@ export function upstashWorkflowAdapter(config: UpstashWorkflowConfig): WorkflowA
 				const handlerPayload = { ...payload };
 
 				for (const subscriberId of recipients) {
-					for (const workflowStep of workflow.steps) {
+					const stepQueue: WorkflowStep[] = [...workflow.steps];
+
+					while (stepQueue.length > 0) {
+						const workflowStep = stepQueue.shift();
+						if (!workflowStep) break;
 						const subscriberCtx = { id: subscriberId, externalId: subscriberId };
 						const noopStep = {
 							delay: async () => {},
@@ -85,9 +93,23 @@ export function upstashWorkflowAdapter(config: UpstashWorkflowConfig): WorkflowA
 							}),
 						};
 
-						if (workflowStep.type === "delay") {
-							const delayConfig = await context.run(`${workflowStep.stepId}-config-${subscriberId}`, async () => {
-								return workflowStep.handler({
+						// Handle branch steps — resolve and splice into queue
+						if (isBranchStep(workflowStep)) {
+							const branchCtx: StepContext = {
+								subscriber: subscriberCtx,
+								payload: handlerPayload,
+								step: noopStep,
+							};
+							const branchSteps = resolveBranch(workflowStep, branchCtx);
+							stepQueue.unshift(...branchSteps);
+							continue;
+						}
+
+						const actionStep = workflowStep as ActionStep;
+
+						if (actionStep.type === "delay") {
+							const delayConfig = await context.run(`${actionStep.stepId}-config-${subscriberId}`, async () => {
+								return actionStep.handler({
 									subscriber: subscriberCtx,
 									payload: handlerPayload,
 									step: {
@@ -106,14 +128,14 @@ export function upstashWorkflowAdapter(config: UpstashWorkflowConfig): WorkflowA
 									days: 86400,
 								};
 								const seconds = (d.amount ?? 1) * (unitToSeconds[d.unit ?? "hours"] ?? 3600);
-								await context.sleep(`${workflowStep.stepId}-wait-${subscriberId}`, seconds);
+								await context.sleep(`${actionStep.stepId}-wait-${subscriberId}`, seconds);
 							}
 							continue;
 						}
 
-						if (workflowStep.type === "fetch") {
-							const result = await context.run(`${workflowStep.stepId}-${subscriberId}`, async () => {
-								return workflowStep.handler({
+						if (actionStep.type === "fetch") {
+							const result = await context.run(`${actionStep.stepId}-${subscriberId}`, async () => {
+								return actionStep.handler({
 									subscriber: subscriberCtx,
 									payload: handlerPayload,
 									step: noopStep,
@@ -126,9 +148,9 @@ export function upstashWorkflowAdapter(config: UpstashWorkflowConfig): WorkflowA
 							continue;
 						}
 
-						if (workflowStep.type === "throttle") {
-							const result = await context.run(`${workflowStep.stepId}-${subscriberId}`, async () => {
-								return workflowStep.handler({
+						if (actionStep.type === "throttle") {
+							const result = await context.run(`${actionStep.stepId}-${subscriberId}`, async () => {
+								return actionStep.handler({
 									subscriber: subscriberCtx,
 									payload: handlerPayload,
 									step: noopStep,
@@ -142,8 +164,8 @@ export function upstashWorkflowAdapter(config: UpstashWorkflowConfig): WorkflowA
 						}
 
 						// Regular channel steps (in_app, email, sms, push, chat, webhook) and digest
-						await context.run(`${workflowStep.stepId}-${subscriberId}`, async () => {
-							return workflowStep.handler({
+						await context.run(`${actionStep.stepId}-${subscriberId}`, async () => {
+							return actionStep.handler({
 								subscriber: subscriberCtx,
 								payload: handlerPayload,
 								step: noopStep,

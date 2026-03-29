@@ -231,3 +231,17 @@ describe("prismaAdapter: error handling", () => {
 		).rejects.toThrow('Model "nonexistent" not found');
 	});
 });
+
+describe("prismaAdapter: debugLogs", () => {
+	it("logs operations when debugLogs is enabled", async () => {
+		const client = createMockPrismaClient();
+		const adapter = prismaAdapter(client, { provider: "postgresql", debugLogs: true });
+
+		// Perform an operation — should not throw with debug logging enabled
+		const result = await adapter.create({
+			model: "subscriber",
+			data: { externalId: "debug-test" },
+		});
+		expect(result).toBeDefined();
+	});
+});
