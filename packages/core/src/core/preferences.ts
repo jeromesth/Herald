@@ -268,12 +268,8 @@ function evaluatePreferenceConditions(conditions: PreferenceCondition[], context
 		if (field.startsWith("payload.")) {
 			return resolvePath(context.payload, field.slice("payload.".length));
 		}
-		// Try payload first, then full context
-		const payloadValue = resolvePath(context.payload, field);
-		if (payloadValue !== undefined) {
-			return payloadValue;
-		}
-		return resolvePath({ subscriber: context.subscriber, payload: context.payload } as unknown as Record<string, unknown>, field);
+		// Unrecognized prefix — return undefined rather than guessing
+		return undefined;
 	});
 }
 
