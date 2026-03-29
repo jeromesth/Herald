@@ -98,8 +98,11 @@ export function preferenceGate(input: PreferenceGateInput): PreferenceGateResult
 	}
 
 	// 2. Operator enforced overrides
+	// Priority within this tier: channel > workflow > category > purpose.
+	// When two enforce:true rules conflict (e.g., channel disabled + workflow enabled),
+	// the broader scope (channel) wins because it's checked first.
 	if (operatorPreferences) {
-		// Check enforced channel override
+		// Check enforced channel override (broadest scope)
 		const opChannel = operatorPreferences.channels?.[channel];
 		if (opChannel?.enforce) {
 			return {

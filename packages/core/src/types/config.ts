@@ -197,6 +197,9 @@ export type PreferenceCondition = import("../core/conditions.js").Condition;
 
 /**
  * Operator-level preferences that can override subscriber preferences.
+ *
+ * When multiple `enforce: true` overrides conflict, evaluation priority is:
+ * channel > workflow > category > purpose (broadest scope wins).
  */
 export interface OperatorPreferences {
 	channels?: Partial<Record<ChannelType, PreferenceOverride>>;
