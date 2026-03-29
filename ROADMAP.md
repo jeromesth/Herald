@@ -39,11 +39,11 @@ The Inngest adapter is powerful for teams that scale, but most developers starti
 
 **Tasks:**
 
-- [ ] **Evaluate and select** Postgres workflow library (DBOS vs pg-boss + orchestration layer)
-- [ ] **Implement `postgresWorkflowAdapter()`** — new adapter conforming to `WorkflowAdapter` interface
-- [ ] **Step-level durability** — each workflow step checkpointed to Postgres, recoverable on crash
-- [ ] **Delay step support** — Postgres-native scheduling (e.g. `pg_notify` or polling) for delay steps
-- [ ] **Retry and error handling** — configurable retries with backoff per step
+- [x] **Evaluate and select** Postgres workflow library (DBOS vs pg-boss + orchestration layer)
+- [x] **Implement `postgresWorkflowAdapter()`** — new adapter conforming to `WorkflowAdapter` interface
+- [x] **Step-level durability** — each workflow step checkpointed to Postgres, recoverable on crash
+- [x] **Delay step support** — Postgres-native scheduling (e.g. `pg_notify` or polling) for delay steps
+- [x] **Retry and error handling** — configurable retries with backoff per step
 - [ ] **Make it the default** — when using `prismaAdapter({ provider: "postgresql" })`, suggest or auto-configure this adapter
 - [ ] **Migration guide** — document how to migrate from Postgres workflow adapter to Inngest/Temporal when scaling
 - [ ] **Tests** — full test suite covering durability, retries, delays, crash recovery
@@ -64,7 +64,7 @@ Branch: `Workflow-Steps` — implementation complete, in code review
 Priority: **High** | Unique to Herald
 
 - [x] **Drizzle database adapter** — `@herald/core/drizzle`
-- [ ] **Postgres workflow adapter** — `@herald/core/postgres-workflow` (see v0.2.5)
+- [x] **Postgres workflow adapter** — `@herald/core/postgres` (see v0.2.5)
 - [x] **Upstash Workflow adapter** — `@herald/core/upstash`
 - [ ] **Trigger.dev adapter** — `@herald/core/trigger`
 - [ ] **Kysely database adapter** — `@herald/core/kysely`
@@ -74,11 +74,13 @@ Priority: **High** | Unique to Herald
 
 Priority: **Medium** | Comparable: Knock PreferenceSet, Novu Preferences
 
-- [ ] **Category-based preferences** — opt in/out by notification category
-- [ ] **Workflow-level preferences** — per-workflow subscriber overrides
-- [ ] **Critical notifications** — bypass subscriber preferences for mandatory alerts
-- [ ] **Tenant-scoped preferences** — per-organization default preferences
-- [ ] **Preference inheritance** — environment defaults < tenant < subscriber hierarchy
+- [x] **Category-based preferences** — opt in/out by notification category with per-channel granularity (`CategoryPreference`)
+- [x] **Workflow-level preferences** — per-workflow subscriber overrides with conditions (`WorkflowChannelPreference`)
+- [x] **Critical notifications** — bypass subscriber preferences for mandatory alerts, plus `readOnly` per-channel controls
+- [x] **Operator-level preferences** — enforced admin overrides that subscribers cannot change (`OperatorPreferences`)
+- [x] **Preference inheritance** — 12-level precedence: critical > operator enforced > readOnly > channel kill switch > workflow > category > purpose > conditions > author defaults > config/operator defaults
+- [x] **Preference conditions** — dynamic evaluation based on subscriber attributes or payload data (`PreferenceCondition`)
+- [x] **Bulk preference API** — batch update up to 100 subscribers via `PUT /preferences/bulk`
 
 ## v0.6 — Observability & Analytics
 
