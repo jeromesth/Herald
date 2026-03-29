@@ -387,8 +387,9 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 						await db.create({ model: "preference", data: { id, ...result, updatedAt: now } });
 					}
 					results.push({ subscriberId: update.subscriberId, preferences: result });
-				} catch {
-					results.push({ subscriberId: update.subscriberId, error: "Subscriber not found or update failed" });
+				} catch (err) {
+					console.error(`[herald] bulkUpdatePreferences failed for subscriber "${update.subscriberId}":`, err);
+					results.push({ subscriberId: update.subscriberId, error: "Update failed" });
 				}
 			}
 			return results;
