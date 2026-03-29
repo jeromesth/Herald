@@ -340,6 +340,60 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 			return newPref;
 		},
 
+		async bulkUpdatePreferences(updates) {
+			await pluginsReady;
+			if (updates.length > 100) {
+				throw new Error("bulkUpdatePreferences supports a maximum of 100 updates per call");
+			}
+
+			const results: Array<{ subscriberId: string; preferences?: PreferenceRecord; error?: string }> = [];
+			for (const update of updates) {
+				try {
+					const internalId = await resolveSubscriberInternalId(db, update.subscriberId);
+					if (!internalId) {
+						results.push({ subscriberId: update.subscriberId, error: "Subscriber not found" });
+						continue;
+					}
+					const now = new Date();
+					const existing = await db.findOne<PreferenceRecord>({
+						model: "preference",
+						where: [{ field: "subscriberId", value: internalId }],
+					});
+
+					let result: PreferenceRecord;
+					if (existing) {
+						result = {
+							subscriberId: internalId,
+							channels: deepMerge(existing.channels, update.preferences.channels),
+							workflows: deepMerge(existing.workflows, update.preferences.workflows),
+							categories: deepMerge(existing.categories, update.preferences.categories),
+							purposes: deepMerge(existing.purposes, update.preferences.purposes),
+						};
+						await db.update({
+							model: "preference",
+							where: [{ field: "subscriberId", value: internalId }],
+							update: { ...result, updatedAt: now },
+						});
+					} else {
+						const id = generateId();
+						const defaults = defaultPreferenceRecord(ctx, internalId);
+						result = {
+							subscriberId: internalId,
+							channels: deepMerge(defaults.channels, update.preferences.channels),
+							workflows: deepMerge(defaults.workflows, update.preferences.workflows),
+							categories: deepMerge(defaults.categories, update.preferences.categories),
+							purposes: deepMerge(defaults.purposes, update.preferences.purposes),
+						};
+						await db.create({ model: "preference", data: { id, ...result, updatedAt: now } });
+					}
+					results.push({ subscriberId: update.subscriberId, preferences: result });
+				} catch {
+					results.push({ subscriberId: update.subscriberId, error: "Subscriber not found or update failed" });
+				}
+			}
+			return results;
+		},
+
 		async addToTopic(args) {
 			await pluginsReady;
 			const now = new Date();

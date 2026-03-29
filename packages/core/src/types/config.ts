@@ -58,6 +58,11 @@ export interface HeraldOptions {
 	defaultPreferences?: DefaultPreferences;
 
 	/**
+	 * Operator-level preferences that can enforce or override subscriber settings.
+	 */
+	operatorPreferences?: OperatorPreferences;
+
+	/**
 	 * Subscriber configuration.
 	 */
 	subscriber?: {
@@ -171,9 +176,44 @@ export interface PushChannelConfig {
  */
 export interface DefaultPreferences {
 	channels?: Partial<Record<ChannelType, boolean>>;
-	workflows?: Partial<Record<string, boolean>>;
-	categories?: Partial<Record<string, boolean>>;
+	workflows?: Partial<Record<string, WorkflowChannelPreference>>;
+	categories?: Partial<Record<string, CategoryPreference>>;
 	purposes?: Partial<Record<string, boolean>>;
+}
+
+/**
+ * Category preference with optional per-channel granularity.
+ */
+export interface CategoryPreference {
+	enabled: boolean;
+	channels?: Partial<Record<ChannelType, boolean>>;
+}
+
+/**
+ * Preference condition for dynamic evaluation based on subscriber/payload data.
+ */
+export interface PreferenceCondition {
+	field: string;
+	operator: "eq" | "ne" | "gt" | "lt" | "in" | "not_in" | "exists";
+	value: unknown;
+}
+
+/**
+ * Operator-level preferences that can override subscriber preferences.
+ */
+export interface OperatorPreferences {
+	channels?: Partial<Record<ChannelType, PreferenceOverride>>;
+	workflows?: Partial<Record<string, PreferenceOverride>>;
+	categories?: Partial<Record<string, PreferenceOverride>>;
+	purposes?: Partial<Record<string, PreferenceOverride>>;
+}
+
+/**
+ * A single preference override entry. When `enforce` is true, subscribers cannot override.
+ */
+export interface PreferenceOverride {
+	enabled: boolean;
+	enforce?: boolean;
 }
 
 /**
@@ -282,6 +322,11 @@ export interface HeraldAPI {
 	/** Update subscriber preferences. */
 	updatePreferences: (subscriberId: string, preferences: Partial<PreferenceRecord>) => Promise<PreferenceRecord>;
 
+	/** Bulk update preferences for multiple subscribers (max 100). */
+	bulkUpdatePreferences: (
+		updates: Array<{ subscriberId: string; preferences: Partial<PreferenceRecord> }>,
+	) => Promise<Array<{ subscriberId: string; preferences?: PreferenceRecord; error?: string }>>;
+
 	/** Add subscribers to a topic. */
 	addToTopic: (args: {
 		topicKey: string;
@@ -358,12 +403,13 @@ export interface NotificationRecord {
 export interface WorkflowChannelPreference {
 	enabled: boolean;
 	channels?: Partial<Record<ChannelType, boolean>>;
+	conditions?: PreferenceCondition[];
 }
 
 export interface PreferenceRecord {
 	subscriberId: string;
 	channels?: Partial<Record<ChannelType, boolean>>;
-	workflows?: Partial<Record<string, boolean | WorkflowChannelPreference>>;
-	categories?: Partial<Record<string, boolean>>;
+	workflows?: Partial<Record<string, WorkflowChannelPreference>>;
+	categories?: Partial<Record<string, CategoryPreference>>;
 	purposes?: Partial<Record<string, boolean>>;
 }

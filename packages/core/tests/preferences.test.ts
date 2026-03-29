@@ -39,7 +39,7 @@ describe("preferenceGate()", () => {
 	});
 
 	it("workflow disabled — blocked", () => {
-		const prefs: PreferenceRecord = { subscriberId: "s1", workflows: { "comment-reply": false } };
+		const prefs: PreferenceRecord = { subscriberId: "s1", workflows: { "comment-reply": { enabled: false } } };
 		const result = preferenceGate(prefs, baseMeta, "email");
 		expect(result.allowed).toBe(false);
 		expect(result.reason).toContain("workflow");
@@ -49,7 +49,7 @@ describe("preferenceGate()", () => {
 		const prefs: PreferenceRecord = {
 			subscriberId: "s1",
 			purposes: { social: false },
-			workflows: { "comment-reply": true },
+			workflows: { "comment-reply": { enabled: true } },
 		};
 		const meta: WorkflowMeta = { workflowId: "comment-reply", purpose: "social" };
 		const result = preferenceGate(prefs, meta, "email");
@@ -99,26 +99,26 @@ describe("preferenceGate()", () => {
 	});
 
 	it("explicit subscriber true overrides config default false", () => {
-		const prefs: PreferenceRecord = { subscriberId: "s1", workflows: { promo: true } };
-		const defaults = { workflows: { promo: false } };
+		const prefs: PreferenceRecord = { subscriberId: "s1", workflows: { promo: { enabled: true } } };
+		const defaults = { workflows: { promo: { enabled: false } } };
 		const meta: WorkflowMeta = { workflowId: "promo" };
 		const result = preferenceGate(prefs, meta, "email", defaults);
 		expect(result.allowed).toBe(true);
 	});
 
-	it("channel kill switch (step 2) beats workflow enable (step 3)", () => {
+	it("channel kill switch (step 4) beats workflow enable (step 5)", () => {
 		const prefs: PreferenceRecord = {
 			subscriberId: "s1",
 			channels: { email: false },
-			workflows: { "comment-reply": true },
+			workflows: { "comment-reply": { enabled: true } },
 		};
 		const result = preferenceGate(prefs, baseMeta, "email");
 		expect(result.allowed).toBe(false);
 		expect(result.reason).toContain("subscriber disabled channel");
 	});
 
-	it("config default per-workflow blocks delivery (step 6)", () => {
-		const defaults = { workflows: { digest: false } };
+	it("config default per-workflow blocks delivery (step 10)", () => {
+		const defaults = { workflows: { digest: { enabled: false } } };
 		const meta: WorkflowMeta = { workflowId: "digest" };
 		const result = preferenceGate(undefined, meta, "email", defaults);
 		expect(result.allowed).toBe(false);
@@ -221,7 +221,7 @@ describe("preference enforcement — integration", () => {
 
 		await app.api.updatePreferences(subscriberId, {
 			channels: { in_app: false, email: false },
-			workflows: { "password-reset": false },
+			workflows: { "password-reset": { enabled: false } },
 		});
 
 		await app.api.trigger({

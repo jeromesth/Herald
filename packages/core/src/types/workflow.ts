@@ -155,6 +155,7 @@ export interface NotificationWorkflow<TPayload extends z.ZodType = z.ZodType> {
 	tags?: string[];
 	critical?: boolean;
 	purpose?: string;
+	category?: string;
 	payloadSchema?: TPayload;
 	preferences?: WorkflowPreferences;
 	steps: WorkflowStep[];
@@ -164,7 +165,8 @@ export interface NotificationWorkflow<TPayload extends z.ZodType = z.ZodType> {
  * Default channel preferences for a workflow.
  */
 export interface WorkflowPreferences {
-	channels?: Partial<Record<ChannelType, { enabled: boolean }>>;
+	channels?: Partial<Record<ChannelType, { enabled: boolean; readOnly?: boolean }>>;
+	conditions?: import("./config.js").PreferenceCondition[];
 }
 
 /**

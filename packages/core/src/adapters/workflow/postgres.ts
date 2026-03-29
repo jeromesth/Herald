@@ -13,7 +13,7 @@
  * });
  * ```
  */
-import { conditionsPass, performFetch, toMs } from "../../core/workflow-runtime.js";
+import { performFetch, stepConditionsPass, toMs } from "../../core/workflow-runtime.js";
 import { HeraldConfigError, HeraldValidationError } from "../../errors.js";
 import type {
 	CancelArgs,
@@ -361,7 +361,7 @@ export function postgresWorkflowAdapter(config: PostgresWorkflowConfig): Postgre
 				};
 
 				// Check conditions
-				if (!conditionsPass(currentStep.conditions, stepContext, currentStep.conditionMode)) {
+				if (!stepConditionsPass(currentStep.conditions, stepContext, currentStep.conditionMode)) {
 					await advanceStep(p, job.id, i + 1);
 					continue;
 				}
