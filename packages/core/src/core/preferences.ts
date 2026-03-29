@@ -165,7 +165,7 @@ export function preferenceGate(input: PreferenceGateInput): PreferenceGateResult
 	// 5. Workflow-specific preference
 	const workflowPref = subscriberPrefs?.workflows?.[workflowMeta.workflowId];
 	if (workflowPref !== undefined) {
-		const wcp = workflowPref as WorkflowChannelPreference;
+		const wcp = workflowPref;
 		if (!wcp.enabled) {
 			return { allowed: false, reason: `subscriber disabled workflow "${workflowMeta.workflowId}"` };
 		}
@@ -189,7 +189,7 @@ export function preferenceGate(input: PreferenceGateInput): PreferenceGateResult
 	if (workflowMeta.category) {
 		const categoryPref = subscriberPrefs?.categories?.[workflowMeta.category];
 		if (categoryPref !== undefined) {
-			const cp = categoryPref as CategoryPreference;
+			const cp = categoryPref;
 			if (!cp.enabled) {
 				return { allowed: false, reason: `subscriber disabled category "${workflowMeta.category}"` };
 			}
@@ -281,6 +281,43 @@ export function defaultPreferenceRecord(ctx: HeraldContext, subscriberId: string
 		categories: { ...(ctx.options.defaultPreferences?.categories ?? {}) },
 		purposes: { ...(ctx.options.defaultPreferences?.purposes ?? {}) },
 	};
+}
+
+/**
+ * Normalize a preference record loaded from the database, coercing legacy boolean
+ * values in `workflows` and `categories` to the current object form.
+ *
+ * Pre-v0.5 data may store `workflows: { "wf": true }` or `categories: { "cat": true }`,
+ * which this function converts to `{ enabled: true }` / `{ enabled: false }`.
+ */
+export function normalizePreferenceRecord(pref: PreferenceRecord): PreferenceRecord {
+	let normalized = pref;
+
+	if (pref.workflows) {
+		const normalizedWorkflows: Record<string, WorkflowChannelPreference> = {};
+		for (const [key, val] of Object.entries(pref.workflows)) {
+			if (typeof val === "boolean") {
+				normalizedWorkflows[key] = { enabled: val };
+			} else {
+				normalizedWorkflows[key] = val as WorkflowChannelPreference;
+			}
+		}
+		normalized = { ...normalized, workflows: normalizedWorkflows };
+	}
+
+	if (pref.categories) {
+		const normalizedCategories: Record<string, CategoryPreference> = {};
+		for (const [key, val] of Object.entries(pref.categories)) {
+			if (typeof val === "boolean") {
+				normalizedCategories[key] = { enabled: val };
+			} else {
+				normalizedCategories[key] = val as CategoryPreference;
+			}
+		}
+		normalized = { ...normalized, categories: normalizedCategories };
+	}
+
+	return normalized;
 }
 
 /**

@@ -21,6 +21,7 @@ import {
 	bulkUpdatePreferencesInternal,
 	deepMerge,
 	defaultPreferenceRecord,
+	normalizePreferenceRecord,
 	stripReadOnlyOverrides,
 } from "./preferences.js";
 import { buildEmailProvider } from "./providers.js";
@@ -299,7 +300,7 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 				where: [{ field: "subscriberId", value: internalSubscriberId }],
 			});
 
-			return pref ?? defaultPreferenceRecord(ctx, internalSubscriberId);
+			return pref ? normalizePreferenceRecord(pref) : defaultPreferenceRecord(ctx, internalSubscriberId);
 		},
 
 		async updatePreferences(subscriberId, rawPreferences) {
