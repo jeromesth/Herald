@@ -61,6 +61,18 @@ export interface ConditionContext {
 }
 
 /**
+ * Input for the preference gate evaluation.
+ */
+export interface PreferenceGateInput {
+	subscriberPrefs?: PreferenceRecord;
+	workflowMeta: WorkflowMeta;
+	channel: ChannelType;
+	defaultPreferences?: DefaultPreferences;
+	operatorPreferences?: OperatorPreferences;
+	conditionContext?: ConditionContext;
+}
+
+/**
  * 12-level preference gate:
  *
  *  1. Critical bypass
@@ -76,14 +88,8 @@ export interface ConditionContext {
  * 11. Config/operator default per-channel
  * 12. Default allow
  */
-export function preferenceGate(
-	subscriberPrefs: PreferenceRecord | undefined,
-	workflowMeta: WorkflowMeta,
-	channel: ChannelType,
-	defaultPreferences?: DefaultPreferences,
-	operatorPreferences?: OperatorPreferences,
-	conditionContext?: ConditionContext,
-): PreferenceGateResult {
+export function preferenceGate(input: PreferenceGateInput): PreferenceGateResult {
+	const { subscriberPrefs, workflowMeta, channel, defaultPreferences, operatorPreferences, conditionContext } = input;
 	// 1. Critical bypass
 	if (workflowMeta.critical) {
 		return { allowed: true, reason: "critical" };

@@ -17,7 +17,7 @@ describe("category-channel preferences", () => {
 			subscriberId: "s1",
 			categories: { marketing: { enabled: false } },
 		};
-		const result = preferenceGate(prefs, baseMeta, "email");
+		const result = preferenceGate({ subscriberPrefs: prefs, workflowMeta: baseMeta, channel: "email" });
 		expect(result.allowed).toBe(false);
 		expect(result.reason).toContain("category");
 		expect(result.reason).toContain("marketing");
@@ -28,12 +28,12 @@ describe("category-channel preferences", () => {
 			subscriberId: "s1",
 			categories: { marketing: { enabled: true, channels: { email: false } } },
 		};
-		const emailResult = preferenceGate(prefs, baseMeta, "email");
+		const emailResult = preferenceGate({ subscriberPrefs: prefs, workflowMeta: baseMeta, channel: "email" });
 		expect(emailResult.allowed).toBe(false);
 		expect(emailResult.reason).toContain("channel");
 		expect(emailResult.reason).toContain("category");
 
-		const inAppResult = preferenceGate(prefs, baseMeta, "in_app");
+		const inAppResult = preferenceGate({ subscriberPrefs: prefs, workflowMeta: baseMeta, channel: "in_app" });
 		expect(inAppResult.allowed).toBe(true);
 	});
 
@@ -42,7 +42,7 @@ describe("category-channel preferences", () => {
 			subscriberId: "s1",
 			categories: { marketing: { enabled: true } },
 		};
-		const result = preferenceGate(prefs, baseMeta, "email");
+		const result = preferenceGate({ subscriberPrefs: prefs, workflowMeta: baseMeta, channel: "email" });
 		expect(result.allowed).toBe(true);
 	});
 
@@ -52,14 +52,14 @@ describe("category-channel preferences", () => {
 			categories: { marketing: { enabled: false } },
 		};
 		const meta: WorkflowMeta = { workflowId: "promo-email" }; // no category
-		const result = preferenceGate(prefs, meta, "email");
+		const result = preferenceGate({ subscriberPrefs: prefs, workflowMeta: meta, channel: "email" });
 		expect(result.allowed).toBe(true);
 	});
 
 	it("config default category disabled — blocked", () => {
 		const meta: WorkflowMeta = { workflowId: "promo-email", category: "marketing" };
 		const defaults = { categories: { marketing: { enabled: false } } };
-		const result = preferenceGate(undefined, meta, "email", defaults);
+		const result = preferenceGate({ subscriberPrefs: undefined, workflowMeta: meta, channel: "email", defaultPreferences: defaults });
 		expect(result.allowed).toBe(false);
 		expect(result.reason).toContain("config default disabled category");
 	});
@@ -77,7 +77,7 @@ describe("readOnly channel controls", () => {
 			workflowId: "password-reset",
 			preferences: { channels: { email: { enabled: true, readOnly: true } } },
 		};
-		const result = preferenceGate(prefs, meta, "email");
+		const result = preferenceGate({ subscriberPrefs: prefs, workflowMeta: meta, channel: "email" });
 		expect(result.allowed).toBe(true);
 		expect(result.reason).toContain("readOnly");
 	});
@@ -91,7 +91,7 @@ describe("readOnly channel controls", () => {
 			workflowId: "legacy-notification",
 			preferences: { channels: { email: { enabled: false, readOnly: true } } },
 		};
-		const result = preferenceGate(prefs, meta, "email");
+		const result = preferenceGate({ subscriberPrefs: prefs, workflowMeta: meta, channel: "email" });
 		expect(result.allowed).toBe(false);
 		expect(result.reason).toContain("readOnly");
 	});
@@ -105,7 +105,7 @@ describe("readOnly channel controls", () => {
 			workflowId: "digest",
 			preferences: { channels: { email: { enabled: true } } },
 		};
-		const result = preferenceGate(prefs, meta, "email");
+		const result = preferenceGate({ subscriberPrefs: prefs, workflowMeta: meta, channel: "email" });
 		expect(result.allowed).toBe(false);
 		expect(result.reason).toContain("subscriber disabled channel");
 	});
@@ -117,7 +117,7 @@ describe("readOnly channel controls", () => {
 			critical: true,
 			preferences: { channels: { email: { enabled: false, readOnly: true } } },
 		};
-		const result = preferenceGate(prefs, meta, "email");
+		const result = preferenceGate({ subscriberPrefs: prefs, workflowMeta: meta, channel: "email" });
 		expect(result.allowed).toBe(true);
 		expect(result.reason).toBe("critical");
 	});
@@ -162,7 +162,7 @@ describe("operator-level preference overrides", () => {
 			channels: { sms: { enabled: false, enforce: true } },
 		};
 		const meta: WorkflowMeta = { workflowId: "sms-workflow" };
-		const result = preferenceGate(prefs, meta, "sms", undefined, opPrefs);
+		const result = preferenceGate({ subscriberPrefs: prefs, workflowMeta: meta, channel: "sms", operatorPreferences: opPrefs });
 		expect(result.allowed).toBe(false);
 		expect(result.reason).toContain("operator enforced");
 	});
@@ -176,7 +176,7 @@ describe("operator-level preference overrides", () => {
 			workflows: { "mandatory-wf": { enabled: true, enforce: true } },
 		};
 		const meta: WorkflowMeta = { workflowId: "mandatory-wf" };
-		const result = preferenceGate(prefs, meta, "email", undefined, opPrefs);
+		const result = preferenceGate({ subscriberPrefs: prefs, workflowMeta: meta, channel: "email", operatorPreferences: opPrefs });
 		expect(result.allowed).toBe(true);
 		expect(result.reason).toContain("operator enforced");
 	});
@@ -187,7 +187,7 @@ describe("operator-level preference overrides", () => {
 		};
 		const meta: WorkflowMeta = { workflowId: "push-wf" };
 		// No subscriber prefs, no config defaults — operator default kicks in
-		const result = preferenceGate(undefined, meta, "push", undefined, opPrefs);
+		const result = preferenceGate({ subscriberPrefs: undefined, workflowMeta: meta, channel: "push", operatorPreferences: opPrefs });
 		expect(result.allowed).toBe(false);
 		expect(result.reason).toContain("operator default");
 	});
@@ -201,7 +201,7 @@ describe("operator-level preference overrides", () => {
 			channels: { push: { enabled: false } },
 		};
 		const meta: WorkflowMeta = { workflowId: "push-wf" };
-		const result = preferenceGate(prefs, meta, "push", undefined, opPrefs);
+		const result = preferenceGate({ subscriberPrefs: prefs, workflowMeta: meta, channel: "push", operatorPreferences: opPrefs });
 		expect(result.allowed).toBe(true);
 	});
 
@@ -214,7 +214,7 @@ describe("operator-level preference overrides", () => {
 			categories: { billing: { enabled: false } },
 		};
 		const meta: WorkflowMeta = { workflowId: "invoice", category: "billing" };
-		const result = preferenceGate(prefs, meta, "email", undefined, opPrefs);
+		const result = preferenceGate({ subscriberPrefs: prefs, workflowMeta: meta, channel: "email", operatorPreferences: opPrefs });
 		expect(result.allowed).toBe(true);
 		expect(result.reason).toContain("operator enforced category");
 	});
@@ -228,7 +228,7 @@ describe("operator-level preference overrides", () => {
 			purposes: { transactional: false },
 		};
 		const meta: WorkflowMeta = { workflowId: "receipt", purpose: "transactional" };
-		const result = preferenceGate(prefs, meta, "email", undefined, opPrefs);
+		const result = preferenceGate({ subscriberPrefs: prefs, workflowMeta: meta, channel: "email", operatorPreferences: opPrefs });
 		expect(result.allowed).toBe(true);
 		expect(result.reason).toContain("operator enforced purpose");
 	});
@@ -238,7 +238,7 @@ describe("operator-level preference overrides", () => {
 			channels: { email: { enabled: false, enforce: true } },
 		};
 		const meta: WorkflowMeta = { workflowId: "critical-wf", critical: true };
-		const result = preferenceGate(undefined, meta, "email", undefined, opPrefs);
+		const result = preferenceGate({ subscriberPrefs: undefined, workflowMeta: meta, channel: "email", operatorPreferences: opPrefs });
 		expect(result.allowed).toBe(true);
 		expect(result.reason).toBe("critical");
 	});
@@ -341,7 +341,7 @@ describe("preference conditions in preferenceGate", () => {
 			subscriber: { id: "s1", externalId: "e1", data: { plan: "free" } },
 			payload: {},
 		};
-		const result = preferenceGate(undefined, meta, "email", undefined, undefined, condCtx);
+		const result = preferenceGate({ subscriberPrefs: undefined, workflowMeta: meta, channel: "email", conditionContext: condCtx });
 		expect(result.allowed).toBe(false);
 		expect(result.reason).toContain("condition not met");
 	});
@@ -357,7 +357,7 @@ describe("preference conditions in preferenceGate", () => {
 			subscriber: { id: "s1", externalId: "e1", data: { plan: "pro" } },
 			payload: {},
 		};
-		const result = preferenceGate(undefined, meta, "email", undefined, undefined, condCtx);
+		const result = preferenceGate({ subscriberPrefs: undefined, workflowMeta: meta, channel: "email", conditionContext: condCtx });
 		expect(result.allowed).toBe(true);
 	});
 
@@ -376,7 +376,7 @@ describe("preference conditions in preferenceGate", () => {
 			subscriber: { id: "s1", externalId: "e1" },
 			payload: { priority: "low" },
 		};
-		const result = preferenceGate(prefs, meta, "email", undefined, undefined, condCtx);
+		const result = preferenceGate({ subscriberPrefs: prefs, workflowMeta: meta, channel: "email", conditionContext: condCtx });
 		expect(result.allowed).toBe(false);
 		expect(result.reason).toContain("condition not met");
 	});
@@ -396,7 +396,7 @@ describe("preference conditions in preferenceGate", () => {
 			subscriber: { id: "s1", externalId: "e1" },
 			payload: { priority: "high" },
 		};
-		const result = preferenceGate(prefs, meta, "email", undefined, undefined, condCtx);
+		const result = preferenceGate({ subscriberPrefs: prefs, workflowMeta: meta, channel: "email", conditionContext: condCtx });
 		expect(result.allowed).toBe(true);
 	});
 
@@ -408,7 +408,7 @@ describe("preference conditions in preferenceGate", () => {
 			},
 		};
 		// No conditionContext — conditions should be skipped, gate passes
-		const result = preferenceGate(undefined, meta, "email");
+		const result = preferenceGate({ subscriberPrefs: undefined, workflowMeta: meta, channel: "email" });
 		expect(result.allowed).toBe(true);
 	});
 });

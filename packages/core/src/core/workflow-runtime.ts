@@ -108,14 +108,14 @@ function wrapStep(workflowMeta: WorkflowMeta, step: NotificationWorkflow["steps"
 			}
 
 			if (!pluginOverride) {
-				const gateResult = preferenceGate(
-					subscriberPrefs ?? undefined,
+				const gateResult = preferenceGate({
+					subscriberPrefs: subscriberPrefs ?? undefined,
 					workflowMeta,
-					step.type,
-					ctx.options.defaultPreferences,
-					ctx.options.operatorPreferences,
-					{ subscriber: context.subscriber, payload: context.payload },
-				);
+					channel: step.type,
+					defaultPreferences: ctx.options.defaultPreferences,
+					operatorPreferences: ctx.options.operatorPreferences,
+					conditionContext: { subscriber: context.subscriber, payload: context.payload },
+				});
 
 				// Run afterPreferenceCheck plugin hooks
 				await runAfterPreferenceHooks(ctx, subscriber.id, workflowMeta.workflowId, step.type, gateResult.allowed, gateResult.reason);
