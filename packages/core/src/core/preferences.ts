@@ -185,7 +185,7 @@ export function preferenceGate(input: PreferenceGateInput): PreferenceGateResult
 		return { allowed: true, reason: `subscriber enabled workflow "${workflowMeta.workflowId}"` };
 	}
 
-	// 6. Category preference
+	// 6. Category preference (short-circuits to allow, like workflow preferences at level 5)
 	if (workflowMeta.category) {
 		const categoryPref = subscriberPrefs?.categories?.[workflowMeta.category];
 		if (categoryPref !== undefined) {
@@ -196,6 +196,7 @@ export function preferenceGate(input: PreferenceGateInput): PreferenceGateResult
 			if (cp.channels?.[channel] === false) {
 				return { allowed: false, reason: `subscriber disabled channel "${channel}" for category "${workflowMeta.category}"` };
 			}
+			return { allowed: true, reason: `subscriber enabled category "${workflowMeta.category}"` };
 		}
 	}
 
