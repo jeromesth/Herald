@@ -15,6 +15,8 @@ import type {
 	PreferenceRecord,
 	SubscriberRecord,
 } from "../types/config.js";
+import { queryActivityLog } from "./activity.js";
+import { emitEvent } from "./emit-event.js";
 import { initializePlugins } from "./plugins.js";
 import {
 	buildReadOnlyChannels,
@@ -111,6 +113,7 @@ export function herald(options: HeraldOptions): Herald {
 		throttleState: new Map(),
 		sse,
 		readOnlyChannels: buildReadOnlyChannels(options.workflows),
+		activityLog: options.activityLog === true,
 	};
 
 	const pluginsReady = initializePlugins(ctx, options.plugins);
@@ -158,8 +161,21 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 					}
 				}
 
+				await emitEvent(ctx, {
+					event: "workflow.triggered",
+					workflowId: args.workflowId,
+					transactionId,
+					detail: { to: args.to },
+				});
+
 				await workflow.trigger({
 					...args,
+					transactionId,
+				});
+
+				await emitEvent(ctx, {
+					event: "workflow.completed",
+					workflowId: args.workflowId,
 					transactionId,
 				});
 
@@ -399,6 +415,43 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 				subscriber: args.subscriber,
 				payload: args.payload,
 				app: { name: ctx.options.appName },
+			});
+		},
+
+		async getActivityLog(args) {
+			await pluginsReady;
+			return queryActivityLog(ctx, args);
+		},
+
+		async updateDeliveryStatus(args) {
+			await pluginsReady;
+			const notification = await db.findOne<NotificationRecord>({
+				model: "notification",
+				where: [{ field: "id", value: args.notificationId }],
+			});
+
+			if (!notification) {
+				throw new (await import("../errors.js")).HeraldNotFoundError("notification", `Notification "${args.notificationId}" not found`);
+			}
+
+			await db.update({
+				model: "notification",
+				where: [{ field: "id", value: args.notificationId }],
+				update: { deliveryStatus: args.status },
+			});
+
+			await emitEvent(ctx, {
+				event: "delivery.status_changed",
+				workflowId: notification.workflowId,
+				subscriberId: notification.subscriberId,
+				transactionId: notification.transactionId,
+				channel: notification.channel as import("../types/workflow.js").ChannelType,
+				detail: {
+					notificationId: args.notificationId,
+					previousStatus: notification.deliveryStatus,
+					newStatus: args.status,
+					...args.detail,
+				},
 			});
 		},
 	};

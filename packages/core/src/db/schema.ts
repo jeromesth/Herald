@@ -117,6 +117,21 @@ export const coreSchema: HeraldDBSchema = {
 		},
 		order: 6,
 	},
+
+	activityLog: {
+		fields: {
+			id: { type: "string", required: true, unique: true },
+			transactionId: { type: "string", required: false, index: true },
+			workflowId: { type: "string", required: false, index: true },
+			subscriberId: { type: "string", required: false, index: true },
+			channel: { type: "string", required: false },
+			stepId: { type: "string", required: false },
+			event: { type: "string", required: true, index: true },
+			detail: { type: "json", required: false },
+			createdAt: { type: "date", required: true },
+		},
+		order: 7,
+	},
 };
 
 /**

@@ -18,6 +18,9 @@ export {
 	defaultCategory,
 	defaultChannelPref,
 } from "./core/preferences.js";
+export { emitEvent } from "./core/emit-event.js";
+export { recordActivity, queryActivityLog } from "./core/activity.js";
+export { ACTIVITY_EVENT_TYPES } from "./types/activity.js";
 
 // Errors
 export {
@@ -128,4 +131,11 @@ export type {
 	RenderedEmail,
 	// Real-time types
 	SSEEvent,
+	// Activity & observability types
+	ActivityEventType,
+	ActivityLogRecord,
+	ActivityEventInput,
+	WebhookConfig,
+	WebhookEventPayload,
+	DeliveryStatusUpdate,
 } from "./types/index.js";

@@ -3,9 +3,11 @@ import type { SSEManager } from "../realtime/sse.js";
 import type { TemplateFilter } from "../templates/engine.js";
 import type { EmailLayout, LayoutRegistry } from "../templates/layouts.js";
 import type { TemplateEngine } from "../templates/types.js";
+import type { ActivityLogRecord, WebhookConfig } from "./activity.js";
 import type { DatabaseAdapter } from "./adapter.js";
 import type { HeraldPlugin } from "./plugin.js";
 import type { HeraldDBSchema } from "./schema.js";
+import type { DeliveryStatus } from "./workflow.js";
 import type { ChannelType, NotificationWorkflow, WorkflowAdapter } from "./workflow.js";
 import type { WorkflowHandler } from "./workflow.js";
 
@@ -103,6 +105,20 @@ export interface HeraldOptions {
 	 * Directly provide ChannelProvider instances.
 	 */
 	providers?: ChannelProvider[];
+
+	/**
+	 * Webhook endpoints for external integrations.
+	 * Herald emits lifecycle events (workflow triggered, notification sent, etc.)
+	 * to all matching endpoints.
+	 */
+	webhooks?: WebhookConfig[];
+
+	/**
+	 * Enable activity logging — records lifecycle events for every notification.
+	 * When enabled, events are stored in the `activityLog` database table.
+	 * @default false
+	 */
+	activityLog?: boolean;
 
 	/**
 	 * Advanced configuration options.
@@ -233,6 +249,8 @@ export interface HeraldContext {
 	sse?: SSEManager;
 	/** Precomputed map of workflow ID → channels that are readOnly. Computed once at init. */
 	readOnlyChannels: Record<string, Partial<Record<ChannelType, boolean>>>;
+	/** Whether activity logging is enabled. */
+	activityLog: boolean;
 }
 
 /**
@@ -359,6 +377,23 @@ export interface HeraldAPI {
 		subscriber: Record<string, unknown>;
 		payload: Record<string, unknown>;
 	}) => string;
+
+	/** Query the activity log for lifecycle events. */
+	getActivityLog: (args: {
+		transactionId?: string;
+		workflowId?: string;
+		subscriberId?: string;
+		event?: string;
+		limit?: number;
+		offset?: number;
+	}) => Promise<{ entries: ActivityLogRecord[]; totalCount: number }>;
+
+	/** Update delivery status for a notification and emit a status change event. */
+	updateDeliveryStatus: (args: {
+		notificationId: string;
+		status: DeliveryStatus;
+		detail?: Record<string, unknown>;
+	}) => Promise<void>;
 }
 
 // ---- Record types for API responses ----

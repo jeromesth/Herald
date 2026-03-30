@@ -1,5 +1,6 @@
 import type { CorsConfig, HeraldContext } from "../types/config.js";
 import type { HeraldPlugin } from "../types/plugin.js";
+import { activityRoutes } from "./routes/activity.js";
 import { notificationRoutes } from "./routes/notifications.js";
 import { preferenceRoutes } from "./routes/preferences.js";
 import { realtimeRoutes } from "./routes/realtime.js";
@@ -40,6 +41,7 @@ export function createRouter(
 		...preferenceRoutes,
 		...topicRoutes,
 		...realtimeRoutes,
+		...activityRoutes,
 	];
 
 	// Add plugin routes

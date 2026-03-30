@@ -15,6 +15,7 @@ import {
 	type WorkflowStep,
 } from "../types/workflow.js";
 import { conditionsPass, resolvePath } from "./conditions.js";
+import { emitEvent } from "./emit-event.js";
 import type { WorkflowMeta } from "./preferences.js";
 import { normalizePreferenceRecord, preferenceGate } from "./preferences.js";
 import { sendThroughProvider } from "./send.js";
@@ -54,14 +55,44 @@ function wrapStep(workflowMeta: WorkflowMeta, step: ActionStep, ctx: HeraldConte
 
 	return {
 		...step,
+		// Clear conditions from the wrapped step — wrapStep handles them internally
+		// so adapters (e.g. memory) don't short-circuit before the handler runs.
+		conditions: undefined,
+		conditionMode: undefined,
 		handler: async (context: StepContext): Promise<StepResult> => {
+			const transactionId = resolveTransactionId(ctx, workflowMeta.workflowId);
+
 			if (!stepConditionsPass(step.conditions, context, step.conditionMode)) {
+				await emitEvent(ctx, {
+					event: "workflow.step.skipped",
+					workflowId: workflowMeta.workflowId,
+					transactionId,
+					stepId: step.stepId,
+					subscriberId: context.subscriber.id,
+					detail: { reason: "conditions not met" },
+				});
 				return { body: "" };
 			}
+
+			await emitEvent(ctx, {
+				event: "workflow.step.started",
+				workflowId: workflowMeta.workflowId,
+				transactionId,
+				stepId: step.stepId,
+				subscriberId: context.subscriber.id,
+				channel: isChannelStep(step.type) ? step.type : undefined,
+			});
 
 			const result = await originalHandler(context);
 
 			if (!isChannelStep(step.type)) {
+				await emitEvent(ctx, {
+					event: "workflow.step.completed",
+					workflowId: workflowMeta.workflowId,
+					transactionId,
+					stepId: step.stepId,
+					subscriberId: context.subscriber.id,
+				});
 				return result;
 			}
 
@@ -143,6 +174,15 @@ function wrapStep(workflowMeta: WorkflowMeta, step: ActionStep, ctx: HeraldConte
 
 				if (!gateResult.allowed) {
 					console.info(`[herald] Workflow "${workflowMeta.workflowId}" step "${step.stepId}": delivery blocked — ${gateResult.reason}`);
+					await emitEvent(ctx, {
+						event: "preference.blocked",
+						workflowId: workflowMeta.workflowId,
+						transactionId,
+						stepId: step.stepId,
+						subscriberId: subscriber.id,
+						channel: step.type,
+						detail: { reason: gateResult.reason },
+					});
 					return result;
 				}
 			}
@@ -166,8 +206,18 @@ function wrapStep(workflowMeta: WorkflowMeta, step: ActionStep, ctx: HeraldConte
 				data: {
 					...result.data,
 					workflowId: workflowMeta.workflowId,
+					transactionId,
 					payload: context.payload,
 				},
+			});
+
+			await emitEvent(ctx, {
+				event: "workflow.step.completed",
+				workflowId: workflowMeta.workflowId,
+				transactionId,
+				stepId: step.stepId,
+				subscriberId: subscriber.id,
+				channel: step.type,
 			});
 
 			return result;
@@ -193,6 +243,13 @@ async function runAfterPreferenceHooks(
 			}
 		}
 	}
+}
+
+function resolveTransactionId(ctx: HeraldContext, workflowId: string): string | undefined {
+	for (const [txId, wfId] of ctx.transactionWorkflowMap) {
+		if (wfId === workflowId) return txId;
+	}
+	return undefined;
 }
 
 function isChannelStep(stepType: string): stepType is ChannelType {
