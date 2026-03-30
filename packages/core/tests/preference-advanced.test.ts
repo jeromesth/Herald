@@ -3,9 +3,16 @@ import { memoryAdapter } from "../src/adapters/database/memory.js";
 import { memoryWorkflowAdapter } from "../src/adapters/workflow/memory.js";
 import { conditionsPass, evaluateCondition, resolvePath } from "../src/core/conditions.js";
 import { herald } from "../src/core/herald.js";
-import { normalizePreferenceRecord, preferenceGate } from "../src/core/preferences.js";
+import { deepMerge, normalizePreferenceRecord, preferenceGate, stripReadOnlyOverrides } from "../src/core/preferences.js";
 import type { ConditionContext, WorkflowMeta } from "../src/core/preferences.js";
-import type { CategoryPreference, Herald, NotificationWorkflow, OperatorPreferences, PreferenceRecord } from "../src/types/index.js";
+import type {
+	CategoryPreference,
+	Herald,
+	NotificationWorkflow,
+	OperatorPreferences,
+	PreferenceRecord,
+	SubscriberData,
+} from "../src/types/index.js";
 
 // ---- Feature 1: Category-Channel Granularity ----
 
@@ -829,6 +836,27 @@ describe("readOnly enforcement at API write layer", () => {
 		expect(prefs.workflows?.["wf-cond"]?.conditions).toEqual([]);
 	});
 
+	it("strips readOnly global channel contradictions from updatePreferences", async () => {
+		const db = memoryAdapter();
+		const wf = memoryWorkflowAdapter();
+		const workflow: NotificationWorkflow = {
+			id: "secure-alerts",
+			name: "Secure Alerts",
+			preferences: { channels: { email: { enabled: true, readOnly: true } } },
+			steps: [{ stepId: "send", type: "email", handler: async () => ({ subject: "Alert", body: "Test" }) }],
+		};
+
+		const app = herald({ database: db, workflow: wf, workflows: [workflow] });
+		const { id: subscriberId } = await app.api.upsertSubscriber({ externalId: "user-1" });
+
+		// Try to set global channel email=false which contradicts readOnly email=true
+		await app.api.updatePreferences(subscriberId, { channels: { email: false } });
+
+		const prefs = await app.api.getPreferences(subscriberId);
+		// The global email=false should be stripped since email is readOnly for secure-alerts
+		expect(prefs.channels?.email).toBeUndefined();
+	});
+
 	it("strips readOnly channel overrides from updatePreferences", async () => {
 		const db = memoryAdapter();
 		const wf = memoryWorkflowAdapter();
@@ -850,5 +878,196 @@ describe("readOnly enforcement at API write layer", () => {
 		const prefs = await app.api.getPreferences(subscriberId);
 		// The email channel override for secure-alerts should have been stripped
 		expect(prefs.workflows?.["secure-alerts"]?.channels?.email).toBeUndefined();
+	});
+});
+
+// ---- Item #7: deepMerge non-POJO safety ----
+
+describe("deepMerge non-POJO handling", () => {
+	it("treats Date instances as primitives, not objects to recurse into", () => {
+		const base = { createdAt: new Date("2025-01-01") } as Record<string, unknown>;
+		const patch = { createdAt: new Date("2026-01-01") } as Record<string, unknown>;
+		const result = deepMerge(base, patch);
+		expect(result.createdAt).toBeInstanceOf(Date);
+		expect((result.createdAt as Date).toISOString()).toBe("2026-01-01T00:00:00.000Z");
+	});
+
+	it("does not spread RegExp or Map instances", () => {
+		const base = { pattern: /abc/ } as Record<string, unknown>;
+		const patch = { pattern: /xyz/ } as Record<string, unknown>;
+		const result = deepMerge(base, patch);
+		expect(result.pattern).toBeInstanceOf(RegExp);
+		expect((result.pattern as RegExp).source).toBe("xyz");
+	});
+});
+
+// ---- Item #8: normalizePreferenceRecord validation ----
+
+describe("normalizePreferenceRecord validation", () => {
+	it("drops non-boolean non-object workflow values", () => {
+		// biome-ignore lint/suspicious/noExplicitAny: testing invalid data from corrupt database
+		const raw = { subscriberId: "s1", workflows: { wf: "garbage" as any } };
+		const result = normalizePreferenceRecord(raw);
+		expect(result.workflows?.wf).toBeUndefined();
+	});
+
+	it("drops non-boolean non-object category values", () => {
+		// biome-ignore lint/suspicious/noExplicitAny: testing invalid data from corrupt database
+		const raw = { subscriberId: "s1", categories: { cat: 42 as any } };
+		const result = normalizePreferenceRecord(raw);
+		expect(result.categories?.cat).toBeUndefined();
+	});
+
+	it("preserves valid boolean and object values", () => {
+		const raw: PreferenceRecord = {
+			subscriberId: "s1",
+			// biome-ignore lint/suspicious/noExplicitAny: testing legacy boolean format
+			workflows: { wf: true as any, wf2: { enabled: false } },
+			// biome-ignore lint/suspicious/noExplicitAny: testing legacy boolean format
+			categories: { cat: false as any, cat2: { enabled: true } },
+		};
+		const result = normalizePreferenceRecord(raw);
+		expect(result.workflows?.wf).toEqual({ enabled: true });
+		expect(result.workflows?.wf2).toEqual({ enabled: false });
+		expect(result.categories?.cat).toEqual({ enabled: false });
+		expect(result.categories?.cat2).toEqual({ enabled: true });
+	});
+});
+
+// ---- Item #9: TOCTOU race in upsertPreferenceInternal ----
+
+describe("upsertPreferenceInternal TOCTOU handling", () => {
+	it("handles concurrent create race with retry", async () => {
+		const db = memoryAdapter();
+		const wf = memoryWorkflowAdapter();
+		const app = herald({ database: db, workflow: wf, workflows: [] });
+		const { id: subscriberId } = await app.api.upsertSubscriber({ externalId: "user-race" });
+
+		// Simulate concurrent preference updates - both should succeed, not throw
+		const [result1, result2] = await Promise.all([
+			app.api.updatePreferences(subscriberId, { channels: { email: true } }),
+			app.api.updatePreferences(subscriberId, { channels: { sms: false } }),
+		]);
+		expect(result1).toBeDefined();
+		expect(result2).toBeDefined();
+
+		const prefs = await app.api.getPreferences(subscriberId);
+		// At least one of the updates should be reflected
+		expect(prefs.subscriberId).toBeDefined();
+	});
+});
+
+// ---- Item #10: Bulk update in-memory record stripping undefined ----
+
+describe("bulkUpdatePreferences chained updates consistency", () => {
+	it("chained updates for same subscriber produce consistent merged state", async () => {
+		const db = memoryAdapter();
+		const wf = memoryWorkflowAdapter();
+		const app = herald({ database: db, workflow: wf, workflows: [] });
+		await app.api.upsertSubscriber({ externalId: "user-chain" });
+
+		const results = await app.api.bulkUpdatePreferences([
+			{ subscriberId: "user-chain", preferences: { channels: { email: true } } },
+			{ subscriberId: "user-chain", preferences: { channels: { sms: false } } },
+			{ subscriberId: "user-chain", preferences: { purposes: { marketing: false } } },
+		]);
+
+		expect(results.every((r) => !r.error)).toBe(true);
+		const lastResult = results[results.length - 1];
+		expect(lastResult.preferences?.channels?.email).toBe(true);
+		expect(lastResult.preferences?.channels?.sms).toBe(false);
+		expect(lastResult.preferences?.purposes?.marketing).toBe(false);
+
+		// Verify DB is consistent with the last returned record
+		const stored = await app.api.getPreferences("user-chain");
+		expect(stored.channels?.email).toBe(true);
+		expect(stored.channels?.sms).toBe(false);
+		expect(stored.purposes?.marketing).toBe(false);
+	});
+});
+
+// ---- Item #11: Silent field prefix typos in conditions ----
+
+describe("evaluatePreferenceConditions field prefix warning", () => {
+	it("workflow condition with unrecognized field prefix logs a warning", async () => {
+		const db = memoryAdapter();
+		const wf = memoryWorkflowAdapter();
+		const workflow: NotificationWorkflow = {
+			id: "typo-wf",
+			name: "Typo",
+			preferences: { conditions: [{ field: "subscribr.plan", operator: "eq", value: "pro" }] },
+			steps: [{ stepId: "send", type: "email", handler: async () => ({ subject: "Hi", body: "Test" }) }],
+		};
+		const warnings: string[] = [];
+		const origWarn = console.warn;
+		console.warn = (...args: unknown[]) => {
+			warnings.push(String(args[0]));
+		};
+		try {
+			const result = preferenceGate({
+				workflowMeta: {
+					workflowId: "typo-wf",
+					preferences: { conditions: [{ field: "subscribr.plan", operator: "eq", value: "pro" }] },
+				},
+				channel: "email",
+				conditionContext: {
+					subscriber: { id: "1", externalId: "ext-1" } as SubscriberData,
+					payload: {},
+				},
+			});
+			// The condition should fail (field resolves to undefined) and block
+			expect(result.allowed).toBe(false);
+			// A warning should have been logged about the unrecognized prefix
+			expect(warnings.some((w) => w.includes("subscribr.plan"))).toBe(true);
+		} finally {
+			console.warn = origWarn;
+		}
+	});
+});
+
+// ---- Item #12: Condition mode for preference conditions ----
+
+describe("preference condition mode", () => {
+	it("workflow conditions support any mode (allow if any condition passes)", () => {
+		const result = preferenceGate({
+			workflowMeta: {
+				workflowId: "any-mode-wf",
+				preferences: {
+					conditions: [
+						{ field: "payload.plan", operator: "eq", value: "pro" },
+						{ field: "payload.plan", operator: "eq", value: "enterprise" },
+					],
+					conditionMode: "any",
+				},
+			},
+			channel: "email",
+			conditionContext: {
+				subscriber: { id: "1", externalId: "ext-1" } as SubscriberData,
+				payload: { plan: "enterprise" },
+			},
+		});
+		// With "any" mode, one matching condition should be enough
+		expect(result.allowed).toBe(true);
+	});
+
+	it("workflow conditions default to all mode", () => {
+		const result = preferenceGate({
+			workflowMeta: {
+				workflowId: "all-mode-wf",
+				preferences: {
+					conditions: [
+						{ field: "payload.plan", operator: "eq", value: "pro" },
+						{ field: "payload.active", operator: "eq", value: true },
+					],
+				},
+			},
+			channel: "email",
+			conditionContext: {
+				subscriber: { id: "1", externalId: "ext-1" } as SubscriberData,
+				payload: { plan: "pro", active: false },
+			},
+		});
+		// With "all" mode, both must pass — active=false fails
+		expect(result.allowed).toBe(false);
 	});
 });

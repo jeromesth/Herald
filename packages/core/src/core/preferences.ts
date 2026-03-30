@@ -12,9 +12,15 @@ import type { ChannelType, NotificationWorkflow, SubscriberData } from "../types
 import { conditionsPass, resolvePath } from "./conditions.js";
 import { resolveSubscriberInternalIdsMap } from "./subscriber.js";
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+	if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+	const proto = Object.getPrototypeOf(value);
+	return proto === Object.prototype || proto === null;
+}
+
 /**
- * Deep merge two plain objects. Nested objects are recursively merged rather than overwritten.
- * Primitive values in `patch` overwrite values in `base`.
+ * Deep merge two plain objects. Nested plain objects are recursively merged rather than overwritten.
+ * Non-plain objects (Date, RegExp, Map, etc.), arrays, and primitives in `patch` overwrite values in `base`.
  */
 export function deepMerge<T extends Record<string, unknown>>(base: T | undefined, patch: T | undefined): T {
 	if (!base) return (patch ?? {}) as T;
@@ -25,15 +31,8 @@ export function deepMerge<T extends Record<string, unknown>>(base: T | undefined
 		const baseVal = result[key];
 		const patchVal = (patch as Record<string, unknown>)[key];
 
-		if (
-			patchVal !== null &&
-			typeof patchVal === "object" &&
-			!Array.isArray(patchVal) &&
-			baseVal !== null &&
-			typeof baseVal === "object" &&
-			!Array.isArray(baseVal)
-		) {
-			result[key] = deepMerge(baseVal as Record<string, unknown>, patchVal as Record<string, unknown>);
+		if (isPlainObject(patchVal) && isPlainObject(baseVal)) {
+			result[key] = deepMerge(baseVal, patchVal);
 		} else {
 			result[key] = patchVal;
 		}
@@ -41,16 +40,13 @@ export function deepMerge<T extends Record<string, unknown>>(base: T | undefined
 	return result as T;
 }
 
-export interface WorkflowMeta {
+/**
+ * Preference-relevant fields from {@link NotificationWorkflow}, with `id` renamed to `workflowId`.
+ * Derived via Pick so it stays in sync when NotificationWorkflow gains new preference-relevant fields.
+ */
+export type WorkflowMeta = Pick<NotificationWorkflow, "critical" | "purpose" | "category" | "preferences"> & {
 	workflowId: string;
-	critical?: boolean;
-	purpose?: string;
-	category?: string;
-	preferences?: {
-		channels?: Partial<Record<ChannelType, { enabled: boolean; readOnly?: boolean }>>;
-		conditions?: PreferenceCondition[];
-	};
-}
+};
 
 export interface PreferenceGateResult {
 	allowed: boolean;
@@ -156,10 +152,14 @@ export const readOnlyChannel: PreferenceCheck = ({ workflowMeta, channel }) => {
 	return null;
 };
 
-/** 4. Subscriber's global channel kill switch. */
+/** 4. Subscriber's global channel preference. Blocks on false, allows on true. */
 export const channelKillSwitch: PreferenceCheck = ({ subscriberPrefs, channel }) => {
-	if (subscriberPrefs?.channels?.[channel] === false) {
+	const channelPref = subscriberPrefs?.channels?.[channel];
+	if (channelPref === false) {
 		return { allowed: false, reason: `subscriber disabled channel "${channel}"` };
+	}
+	if (channelPref === true) {
+		return { allowed: true, reason: `subscriber enabled channel "${channel}"` };
 	}
 	return null;
 };
@@ -199,10 +199,15 @@ export const categoryPreference: PreferenceCheck = ({ subscriberPrefs, workflowM
 	return { allowed: true, reason: `subscriber enabled category "${workflowMeta.category}"` };
 };
 
-/** 7. Purpose-level subscriber preference. */
+/** 7. Purpose-level subscriber preference. Blocks on false, allows on true. */
 export const purposePreference: PreferenceCheck = ({ subscriberPrefs, workflowMeta }) => {
-	if (workflowMeta.purpose && subscriberPrefs?.purposes?.[workflowMeta.purpose] === false) {
+	if (!workflowMeta.purpose) return null;
+	const purposePref = subscriberPrefs?.purposes?.[workflowMeta.purpose];
+	if (purposePref === false) {
 		return { allowed: false, reason: `subscriber disabled purpose "${workflowMeta.purpose}"` };
+	}
+	if (purposePref === true) {
+		return { allowed: true, reason: `subscriber enabled purpose "${workflowMeta.purpose}"` };
 	}
 	return null;
 };
@@ -210,16 +215,18 @@ export const purposePreference: PreferenceCheck = ({ subscriberPrefs, workflowMe
 /** 8. Workflow-level conditions defined by the workflow author. */
 export const workflowConditions: PreferenceCheck = ({ workflowMeta, conditionContext }) => {
 	if (workflowMeta.preferences?.conditions?.length && conditionContext) {
-		if (!evaluatePreferenceConditions(workflowMeta.preferences.conditions, conditionContext)) {
+		const mode = workflowMeta.preferences.conditionMode ?? "all";
+		if (!evaluatePreferenceConditions(workflowMeta.preferences.conditions, conditionContext, mode)) {
 			return { allowed: false, reason: `workflow "${workflowMeta.workflowId}" preference condition not met` };
 		}
 	}
 	return null;
 };
 
-/** 9. Workflow author's non-readOnly channel default. */
+/** 9. Workflow author's non-readOnly channel default. Must come after readOnlyChannel (check 3) in the chain. */
 export const authorChannelDefault: PreferenceCheck = ({ workflowMeta, channel }) => {
 	const authorChannelPref = workflowMeta.preferences?.channels?.[channel];
+	if (authorChannelPref?.readOnly) return null;
 	if (authorChannelPref && !authorChannelPref.enabled) {
 		return { allowed: false, reason: `workflow author disabled channel "${channel}"` };
 	}
@@ -244,7 +251,7 @@ export const defaultWorkflow: PreferenceCheck = ({ subscriberPrefs, workflowMeta
 /** 11. Config/operator default per-purpose (only when subscriber has no explicit purpose pref). */
 export const defaultPurpose: PreferenceCheck = ({ subscriberPrefs, workflowMeta, operatorPreferences, defaultPreferences }) => {
 	if (!workflowMeta.purpose) return null;
-	if (workflowMeta.purpose !== undefined && subscriberPrefs?.purposes?.[workflowMeta.purpose] !== undefined) return null;
+	if (subscriberPrefs?.purposes?.[workflowMeta.purpose] !== undefined) return null;
 
 	if (defaultPreferences?.purposes?.[workflowMeta.purpose] === false) {
 		return { allowed: false, reason: `config default disabled purpose "${workflowMeta.purpose}"` };
@@ -259,7 +266,7 @@ export const defaultPurpose: PreferenceCheck = ({ subscriberPrefs, workflowMeta,
 /** 12. Config/operator default per-category (only when subscriber has no explicit category pref). */
 export const defaultCategory: PreferenceCheck = ({ subscriberPrefs, workflowMeta, operatorPreferences, defaultPreferences }) => {
 	if (!workflowMeta.category) return null;
-	if (workflowMeta.category !== undefined && subscriberPrefs?.categories?.[workflowMeta.category] !== undefined) return null;
+	if (subscriberPrefs?.categories?.[workflowMeta.category] !== undefined) return null;
 
 	const defaultCatPref = defaultPreferences?.categories?.[workflowMeta.category];
 	if (defaultCatPref && !defaultCatPref.enabled) {
@@ -306,7 +313,7 @@ export const defaultChannelPref: PreferenceCheck = ({ subscriberPrefs, channel, 
  * 12. Config/operator default per-category
  * 13. Config/operator default per-channel
  */
-export const preferenceChecks: PreferenceCheck[] = [
+export const preferenceChecks: readonly PreferenceCheck[] = Object.freeze([
 	criticalBypass,
 	operatorEnforced,
 	readOnlyChannel,
@@ -320,7 +327,7 @@ export const preferenceChecks: PreferenceCheck[] = [
 	defaultPurpose,
 	defaultCategory,
 	defaultChannelPref,
-];
+] as const);
 
 /**
  * Evaluate the preference gate by running through the ordered check chain.
@@ -335,17 +342,21 @@ export function preferenceGate(input: PreferenceGateInput): PreferenceGateResult
 	return { allowed: true, reason: "default" };
 }
 
-function evaluatePreferenceConditions(conditions: PreferenceCondition[], context: ConditionContext): boolean {
-	return conditionsPass(conditions, (field) => {
-		if (field.startsWith("subscriber.")) {
-			return resolvePath(context.subscriber as unknown as Record<string, unknown>, field.slice("subscriber.".length));
-		}
-		if (field.startsWith("payload.")) {
-			return resolvePath(context.payload, field.slice("payload.".length));
-		}
-		// Unrecognized prefix — return undefined rather than guessing
-		return undefined;
-	});
+function evaluatePreferenceConditions(conditions: PreferenceCondition[], context: ConditionContext, mode: "all" | "any" = "all"): boolean {
+	return conditionsPass(
+		conditions,
+		(field) => {
+			if (field.startsWith("subscriber.")) {
+				return resolvePath(context.subscriber as unknown as Record<string, unknown>, field.slice("subscriber.".length));
+			}
+			if (field.startsWith("payload.")) {
+				return resolvePath(context.payload, field.slice("payload.".length));
+			}
+			console.warn(`[herald] Preference condition references unrecognized field "${field}". Expected "subscriber." or "payload." prefix.`);
+			return undefined;
+		},
+		mode,
+	);
 }
 
 export function defaultPreferenceRecord(ctx: HeraldContext, subscriberId: string): PreferenceRecord {
@@ -373,8 +384,10 @@ export function normalizePreferenceRecord(pref: PreferenceRecord): PreferenceRec
 		for (const [key, val] of Object.entries(pref.workflows)) {
 			if (typeof val === "boolean") {
 				normalizedWorkflows[key] = { enabled: val };
-			} else {
+			} else if (val !== null && typeof val === "object" && "enabled" in val) {
 				normalizedWorkflows[key] = val as WorkflowChannelPreference;
+			} else {
+				console.warn(`[herald] normalizePreferenceRecord: dropping invalid workflow preference "${key}":`, val);
 			}
 		}
 		normalized = { ...normalized, workflows: normalizedWorkflows };
@@ -385,8 +398,10 @@ export function normalizePreferenceRecord(pref: PreferenceRecord): PreferenceRec
 		for (const [key, val] of Object.entries(pref.categories)) {
 			if (typeof val === "boolean") {
 				normalizedCategories[key] = { enabled: val };
-			} else {
+			} else if (val !== null && typeof val === "object" && "enabled" in val) {
 				normalizedCategories[key] = val as CategoryPreference;
+			} else {
+				console.warn(`[herald] normalizePreferenceRecord: dropping invalid category preference "${key}":`, val);
 			}
 		}
 		normalized = { ...normalized, categories: normalizedCategories };
@@ -420,29 +435,53 @@ export function buildReadOnlyChannels(workflows?: NotificationWorkflow[]): Recor
 
 /**
  * Strip preference overrides for channels that are marked readOnly by workflow authors.
- * This prevents subscribers from storing contradictory state.
+ * This prevents subscribers from storing contradictory state at both the per-workflow
+ * channel level and the global channel level.
  */
 export function stripReadOnlyOverrides(
 	preferences: Partial<PreferenceRecord>,
 	readOnlyChannels: Record<string, Partial<Record<ChannelType, boolean>>>,
 ): Partial<PreferenceRecord> {
-	if (!preferences.workflows || Object.keys(readOnlyChannels).length === 0) {
+	if (Object.keys(readOnlyChannels).length === 0) {
 		return preferences;
 	}
 
-	const sanitizedWorkflows = { ...preferences.workflows };
-	for (const [workflowId, roChannels] of Object.entries(readOnlyChannels)) {
-		const wfPref = sanitizedWorkflows[workflowId];
-		if (wfPref?.channels) {
-			const sanitizedChannels = { ...wfPref.channels };
-			for (const ch of Object.keys(roChannels)) {
-				delete sanitizedChannels[ch as ChannelType];
-			}
-			sanitizedWorkflows[workflowId] = { ...wfPref, channels: sanitizedChannels };
+	let result = preferences;
+
+	// Collect all channels that are readOnly in ANY workflow
+	const globalReadOnlyChannels = new Set<ChannelType>();
+	for (const roChannels of Object.values(readOnlyChannels)) {
+		for (const ch of Object.keys(roChannels)) {
+			globalReadOnlyChannels.add(ch as ChannelType);
 		}
 	}
 
-	return { ...preferences, workflows: sanitizedWorkflows };
+	// Strip global channel overrides that contradict readOnly
+	if (result.channels && globalReadOnlyChannels.size > 0) {
+		const sanitizedChannels = { ...result.channels };
+		for (const ch of globalReadOnlyChannels) {
+			delete sanitizedChannels[ch];
+		}
+		result = { ...result, channels: sanitizedChannels };
+	}
+
+	// Strip per-workflow channel overrides
+	if (result.workflows) {
+		const sanitizedWorkflows = { ...result.workflows };
+		for (const [workflowId, roChannels] of Object.entries(readOnlyChannels)) {
+			const wfPref = sanitizedWorkflows[workflowId];
+			if (wfPref?.channels) {
+				const sanitizedChannels = { ...wfPref.channels };
+				for (const ch of Object.keys(roChannels)) {
+					delete sanitizedChannels[ch as ChannelType];
+				}
+				sanitizedWorkflows[workflowId] = { ...wfPref, channels: sanitizedChannels };
+			}
+		}
+		result = { ...result, workflows: sanitizedWorkflows };
+	}
+
+	return result;
 }
 
 export type PreferencePatch = Partial<Pick<PreferenceRecord, "channels" | "workflows" | "categories" | "purposes">>;
