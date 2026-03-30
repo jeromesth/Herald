@@ -75,83 +75,78 @@ export interface PreferenceGateInput {
 }
 
 /**
- * 14-level preference gate:
- *
- *  1. Critical bypass
- *  2. Operator enforced overrides
- *  3. ReadOnly channel controls
- *  4. Channel kill switch
- *  5. Workflow-specific preference
- *  6. Category preference (with channel granularity)
- *  7. Purpose-level preference
- *  8. Preference conditions
- *  9. Workflow author defaults
- * 10. Config/operator default per-workflow (only if subscriber has no explicit workflow pref)
- * 11. Config/operator default per-purpose (only if subscriber has no explicit purpose pref)
- * 12. Config/operator default per-category (only if subscriber has no explicit category pref)
- * 13. Config/operator default per-channel (only if subscriber has no explicit channel pref)
- * 14. Default allow
+ * A single check in the preference gate chain. Returns a result if it matches,
+ * or `null` to pass to the next check.
  */
-export function preferenceGate(input: PreferenceGateInput): PreferenceGateResult {
-	const { subscriberPrefs, workflowMeta, channel, defaultPreferences, operatorPreferences, conditionContext } = input;
-	// 1. Critical bypass
-	if (workflowMeta.critical) {
+export type PreferenceCheck = (input: PreferenceGateInput) => PreferenceGateResult | null;
+
+// ---- Individual check functions (one per precedence level) ----
+
+/** Level 1: Critical bypass — always allowed. */
+export function criticalBypass(input: PreferenceGateInput): PreferenceGateResult | null {
+	if (input.workflowMeta.critical) {
 		return { allowed: true, reason: "critical" };
 	}
+	return null;
+}
 
-	// 2. Operator enforced overrides
-	// Priority within this tier: channel > workflow > category > purpose.
-	// When two enforce:true rules conflict (e.g., channel disabled + workflow enabled),
-	// the broader scope (channel) wins because it's checked first.
-	if (operatorPreferences) {
-		// Check enforced channel override (broadest scope)
-		const opChannel = operatorPreferences.channels?.[channel];
-		if (opChannel?.enforce) {
+/** Level 2: Operator enforced overrides (channel > workflow > category > purpose). */
+export function operatorEnforcedOverrides(input: PreferenceGateInput): PreferenceGateResult | null {
+	const { workflowMeta, channel, operatorPreferences } = input;
+	if (!operatorPreferences) return null;
+
+	// Check enforced channel override (broadest scope)
+	const opChannel = operatorPreferences.channels?.[channel];
+	if (opChannel?.enforce) {
+		return {
+			allowed: opChannel.enabled,
+			reason: opChannel.enabled ? `operator enforced channel "${channel}" enabled` : `operator enforced channel "${channel}" disabled`,
+		};
+	}
+
+	// Check enforced workflow override
+	const opWorkflow = operatorPreferences.workflows?.[workflowMeta.workflowId];
+	if (opWorkflow?.enforce) {
+		return {
+			allowed: opWorkflow.enabled,
+			reason: opWorkflow.enabled
+				? `operator enforced workflow "${workflowMeta.workflowId}" enabled`
+				: `operator enforced workflow "${workflowMeta.workflowId}" disabled`,
+		};
+	}
+
+	// Check enforced category override
+	if (workflowMeta.category) {
+		const opCategory = operatorPreferences.categories?.[workflowMeta.category];
+		if (opCategory?.enforce) {
 			return {
-				allowed: opChannel.enabled,
-				reason: opChannel.enabled ? `operator enforced channel "${channel}" enabled` : `operator enforced channel "${channel}" disabled`,
+				allowed: opCategory.enabled,
+				reason: opCategory.enabled
+					? `operator enforced category "${workflowMeta.category}" enabled`
+					: `operator enforced category "${workflowMeta.category}" disabled`,
 			};
-		}
-
-		// Check enforced workflow override
-		const opWorkflow = operatorPreferences.workflows?.[workflowMeta.workflowId];
-		if (opWorkflow?.enforce) {
-			return {
-				allowed: opWorkflow.enabled,
-				reason: opWorkflow.enabled
-					? `operator enforced workflow "${workflowMeta.workflowId}" enabled`
-					: `operator enforced workflow "${workflowMeta.workflowId}" disabled`,
-			};
-		}
-
-		// Check enforced category override
-		if (workflowMeta.category) {
-			const opCategory = operatorPreferences.categories?.[workflowMeta.category];
-			if (opCategory?.enforce) {
-				return {
-					allowed: opCategory.enabled,
-					reason: opCategory.enabled
-						? `operator enforced category "${workflowMeta.category}" enabled`
-						: `operator enforced category "${workflowMeta.category}" disabled`,
-				};
-			}
-		}
-
-		// Check enforced purpose override
-		if (workflowMeta.purpose) {
-			const opPurpose = operatorPreferences.purposes?.[workflowMeta.purpose];
-			if (opPurpose?.enforce) {
-				return {
-					allowed: opPurpose.enabled,
-					reason: opPurpose.enabled
-						? `operator enforced purpose "${workflowMeta.purpose}" enabled`
-						: `operator enforced purpose "${workflowMeta.purpose}" disabled`,
-				};
-			}
 		}
 	}
 
-	// 3. ReadOnly channel controls
+	// Check enforced purpose override
+	if (workflowMeta.purpose) {
+		const opPurpose = operatorPreferences.purposes?.[workflowMeta.purpose];
+		if (opPurpose?.enforce) {
+			return {
+				allowed: opPurpose.enabled,
+				reason: opPurpose.enabled
+					? `operator enforced purpose "${workflowMeta.purpose}" enabled`
+					: `operator enforced purpose "${workflowMeta.purpose}" disabled`,
+			};
+		}
+	}
+
+	return null;
+}
+
+/** Level 3: ReadOnly channel controls. */
+export function readOnlyChannelControls(input: PreferenceGateInput): PreferenceGateResult | null {
+	const { workflowMeta, channel } = input;
 	const authorChannelPref = workflowMeta.preferences?.channels?.[channel];
 	if (authorChannelPref?.readOnly) {
 		return {
@@ -161,13 +156,21 @@ export function preferenceGate(input: PreferenceGateInput): PreferenceGateResult
 				: `readOnly channel "${channel}" for workflow "${workflowMeta.workflowId}" disabled`,
 		};
 	}
+	return null;
+}
 
-	// 4. Global channel kill switch
+/** Level 4: Global channel kill switch. */
+export function channelKillSwitch(input: PreferenceGateInput): PreferenceGateResult | null {
+	const { subscriberPrefs, channel } = input;
 	if (subscriberPrefs?.channels?.[channel] === false) {
 		return { allowed: false, reason: `subscriber disabled channel "${channel}"` };
 	}
+	return null;
+}
 
-	// 5. Workflow-specific preference
+/** Level 5: Workflow-specific preference. */
+export function workflowPreference(input: PreferenceGateInput): PreferenceGateResult | null {
+	const { subscriberPrefs, workflowMeta, channel, conditionContext } = input;
 	const workflowPref = subscriberPrefs?.workflows?.[workflowMeta.workflowId];
 	if (workflowPref !== undefined) {
 		const wcp = workflowPref;
@@ -189,8 +192,12 @@ export function preferenceGate(input: PreferenceGateInput): PreferenceGateResult
 		}
 		return { allowed: true, reason: `subscriber enabled workflow "${workflowMeta.workflowId}"` };
 	}
+	return null;
+}
 
-	// 6. Category preference (short-circuits to allow, like workflow preferences at level 5)
+/** Level 6: Category preference (with channel granularity). */
+export function categoryPreference(input: PreferenceGateInput): PreferenceGateResult | null {
+	const { subscriberPrefs, workflowMeta, channel } = input;
 	if (workflowMeta.category) {
 		const categoryPref = subscriberPrefs?.categories?.[workflowMeta.category];
 		if (categoryPref !== undefined) {
@@ -204,26 +211,43 @@ export function preferenceGate(input: PreferenceGateInput): PreferenceGateResult
 			return { allowed: true, reason: `subscriber enabled category "${workflowMeta.category}"` };
 		}
 	}
+	return null;
+}
 
-	// 7. Purpose-level preference
+/** Level 7: Purpose-level preference. */
+export function purposePreference(input: PreferenceGateInput): PreferenceGateResult | null {
+	const { subscriberPrefs, workflowMeta } = input;
 	if (workflowMeta.purpose && subscriberPrefs?.purposes?.[workflowMeta.purpose] === false) {
 		return { allowed: false, reason: `subscriber disabled purpose "${workflowMeta.purpose}"` };
 	}
+	return null;
+}
 
-	// 8. Preference conditions (workflow-level conditions from author)
+/** Level 8: Preference conditions (workflow-level conditions from author). */
+export function authorConditions(input: PreferenceGateInput): PreferenceGateResult | null {
+	const { workflowMeta, conditionContext } = input;
 	if (workflowMeta.preferences?.conditions?.length && conditionContext) {
 		const condResult = evaluatePreferenceConditions(workflowMeta.preferences.conditions, conditionContext);
 		if (!condResult) {
 			return { allowed: false, reason: `workflow "${workflowMeta.workflowId}" preference condition not met` };
 		}
 	}
+	return null;
+}
 
-	// 9. Workflow author channel default (non-readOnly)
+/** Level 9: Workflow author channel default (non-readOnly). */
+export function authorChannelDefault(input: PreferenceGateInput): PreferenceGateResult | null {
+	const { workflowMeta, channel } = input;
+	const authorChannelPref = workflowMeta.preferences?.channels?.[channel];
 	if (authorChannelPref && !authorChannelPref.enabled) {
 		return { allowed: false, reason: `workflow author disabled channel "${channel}"` };
 	}
+	return null;
+}
 
-	// 10. Config/operator default per-workflow
+/** Level 10: Config/operator default per-workflow. */
+export function configDefaultWorkflow(input: PreferenceGateInput): PreferenceGateResult | null {
+	const { subscriberPrefs, workflowMeta, defaultPreferences, operatorPreferences } = input;
 	const subscriberWorkflowExplicit = subscriberPrefs?.workflows?.[workflowMeta.workflowId] !== undefined;
 	if (!subscriberWorkflowExplicit) {
 		const defaultWorkflowPref = defaultPreferences?.workflows?.[workflowMeta.workflowId];
@@ -235,8 +259,12 @@ export function preferenceGate(input: PreferenceGateInput): PreferenceGateResult
 			return { allowed: false, reason: `operator default disabled workflow "${workflowMeta.workflowId}"` };
 		}
 	}
+	return null;
+}
 
-	// 11. Config/operator default per-purpose (subscriber `purposes.x = true` must beat config/operator defaults, like workflow/channel)
+/** Level 11: Config/operator default per-purpose. */
+export function configDefaultPurpose(input: PreferenceGateInput): PreferenceGateResult | null {
+	const { subscriberPrefs, workflowMeta, defaultPreferences, operatorPreferences } = input;
 	const subscriberPurposeExplicit = workflowMeta.purpose !== undefined && subscriberPrefs?.purposes?.[workflowMeta.purpose] !== undefined;
 	if (workflowMeta.purpose && !subscriberPurposeExplicit) {
 		if (defaultPreferences?.purposes?.[workflowMeta.purpose] === false) {
@@ -247,8 +275,12 @@ export function preferenceGate(input: PreferenceGateInput): PreferenceGateResult
 			return { allowed: false, reason: `operator default disabled purpose "${workflowMeta.purpose}"` };
 		}
 	}
+	return null;
+}
 
-	// 12. Config/operator default per-category (defense in depth: step 6 already short-circuits when category pref exists)
+/** Level 12: Config/operator default per-category. */
+export function configDefaultCategory(input: PreferenceGateInput): PreferenceGateResult | null {
+	const { subscriberPrefs, workflowMeta, defaultPreferences, operatorPreferences } = input;
 	const subscriberCategoryExplicit =
 		workflowMeta.category !== undefined && subscriberPrefs?.categories?.[workflowMeta.category] !== undefined;
 	if (workflowMeta.category && !subscriberCategoryExplicit) {
@@ -261,9 +293,12 @@ export function preferenceGate(input: PreferenceGateInput): PreferenceGateResult
 			return { allowed: false, reason: `operator default disabled category "${workflowMeta.category}"` };
 		}
 	}
+	return null;
+}
 
-	// 13. Config/operator default per-channel
-	// If subscriber explicitly set a channel preference, it takes precedence over non-enforced defaults
+/** Level 13: Config/operator default per-channel. */
+export function configDefaultChannel(input: PreferenceGateInput): PreferenceGateResult | null {
+	const { subscriberPrefs, channel, defaultPreferences, operatorPreferences } = input;
 	const subscriberChannelExplicit = subscriberPrefs?.channels?.[channel] !== undefined;
 	if (!subscriberChannelExplicit) {
 		if (defaultPreferences?.channels?.[channel] === false) {
@@ -274,8 +309,53 @@ export function preferenceGate(input: PreferenceGateInput): PreferenceGateResult
 			return { allowed: false, reason: `operator default disabled channel "${channel}"` };
 		}
 	}
+	return null;
+}
 
-	// 14. Default allow
+/**
+ * Ordered array of preference checks. Each check handles one precedence level
+ * and returns a `PreferenceGateResult` if it matches, or `null` to pass to the next.
+ * Exported so users can extend or test individual checks.
+ */
+export const PREFERENCE_CHECKS: PreferenceCheck[] = [
+	criticalBypass,
+	operatorEnforcedOverrides,
+	readOnlyChannelControls,
+	channelKillSwitch,
+	workflowPreference,
+	categoryPreference,
+	purposePreference,
+	authorConditions,
+	authorChannelDefault,
+	configDefaultWorkflow,
+	configDefaultPurpose,
+	configDefaultCategory,
+	configDefaultChannel,
+];
+
+/**
+ * 14-level preference gate:
+ *
+ *  1. Critical bypass
+ *  2. Operator enforced overrides
+ *  3. ReadOnly channel controls
+ *  4. Channel kill switch
+ *  5. Workflow-specific preference
+ *  6. Category preference (with channel granularity)
+ *  7. Purpose-level preference
+ *  8. Preference conditions
+ *  9. Workflow author defaults
+ * 10. Config/operator default per-workflow (only if subscriber has no explicit workflow pref)
+ * 11. Config/operator default per-purpose (only if subscriber has no explicit purpose pref)
+ * 12. Config/operator default per-category (only if subscriber has no explicit category pref)
+ * 13. Config/operator default per-channel (only if subscriber has no explicit channel pref)
+ * 14. Default allow
+ */
+export function preferenceGate(input: PreferenceGateInput): PreferenceGateResult {
+	for (const check of PREFERENCE_CHECKS) {
+		const result = check(input);
+		if (result) return result;
+	}
 	return { allowed: true, reason: "default" };
 }
 

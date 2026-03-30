@@ -1,6 +1,23 @@
 // Core
 export { herald } from "./core/herald.js";
-export { preferenceGate, deepMerge } from "./core/preferences.js";
+export {
+	preferenceGate,
+	deepMerge,
+	PREFERENCE_CHECKS,
+	criticalBypass,
+	operatorEnforcedOverrides,
+	readOnlyChannelControls,
+	channelKillSwitch,
+	workflowPreference,
+	categoryPreference,
+	purposePreference,
+	authorConditions,
+	authorChannelDefault,
+	configDefaultWorkflow,
+	configDefaultPurpose,
+	configDefaultCategory,
+	configDefaultChannel,
+} from "./core/preferences.js";
 
 // Errors
 export {
@@ -11,7 +28,7 @@ export {
 	HeraldProviderError,
 	HeraldPluginError,
 } from "./errors.js";
-export type { WorkflowMeta, PreferenceGateResult, ConditionContext, PreferenceGateInput } from "./core/preferences.js";
+export type { WorkflowMeta, PreferenceGateResult, ConditionContext, PreferenceGateInput, PreferenceCheck } from "./core/preferences.js";
 export { CONDITION_OPERATORS, conditionsPass, evaluateCondition, resolvePath } from "./core/conditions.js";
 export type { Condition, ConditionOperator } from "./core/conditions.js";
 

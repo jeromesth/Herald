@@ -44,9 +44,9 @@ The Inngest adapter is powerful for teams that scale, but most developers starti
 - [x] **Step-level durability** — each workflow step checkpointed to Postgres, recoverable on crash
 - [x] **Delay step support** — Postgres-native scheduling (e.g. `pg_notify` or polling) for delay steps
 - [x] **Retry and error handling** — configurable retries with backoff per step
-- [ ] **Make it the default** — when using `prismaAdapter({ provider: "postgresql" })`, suggest or auto-configure this adapter
-- [ ] **Migration guide** — document how to migrate from Postgres workflow adapter to Inngest/Temporal when scaling
-- [ ] **Tests** — full test suite covering durability, retries, delays, crash recovery
+- [x] **Make it the default** — when using `prismaAdapter({ provider: "postgresql" })`, suggest or auto-configure this adapter
+- [x] **Migration guide** — document how to migrate from Postgres workflow adapter to Inngest/Temporal when scaling
+- [x] **Tests** — full test suite covering durability, retries, delays, crash recovery
 
 ## v0.3 — Workflow Steps `COMPLETE`
 
@@ -80,7 +80,7 @@ Priority: **Medium** | Comparable: Knock PreferenceSet, Novu Preferences
 - [x] **Preference inheritance** — 12-level precedence: critical > operator enforced > readOnly > channel kill switch > workflow > category > purpose > conditions > author defaults > config/operator defaults
 - [x] **Preference conditions** — dynamic evaluation based on subscriber attributes or payload data (`PreferenceCondition`)
 - [x] **Bulk preference API** — batch update up to 100 subscribers via `PUT /preferences/bulk`
-- [ ] **Refactor `preferenceGate` (table-driven or chain-of-responsibility)** — Today `preferenceGate()` in `packages/core/src/core/preferences.ts` encodes ~12 precedence levels in one function with many early returns, which makes it harder to reason about “which level wins” and to unit-test each rule in isolation. **Future work:** replace the monolith with an ordered list of small check functions (e.g. `criticalBypass`, `operatorEnforced`, `readOnlyChannel`, …) that each returns `PreferenceGateResult | null`, and loop until the first non-null result (or default allow). Benefits: declarative ordering, one test file per rule, easier onboarding when adding tiers (e.g. tenant- or time-based rules). Discussed in review on advanced preferences work (PR #18).
+- [x] **Refactor `preferenceGate` (table-driven or chain-of-responsibility)** — Today `preferenceGate()` in `packages/core/src/core/preferences.ts` encodes ~12 precedence levels in one function with many early returns, which makes it harder to reason about “which level wins” and to unit-test each rule in isolation. **Future work:** replace the monolith with an ordered list of small check functions (e.g. `criticalBypass`, `operatorEnforced`, `readOnlyChannel`, …) that each returns `PreferenceGateResult | null`, and loop until the first non-null result (or default allow). Benefits: declarative ordering, one test file per rule, easier onboarding when adding tiers (e.g. tenant- or time-based rules). Discussed in review on advanced preferences work (PR #18).
 
 ## v0.6 — Observability & Analytics
 
