@@ -118,6 +118,9 @@ export const coreSchema: HeraldDBSchema = {
 		order: 6,
 	},
 
+	// Always included in the schema even when activityLog is disabled.
+	// This avoids migration churn when toggling the flag — the table exists
+	// but remains empty when activityLog: false.
 	activityLog: {
 		fields: {
 			id: { type: "string", required: true, unique: true },
