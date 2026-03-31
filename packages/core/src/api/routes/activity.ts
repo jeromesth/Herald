@@ -1,4 +1,4 @@
-import { queryActivityLog } from "../../core/activity.js";
+import { queryActivityLog, validateStatusTransition } from "../../core/activity.js";
 import { emitEvent } from "../../core/emit-event.js";
 import type { HeraldContext, NotificationRecord } from "../../types/config.js";
 import { CHANNEL_TYPES, type ChannelType, type DeliveryStatus } from "../../types/workflow.js";
@@ -71,6 +71,11 @@ export const activityRoutes = [
 
 			if (!notification) {
 				throw new HTTPError(404, `Notification "${body.notificationId}" not found`);
+			}
+
+			const transitionError = validateStatusTransition(notification.deliveryStatus, body.status);
+			if (transitionError) {
+				throw new HTTPError(422, transitionError);
 			}
 
 			await ctx.db.update({

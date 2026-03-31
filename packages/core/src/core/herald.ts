@@ -2,7 +2,7 @@ import { createRouter } from "../api/router.js";
 import { InAppProvider } from "../channels/in-app.js";
 import { ChannelRegistry } from "../channels/provider.js";
 import { coreSchema, mergeSchemas } from "../db/schema.js";
-import { HeraldNotFoundError } from "../errors.js";
+import { HeraldNotFoundError, HeraldValidationError } from "../errors.js";
 import { SSEManager } from "../realtime/sse.js";
 import { HandlebarsEngine } from "../templates/engine.js";
 import { LayoutRegistry } from "../templates/layouts.js";
@@ -17,7 +17,7 @@ import type {
 	SubscriberRecord,
 } from "../types/config.js";
 import { CHANNEL_TYPES, type ChannelType } from "../types/workflow.js";
-import { queryActivityLog } from "./activity.js";
+import { queryActivityLog, validateStatusTransition } from "./activity.js";
 import { emitEvent } from "./emit-event.js";
 import { initializePlugins } from "./plugins.js";
 import {
@@ -434,6 +434,11 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 
 			if (!notification) {
 				throw new HeraldNotFoundError("notification", `Notification "${args.notificationId}" not found`);
+			}
+
+			const transitionError = validateStatusTransition(notification.deliveryStatus, args.status);
+			if (transitionError) {
+				throw new HeraldValidationError(transitionError);
 			}
 
 			await db.update({

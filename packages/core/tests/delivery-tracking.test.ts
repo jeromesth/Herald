@@ -38,6 +38,13 @@ describe("Delivery Tracking", () => {
 		expect(notifications.length).toBeGreaterThan(0);
 		const notification = notifications[0] as NotificationRecord;
 
+		// Set to "sent" first so we can transition to "delivered"
+		await app.$context.db.update({
+			model: "notification",
+			where: [{ field: "id", value: notification.id }],
+			update: { deliveryStatus: "sent" },
+		});
+
 		await app.api.updateDeliveryStatus({
 			notificationId: notification.id,
 			status: "delivered",
@@ -54,6 +61,13 @@ describe("Delivery Tracking", () => {
 		const { notifications } = await app.api.getNotifications({ subscriberId: "user-1" });
 		const notification = notifications[0] as NotificationRecord;
 
+		// Set to "sent" so we can transition to "bounced"
+		await app.$context.db.update({
+			model: "notification",
+			where: [{ field: "id", value: notification.id }],
+			update: { deliveryStatus: "sent" },
+		});
+
 		await app.api.updateDeliveryStatus({
 			notificationId: notification.id,
 			status: "bounced",
@@ -65,7 +79,7 @@ describe("Delivery Tracking", () => {
 
 		expect(statusChangedEvents.length).toBeGreaterThan(0);
 		const event = statusChangedEvents[0] as (typeof statusChangedEvents)[number];
-		expect(event.detail?.previousStatus).toBe("delivered");
+		expect(event.detail?.previousStatus).toBe("sent");
 		expect(event.detail?.newStatus).toBe("bounced");
 		expect(event.detail?.reason).toBe("mailbox full");
 	});
@@ -77,11 +91,11 @@ describe("Delivery Tracking", () => {
 		const { notifications } = await app.api.getNotifications({ subscriberId: "user-1" });
 		const notification = notifications[0] as NotificationRecord;
 
-		// Manually set an invalid channel to simulate a custom/unknown channel type
+		// Set to "sent" with an invalid channel to simulate a custom/unknown channel type
 		await app.$context.db.update({
 			model: "notification",
 			where: [{ field: "id", value: notification.id }],
-			update: { channel: "carrier_pigeon" },
+			update: { channel: "carrier_pigeon", deliveryStatus: "sent" },
 		});
 
 		await app.api.updateDeliveryStatus({
@@ -113,6 +127,13 @@ describe("Delivery Tracking", () => {
 
 			const { notifications } = await app.api.getNotifications({ subscriberId: "user-1" });
 			const notification = notifications[0] as NotificationRecord;
+
+			// Set to "sent" so we can transition to "delivered"
+			await app.$context.db.update({
+				model: "notification",
+				where: [{ field: "id", value: notification.id }],
+				update: { deliveryStatus: "sent" },
+			});
 
 			const res = await app.handler(
 				makeRequest("POST", "/delivery-status", {
@@ -154,11 +175,11 @@ describe("Delivery Tracking", () => {
 			const { notifications } = await app.api.getNotifications({ subscriberId: "user-1" });
 			const notification = notifications[0] as NotificationRecord;
 
-			// Set an invalid channel value directly
+			// Set to "sent" with an invalid channel value
 			await app.$context.db.update({
 				model: "notification",
 				where: [{ field: "id", value: notification.id }],
-				update: { channel: "unknown_channel" },
+				update: { channel: "unknown_channel", deliveryStatus: "sent" },
 			});
 
 			const res = await app.handler(

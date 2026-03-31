@@ -1,5 +1,32 @@
 import type { ActivityEventInput, ActivityLogRecord } from "../types/activity.js";
 import type { HeraldContext } from "../types/config.js";
+import type { DeliveryStatus } from "../types/workflow.js";
+
+/**
+ * Valid delivery status transitions. Each key maps to the set of statuses
+ * it can transition to. Prevents nonsensical backward transitions like
+ * "delivered" → "queued".
+ */
+const VALID_TRANSITIONS: Record<string, Set<DeliveryStatus>> = {
+	queued: new Set(["sent", "failed"]),
+	sent: new Set(["delivered", "bounced", "failed"]),
+	delivered: new Set<DeliveryStatus>(),
+	bounced: new Set<DeliveryStatus>(),
+	failed: new Set(["queued", "sent"]),
+};
+
+/**
+ * Validate whether a delivery status transition is allowed.
+ * Returns an error message if invalid, or undefined if valid.
+ */
+export function validateStatusTransition(from: string, to: string): string | undefined {
+	const allowed = VALID_TRANSITIONS[from];
+	if (!allowed) return undefined; // unknown current status — allow transition
+	if (!allowed.has(to as DeliveryStatus)) {
+		return `Invalid status transition: "${from}" → "${to}". Allowed transitions from "${from}": ${allowed.size > 0 ? [...allowed].join(", ") : "none (terminal state)"}`;
+	}
+	return undefined;
+}
 
 /**
  * Record an activity event to the database.
