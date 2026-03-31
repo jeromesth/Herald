@@ -35,6 +35,8 @@ export interface PrismaAdapterConfig {
 	debugLogs?: boolean;
 }
 
+let hasLoggedPostgresTip = false;
+
 // Prisma client type — we accept any Prisma client instance
 type PrismaClientLike = Record<string, unknown> & {
 	$transaction?: <T>(fn: (tx: PrismaClientLike) => Promise<T>) => Promise<T>;
@@ -287,6 +289,14 @@ export function prismaAdapter(prisma: PrismaClientLike, config: PrismaAdapterCon
 				return result.count;
 			},
 		};
+	}
+
+	if (config.provider === "postgresql" && !hasLoggedPostgresTip) {
+		hasLoggedPostgresTip = true;
+		console.info(
+			"[herald] Tip: You're using PostgreSQL — consider using postgresWorkflowAdapter() for zero-dependency workflow execution. " +
+				"See: https://github.com/jeromesth/herald#postgres-workflow-adapter",
+		);
 	}
 
 	return createAdapter(prisma);

@@ -44,9 +44,9 @@ The Inngest adapter is powerful for teams that scale, but most developers starti
 - [x] **Step-level durability** — each workflow step checkpointed to Postgres, recoverable on crash
 - [x] **Delay step support** — Postgres-native scheduling (e.g. `pg_notify` or polling) for delay steps
 - [x] **Retry and error handling** — configurable retries with backoff per step
-- [ ] **Make it the default** — when using `prismaAdapter({ provider: "postgresql" })`, suggest or auto-configure this adapter
-- [ ] **Migration guide** — document how to migrate from Postgres workflow adapter to Inngest/Temporal when scaling
-- [ ] **Tests** — full test suite covering durability, retries, delays, crash recovery
+- [x] **Make it the default** — when using `prismaAdapter({ provider: "postgresql" })`, suggest or auto-configure this adapter
+- [x] **Migration guide** — document how to migrate from Postgres workflow adapter to Inngest/Temporal when scaling
+- [x] **Tests** — full test suite covering durability, retries, delays, crash recovery
 
 ## v0.3 — Workflow Steps `COMPLETE`
 
