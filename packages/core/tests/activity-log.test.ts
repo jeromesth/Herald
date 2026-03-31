@@ -130,6 +130,80 @@ describe("Activity Log", () => {
 			expect(events).toContain("workflow.triggered");
 		});
 
+		it("records notification.blocked event with correct stepId and channel", async () => {
+			await app.api.upsertSubscriber({ externalId: "user-1", email: "u@test.com" });
+			await app.api.updatePreferences("user-1", { channels: { in_app: false } });
+
+			await app.api.trigger({ workflowId: "welcome", to: "user-1", payload: {} });
+
+			const { entries } = await app.api.getActivityLog({ workflowId: "welcome" });
+			const blocked = entries.find((e) => e.event === "notification.blocked") as ActivityLogRecord;
+
+			expect(blocked).toBeDefined();
+			expect(blocked.stepId).toBe("send-in-app");
+			expect(blocked.channel).toBe("in_app");
+			expect(blocked.detail?.reason).toBeDefined();
+		});
+
+		it("records step events with correct stepId and channel values", async () => {
+			await app.api.upsertSubscriber({ externalId: "user-1", email: "u@test.com" });
+			const { transactionId } = await app.api.trigger({ workflowId: "welcome", to: "user-1", payload: {} });
+
+			const { entries } = await app.api.getActivityLog({ transactionId });
+			const started = entries.find((e) => e.event === "workflow.step.started") as ActivityLogRecord;
+			const completed = entries.find((e) => e.event === "workflow.step.completed") as ActivityLogRecord;
+
+			expect(started.stepId).toBe("send-in-app");
+			expect(started.channel).toBe("in_app");
+			expect(completed.stepId).toBe("send-in-app");
+			expect(completed.channel).toBe("in_app");
+		});
+
+		it("queryActivityLog filters by event type", async () => {
+			await app.api.upsertSubscriber({ externalId: "user-1", email: "u@test.com" });
+			await app.api.trigger({ workflowId: "welcome", to: "user-1", payload: {} });
+
+			const { entries } = await app.api.getActivityLog({ event: "workflow.triggered" });
+
+			expect(entries.length).toBeGreaterThan(0);
+			for (const entry of entries) {
+				expect(entry.event).toBe("workflow.triggered");
+			}
+		});
+
+		it("recordActivity does not break pipeline when db.create throws", async () => {
+			const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+			const db = memoryAdapter();
+			const originalCreate = db.create.bind(db);
+			let callCount = 0;
+			db.create = async (args: Parameters<typeof db.create>[0]) => {
+				if (args.model === "activityLog") {
+					callCount++;
+					if (callCount <= 1) throw new Error("DB write failed");
+				}
+				return originalCreate(args);
+			};
+
+			app = herald({
+				database: db,
+				workflow: memoryWorkflowAdapter(),
+				workflows: [testWorkflow],
+				activityLog: true,
+			});
+
+			await app.api.upsertSubscriber({ externalId: "user-1", email: "u@test.com" });
+
+			// Should not throw despite activity log failure
+			await expect(app.api.trigger({ workflowId: "welcome", to: "user-1", payload: {} })).resolves.toBeDefined();
+
+			expect(errorSpy).toHaveBeenCalledWith(
+				expect.stringContaining("[herald] Failed to record activity event:"),
+				expect.anything(),
+				expect.anything(),
+			);
+			errorSpy.mockRestore();
+		});
+
 		it("filters activity log by workflowId", async () => {
 			await app.api.upsertSubscriber({ externalId: "user-1", email: "u@test.com" });
 			await app.api.trigger({ workflowId: "welcome", to: "user-1", payload: {} });
@@ -195,6 +269,31 @@ describe("Activity Log", () => {
 			expect(res.status).toBe(200);
 			expect(body.entries.length).toBeGreaterThan(0);
 			expect(body.totalCount).toBeGreaterThan(0);
+		});
+
+		it("GET /activity handles NaN limit/offset gracefully", async () => {
+			await app.api.upsertSubscriber({ externalId: "user-1", email: "u@test.com" });
+			await app.api.trigger({ workflowId: "welcome", to: "user-1", payload: {} });
+
+			const res = await app.handler(makeRequest("GET", "/activity?limit=abc&offset=xyz"));
+			const body = await res.json();
+
+			expect(res.status).toBe(200);
+			expect(body.entries.length).toBeGreaterThan(0);
+			expect(body.totalCount).toBeGreaterThan(0);
+		});
+
+		it("GET /activity returns hasMore pagination flag", async () => {
+			await app.api.upsertSubscriber({ externalId: "user-1", email: "u@test.com" });
+			await app.api.trigger({ workflowId: "welcome", to: "user-1", payload: {} });
+
+			const res = await app.handler(makeRequest("GET", "/activity?limit=1"));
+			const body = await res.json();
+
+			expect(res.status).toBe(200);
+			expect(body.entries.length).toBe(1);
+			// With limit=1, there should be more entries
+			expect(body.hasMore).toBe(true);
 		});
 
 		it("GET /activity/:transactionId returns timeline for a transaction", async () => {

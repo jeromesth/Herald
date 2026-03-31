@@ -169,4 +169,30 @@ describe("Webhook Events", () => {
 		expect(urls).toContain("https://hooks1.example.com/herald");
 		expect(urls).toContain("https://hooks2.example.com/herald");
 	});
+
+	it("logs error and continues when webhook returns non-200 response", async () => {
+		const webhooks: WebhookConfig[] = [{ url: "https://hooks.example.com/fail" }];
+
+		fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("Internal Server Error", { status: 500 }));
+
+		app = herald({
+			database: memoryAdapter(),
+			workflow: memoryWorkflowAdapter(),
+			workflows: [testWorkflow],
+			webhooks,
+		});
+
+		const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+		await app.api.upsertSubscriber({ externalId: "user-1", email: "u@test.com" });
+
+		// Should not throw despite webhook returning 500
+		await expect(app.api.trigger({ workflowId: "welcome", to: "user-1", payload: {} })).resolves.toBeDefined();
+
+		// Give fire-and-forget time to complete
+		await new Promise((r) => setTimeout(r, 50));
+
+		expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("[herald] Webhook delivery failed"));
+		consoleSpy.mockRestore();
+	});
 });
