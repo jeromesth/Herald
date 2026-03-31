@@ -198,6 +198,7 @@ export interface NotificationWorkflow<TPayload extends z.ZodType = z.ZodType> {
 export interface WorkflowPreferences {
 	channels?: Partial<Record<ChannelType, { enabled: boolean; readOnly?: boolean }>>;
 	conditions?: import("./config.js").PreferenceCondition[];
+	conditionMode?: "all" | "any";
 }
 
 /**

@@ -2,21 +2,21 @@
 export { herald } from "./core/herald.js";
 export {
 	preferenceGate,
+	preferenceChecks,
 	deepMerge,
-	PREFERENCE_CHECKS,
 	criticalBypass,
-	operatorEnforcedOverrides,
-	readOnlyChannelControls,
+	operatorEnforced,
+	readOnlyChannel,
 	channelKillSwitch,
 	workflowPreference,
 	categoryPreference,
 	purposePreference,
-	authorConditions,
+	workflowConditions,
 	authorChannelDefault,
-	configDefaultWorkflow,
-	configDefaultPurpose,
-	configDefaultCategory,
-	configDefaultChannel,
+	defaultWorkflow,
+	defaultPurpose,
+	defaultCategory,
+	defaultChannelPref,
 } from "./core/preferences.js";
 
 // Errors
