@@ -147,7 +147,7 @@ export async function sendThroughProvider(
 	const workflowId = message.data?.workflowId as string | undefined;
 	const transactionId = message.data?.transactionId as string | undefined;
 
-	await emitEvent(ctx, {
+	void emitEvent(ctx, {
 		event: "notification.sending",
 		subscriberId: message.subscriberId,
 		channel: message.channel,
@@ -166,7 +166,7 @@ export async function sendThroughProvider(
 
 	if (result.status === "failed") {
 		console.error(`[herald] Provider "${provider.providerId}" failed to send to ${message.to}: ${result.error ?? "unknown error"}`);
-		await emitEvent(ctx, {
+		void emitEvent(ctx, {
 			event: "notification.failed",
 			subscriberId: message.subscriberId,
 			channel: message.channel,
@@ -175,7 +175,7 @@ export async function sendThroughProvider(
 			detail: { messageId: result.messageId, error: result.error },
 		});
 	} else {
-		await emitEvent(ctx, {
+		void emitEvent(ctx, {
 			event: "notification.sent",
 			subscriberId: message.subscriberId,
 			channel: message.channel,

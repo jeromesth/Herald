@@ -63,7 +63,7 @@ function wrapStep(workflowMeta: WorkflowMeta, step: ActionStep, ctx: HeraldConte
 			const transactionId = resolveTransactionId(ctx, workflowMeta.workflowId);
 
 			if (!stepConditionsPass(step.conditions, context, step.conditionMode)) {
-				await emitEvent(ctx, {
+				void emitEvent(ctx, {
 					event: "workflow.step.skipped",
 					workflowId: workflowMeta.workflowId,
 					transactionId,
@@ -74,7 +74,7 @@ function wrapStep(workflowMeta: WorkflowMeta, step: ActionStep, ctx: HeraldConte
 				return { body: "" };
 			}
 
-			await emitEvent(ctx, {
+			void emitEvent(ctx, {
 				event: "workflow.step.started",
 				workflowId: workflowMeta.workflowId,
 				transactionId,
@@ -86,7 +86,7 @@ function wrapStep(workflowMeta: WorkflowMeta, step: ActionStep, ctx: HeraldConte
 			const result = await originalHandler(context);
 
 			if (!isChannelStep(step.type)) {
-				await emitEvent(ctx, {
+				void emitEvent(ctx, {
 					event: "workflow.step.completed",
 					workflowId: workflowMeta.workflowId,
 					transactionId,
@@ -174,7 +174,7 @@ function wrapStep(workflowMeta: WorkflowMeta, step: ActionStep, ctx: HeraldConte
 
 				if (!gateResult.allowed) {
 					console.info(`[herald] Workflow "${workflowMeta.workflowId}" step "${step.stepId}": delivery blocked — ${gateResult.reason}`);
-					await emitEvent(ctx, {
+					void emitEvent(ctx, {
 						event: "preference.blocked",
 						workflowId: workflowMeta.workflowId,
 						transactionId,
