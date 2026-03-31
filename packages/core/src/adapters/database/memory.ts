@@ -27,13 +27,13 @@ export function memoryAdapter(): DatabaseAdapter {
 				case "ne":
 					return value !== clause.value;
 				case "lt":
-					return (value as number) < (clause.value as number);
+					return typeof value === "number" && typeof clause.value === "number" && value < clause.value;
 				case "lte":
-					return (value as number) <= (clause.value as number);
+					return typeof value === "number" && typeof clause.value === "number" && value <= clause.value;
 				case "gt":
-					return (value as number) > (clause.value as number);
+					return typeof value === "number" && typeof clause.value === "number" && value > clause.value;
 				case "gte":
-					return (value as number) >= (clause.value as number);
+					return typeof value === "number" && typeof clause.value === "number" && value >= clause.value;
 				case "in":
 					return (clause.value as unknown[]).includes(value);
 				case "not_in":
