@@ -137,5 +137,4 @@ export type {
 	ActivityEventInput,
 	WebhookConfig,
 	WebhookEventPayload,
-	DeliveryStatusUpdate,
 } from "./types/index.js";

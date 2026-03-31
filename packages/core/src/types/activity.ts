@@ -1,4 +1,4 @@
-import type { ChannelType, DeliveryStatus } from "./workflow.js";
+import type { ChannelType } from "./workflow.js";
 
 /**
  * Activity event types representing notification lifecycle stages.
@@ -76,13 +76,4 @@ export interface WebhookEventPayload {
 		stepId?: string;
 		detail?: Record<string, unknown>;
 	};
-}
-
-/**
- * Delivery status update input.
- */
-export interface DeliveryStatusUpdate {
-	notificationId: string;
-	status: DeliveryStatus;
-	detail?: Record<string, unknown>;
 }
