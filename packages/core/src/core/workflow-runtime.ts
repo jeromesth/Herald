@@ -187,6 +187,8 @@ function wrapStep(workflowMeta: WorkflowMeta, step: ActionStep, ctx: HeraldConte
 				body: result.body ?? "",
 				actionUrl: result.actionUrl,
 				layoutId: typeof result.data?.layoutId === "string" ? result.data.layoutId : undefined,
+				workflowId: workflowMeta.workflowId,
+				transactionId,
 				data: {
 					...result.data,
 					workflowId: workflowMeta.workflowId,

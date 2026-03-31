@@ -14,6 +14,8 @@ export interface ProviderSendArgs {
 	body: string;
 	actionUrl?: string;
 	layoutId?: string;
+	workflowId?: string;
+	transactionId?: string;
 	data?: Record<string, unknown>;
 }
 
@@ -144,15 +146,12 @@ export async function sendThroughProvider(
 		message.body = ctx.templateEngine.render(message.body, templateContext);
 	}
 
-	const workflowId = message.data?.workflowId as string | undefined;
-	const transactionId = message.data?.transactionId as string | undefined;
-
 	void emitEvent(ctx, {
 		event: "notification.queued",
 		subscriberId: message.subscriberId,
 		channel: message.channel,
-		workflowId,
-		transactionId,
+		workflowId: message.workflowId,
+		transactionId: message.transactionId,
 	});
 
 	const result = await provider.send({
@@ -170,8 +169,8 @@ export async function sendThroughProvider(
 			event: "notification.failed",
 			subscriberId: message.subscriberId,
 			channel: message.channel,
-			workflowId,
-			transactionId,
+			workflowId: message.workflowId,
+			transactionId: message.transactionId,
 			detail: { messageId: result.messageId, error: result.error },
 		});
 	} else {
@@ -179,8 +178,8 @@ export async function sendThroughProvider(
 			event: "notification.sent",
 			subscriberId: message.subscriberId,
 			channel: message.channel,
-			workflowId,
-			transactionId,
+			workflowId: message.workflowId,
+			transactionId: message.transactionId,
 			detail: { messageId: result.messageId, status: result.status },
 		});
 	}
