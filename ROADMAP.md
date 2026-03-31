@@ -92,6 +92,7 @@ Priority: **Medium** | Comparable: Novu Activity Feed, Knock Message Events
 - [ ] **Engagement tracking** — seen, read, clicked, archived events
 - [ ] **Metrics endpoint** — expose notification metrics for monitoring
 - [ ] **Integration tests** — real database integration tests using testcontainers/docker for Postgres, Redis, etc.
+- [ ] **Activity log partitioning validation** — run the partitioning guide ([docs/guides/activity-log-partitioning.md](docs/guides/activity-log-partitioning.md)) against real PostgreSQL and MySQL instances using testcontainers. Validate that Herald's adapters read/write correctly against partitioned tables, confirm query plans use partition pruning, and add a `pruneActivityLog({ olderThan })` REST endpoint + API method for retention management. Update the guide with any corrections found during testing.
 
 ## v0.6.5 — Plugin System Improvements & Observability Extraction
 
