@@ -176,7 +176,7 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 				});
 
 				void emitEvent(ctx, {
-					event: "workflow.completed",
+					event: "workflow.dispatched",
 					workflowId: args.workflowId,
 					transactionId,
 				});

@@ -32,7 +32,7 @@ describe("Activity Log", () => {
 			});
 		});
 
-		it("records workflow.triggered and workflow.completed events on trigger", async () => {
+		it("records workflow.triggered and workflow.dispatched events on trigger", async () => {
 			await app.api.upsertSubscriber({ externalId: "user-1", email: "u@test.com" });
 			const { transactionId } = await app.api.trigger({
 				workflowId: "welcome",
@@ -44,7 +44,7 @@ describe("Activity Log", () => {
 			const events = entries.map((e) => e.event);
 
 			expect(events).toContain("workflow.triggered");
-			expect(events).toContain("workflow.completed");
+			expect(events).toContain("workflow.dispatched");
 		});
 
 		it("records workflow.step.started and workflow.step.completed events", async () => {

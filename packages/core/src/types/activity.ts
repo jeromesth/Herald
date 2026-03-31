@@ -10,7 +10,7 @@ import type { ChannelType } from "./workflow.js";
  * | Event                         | When it fires                                          |
  * |-------------------------------|--------------------------------------------------------|
  * | workflow.triggered            | Workflow trigger API is called                         |
- * | workflow.completed            | Workflow finishes executing all steps                  |
+ * | workflow.dispatched           | Workflow handed off to the workflow engine              |
  * | workflow.step.started         | A workflow step begins execution                       |
  * | workflow.step.completed       | A workflow step finishes execution                     |
  * | notification.queued           | Notification enters the send pipeline (pre-provider)   |
@@ -23,7 +23,7 @@ import type { ChannelType } from "./workflow.js";
  */
 export const ACTIVITY_EVENT_TYPES = [
 	"workflow.triggered",
-	"workflow.completed",
+	"workflow.dispatched",
 	"workflow.step.started",
 	"workflow.step.completed",
 	"notification.queued",
