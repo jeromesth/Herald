@@ -128,7 +128,7 @@ export const coreSchema: HeraldDBSchema = {
 			stepId: { type: "string", required: false },
 			event: { type: "string", required: true, index: true },
 			detail: { type: "json", required: false },
-			createdAt: { type: "date", required: true },
+			createdAt: { type: "date", required: true, index: true },
 		},
 		order: 7,
 	},
