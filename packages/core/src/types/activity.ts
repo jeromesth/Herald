@@ -8,7 +8,6 @@ export const ACTIVITY_EVENT_TYPES = [
 	"workflow.completed",
 	"workflow.step.started",
 	"workflow.step.completed",
-	"workflow.step.skipped",
 	"notification.sending",
 	"notification.sent",
 	"notification.delivered",

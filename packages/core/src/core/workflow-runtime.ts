@@ -55,24 +55,8 @@ function wrapStep(workflowMeta: WorkflowMeta, step: ActionStep, ctx: HeraldConte
 
 	return {
 		...step,
-		// Clear conditions from the wrapped step — wrapStep handles them internally
-		// so adapters (e.g. memory) don't short-circuit before the handler runs.
-		conditions: undefined,
-		conditionMode: undefined,
 		handler: async (context: StepContext): Promise<StepResult> => {
 			const transactionId = typeof context.payload._transactionId === "string" ? context.payload._transactionId : undefined;
-
-			if (!stepConditionsPass(step.conditions, context, step.conditionMode)) {
-				void emitEvent(ctx, {
-					event: "workflow.step.skipped",
-					workflowId: workflowMeta.workflowId,
-					transactionId,
-					stepId: step.stepId,
-					subscriberId: context.subscriber.id,
-					detail: { reason: "conditions not met" },
-				});
-				return { body: "" };
-			}
 
 			void emitEvent(ctx, {
 				event: "workflow.step.started",

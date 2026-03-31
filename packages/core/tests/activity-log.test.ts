@@ -93,7 +93,7 @@ describe("Activity Log", () => {
 			expect(events).toContain("preference.blocked");
 		});
 
-		it("records workflow.step.skipped when conditions fail", async () => {
+		it("does not record step events when conditions cause adapter to skip", async () => {
 			const conditionalWorkflow: NotificationWorkflow = {
 				id: "conditional",
 				name: "Conditional",
@@ -124,7 +124,10 @@ describe("Activity Log", () => {
 			const { entries } = await app.api.getActivityLog({ workflowId: "conditional" });
 			const events = entries.map((e) => e.event);
 
-			expect(events).toContain("workflow.step.skipped");
+			// Adapter skips step before handler runs — no step.started or step.completed
+			expect(events).not.toContain("workflow.step.started");
+			expect(events).not.toContain("workflow.step.completed");
+			expect(events).toContain("workflow.triggered");
 		});
 
 		it("filters activity log by workflowId", async () => {
