@@ -59,12 +59,15 @@ export async function queryActivityLog(
 		where.push({ field: "event", value: filters.event });
 	}
 
+	const limit = Math.min(Math.max(filters.limit ?? 50, 1), 100);
+	const offset = Math.max(filters.offset ?? 0, 0);
+
 	const [entries, totalCount] = await Promise.all([
 		ctx.db.findMany<ActivityLogRecord>({
 			model: "activityLog",
 			where: where.length > 0 ? where : undefined,
-			limit: filters.limit ?? 50,
-			offset: filters.offset ?? 0,
+			limit,
+			offset,
 			sortBy: { field: "createdAt", direction: "desc" },
 		}),
 		ctx.db.count({ model: "activityLog", where: where.length > 0 ? where : undefined }),

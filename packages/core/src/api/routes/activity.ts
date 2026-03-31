@@ -12,8 +12,10 @@ export const activityRoutes = [
 		pattern: "/activity",
 		handler: async (request: Request, ctx: HeraldContext) => {
 			const url = new URL(request.url);
-			const limit = Number.parseInt(url.searchParams.get("limit") ?? "50", 10);
-			const offset = Number.parseInt(url.searchParams.get("offset") ?? "0", 10);
+			const rawLimit = Number.parseInt(url.searchParams.get("limit") ?? "50", 10);
+			const rawOffset = Number.parseInt(url.searchParams.get("offset") ?? "0", 10);
+			const limit = Number.isNaN(rawLimit) ? 50 : Math.min(Math.max(rawLimit, 1), 100);
+			const offset = Number.isNaN(rawOffset) ? 0 : Math.max(rawOffset, 0);
 			const transactionId = url.searchParams.get("transactionId") ?? undefined;
 			const workflowId = url.searchParams.get("workflowId") ?? undefined;
 			const subscriberId = url.searchParams.get("subscriberId") ?? undefined;
