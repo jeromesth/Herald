@@ -92,7 +92,7 @@ export const activityRoutes = [
 			});
 
 			await emitEvent(ctx, {
-				event: "delivery.status_changed",
+				event: "notification.status_changed",
 				workflowId: notification.workflowId,
 				subscriberId: notification.subscriberId,
 				transactionId: notification.transactionId,

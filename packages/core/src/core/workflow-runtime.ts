@@ -159,7 +159,7 @@ function wrapStep(workflowMeta: WorkflowMeta, step: ActionStep, ctx: HeraldConte
 				if (!gateResult.allowed) {
 					console.info(`[herald] Workflow "${workflowMeta.workflowId}" step "${step.stepId}": delivery blocked — ${gateResult.reason}`);
 					void emitEvent(ctx, {
-						event: "preference.blocked",
+						event: "notification.blocked",
 						workflowId: workflowMeta.workflowId,
 						transactionId,
 						stepId: step.stepId,

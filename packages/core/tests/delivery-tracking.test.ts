@@ -47,7 +47,7 @@ describe("Delivery Tracking", () => {
 		expect(updated[0]?.deliveryStatus).toBe("delivered");
 	});
 
-	it("records delivery.status_changed event on status update", async () => {
+	it("records notification.status_changed event on status update", async () => {
 		await app.api.upsertSubscriber({ externalId: "user-1", email: "u@test.com" });
 		await app.api.trigger({ workflowId: "welcome", to: "user-1", payload: {} });
 
@@ -61,7 +61,7 @@ describe("Delivery Tracking", () => {
 		});
 
 		const { entries } = await app.api.getActivityLog({ workflowId: "welcome" });
-		const statusChangedEvents = entries.filter((e) => e.event === "delivery.status_changed");
+		const statusChangedEvents = entries.filter((e) => e.event === "notification.status_changed");
 
 		expect(statusChangedEvents.length).toBeGreaterThan(0);
 		const event = statusChangedEvents[0] as (typeof statusChangedEvents)[number];
@@ -90,7 +90,7 @@ describe("Delivery Tracking", () => {
 		});
 
 		const { entries } = await app.api.getActivityLog({ workflowId: "welcome" });
-		const statusEvent = entries.find((e) => e.event === "delivery.status_changed");
+		const statusEvent = entries.find((e) => e.event === "notification.status_changed");
 
 		expect(statusEvent).toBeDefined();
 		// Invalid channel should be undefined, not blindly cast
@@ -171,7 +171,7 @@ describe("Delivery Tracking", () => {
 			expect(res.status).toBe(200);
 
 			const { entries } = await app.api.getActivityLog({ workflowId: "welcome" });
-			const statusEvent = entries.find((e) => e.event === "delivery.status_changed");
+			const statusEvent = entries.find((e) => e.event === "notification.status_changed");
 			expect(statusEvent).toBeDefined();
 			expect(statusEvent?.channel).toBeNull();
 		});

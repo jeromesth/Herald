@@ -148,7 +148,7 @@ export async function sendThroughProvider(
 	const transactionId = message.data?.transactionId as string | undefined;
 
 	void emitEvent(ctx, {
-		event: "notification.sending",
+		event: "notification.queued",
 		subscriberId: message.subscriberId,
 		channel: message.channel,
 		workflowId,

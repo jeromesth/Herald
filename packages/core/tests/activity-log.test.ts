@@ -62,7 +62,7 @@ describe("Activity Log", () => {
 			expect(events).toContain("workflow.step.completed");
 		});
 
-		it("records notification.sending and notification.sent events", async () => {
+		it("records notification.queued and notification.sent events", async () => {
 			await app.api.upsertSubscriber({ externalId: "user-1", email: "u@test.com" });
 			const { transactionId } = await app.api.trigger({
 				workflowId: "welcome",
@@ -73,11 +73,11 @@ describe("Activity Log", () => {
 			const { entries } = await app.api.getActivityLog({ transactionId });
 			const events = entries.map((e) => e.event);
 
-			expect(events).toContain("notification.sending");
+			expect(events).toContain("notification.queued");
 			expect(events).toContain("notification.sent");
 		});
 
-		it("records preference.blocked when subscriber opts out", async () => {
+		it("records notification.blocked when subscriber opts out", async () => {
 			await app.api.upsertSubscriber({ externalId: "user-1", email: "u@test.com" });
 			await app.api.updatePreferences("user-1", { channels: { in_app: false } });
 
@@ -90,7 +90,7 @@ describe("Activity Log", () => {
 			const { entries } = await app.api.getActivityLog({ workflowId: "welcome" });
 			const events = entries.map((e) => e.event);
 
-			expect(events).toContain("preference.blocked");
+			expect(events).toContain("notification.blocked");
 		});
 
 		it("does not record step events when conditions cause adapter to skip", async () => {
