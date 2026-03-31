@@ -43,6 +43,26 @@ describe("coreSchema", () => {
 		expect(ref?.field).toBe("id");
 		expect(ref?.onDelete).toBe("cascade");
 	});
+
+	it("activityLog table exists with required fields", () => {
+		expect(coreSchema.activityLog).toBeDefined();
+		const fields = coreSchema.activityLog?.fields;
+		expect(fields.id).toBeDefined();
+		expect(fields.transactionId).toBeDefined();
+		expect(fields.workflowId).toBeDefined();
+		expect(fields.subscriberId).toBeDefined();
+		expect(fields.event).toBeDefined();
+		expect(fields.createdAt).toBeDefined();
+	});
+
+	it("activityLog has indexes on query and sort fields", () => {
+		const fields = coreSchema.activityLog?.fields;
+		expect(fields.transactionId?.index).toBe(true);
+		expect(fields.workflowId?.index).toBe(true);
+		expect(fields.subscriberId?.index).toBe(true);
+		expect(fields.event?.index).toBe(true);
+		expect(fields.createdAt?.index).toBe(true);
+	});
 });
 
 describe("mergeSchemas", () => {

@@ -206,6 +206,8 @@ describe("Activity Log", () => {
 
 			expect(res.status).toBe(200);
 			expect(body.entries.length).toBeGreaterThan(0);
+			// Response includes totalCount matching entries length
+			expect(body.totalCount).toBe(body.entries.length);
 			// Timeline should be chronological (asc)
 			for (let i = 1; i < body.entries.length; i++) {
 				expect(new Date(body.entries[i].createdAt).getTime()).toBeGreaterThanOrEqual(new Date(body.entries[i - 1].createdAt).getTime());

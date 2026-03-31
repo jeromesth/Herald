@@ -70,6 +70,33 @@ describe("Delivery Tracking", () => {
 		expect(event.detail?.reason).toBe("mailbox full");
 	});
 
+	it("emits event with undefined channel when notification has unknown channel type", async () => {
+		await app.api.upsertSubscriber({ externalId: "user-1", email: "u@test.com" });
+		await app.api.trigger({ workflowId: "welcome", to: "user-1", payload: {} });
+
+		const { notifications } = await app.api.getNotifications({ subscriberId: "user-1" });
+		const notification = notifications[0] as NotificationRecord;
+
+		// Manually set an invalid channel to simulate a custom/unknown channel type
+		await app.$context.db.update({
+			model: "notification",
+			where: [{ field: "id", value: notification.id }],
+			update: { channel: "carrier_pigeon" },
+		});
+
+		await app.api.updateDeliveryStatus({
+			notificationId: notification.id,
+			status: "delivered",
+		});
+
+		const { entries } = await app.api.getActivityLog({ workflowId: "welcome" });
+		const statusEvent = entries.find((e) => e.event === "delivery.status_changed");
+
+		expect(statusEvent).toBeDefined();
+		// Invalid channel should be undefined, not blindly cast
+		expect(statusEvent?.channel).toBeNull();
+	});
+
 	it("throws when updating non-existent notification", async () => {
 		await expect(
 			app.api.updateDeliveryStatus({
@@ -118,6 +145,35 @@ describe("Delivery Tracking", () => {
 			);
 
 			expect(res.status).toBe(400);
+		});
+
+		it("handles unknown channel type gracefully in delivery-status route", async () => {
+			await app.api.upsertSubscriber({ externalId: "user-1", email: "u@test.com" });
+			await app.api.trigger({ workflowId: "welcome", to: "user-1", payload: {} });
+
+			const { notifications } = await app.api.getNotifications({ subscriberId: "user-1" });
+			const notification = notifications[0] as NotificationRecord;
+
+			// Set an invalid channel value directly
+			await app.$context.db.update({
+				model: "notification",
+				where: [{ field: "id", value: notification.id }],
+				update: { channel: "unknown_channel" },
+			});
+
+			const res = await app.handler(
+				makeRequest("POST", "/delivery-status", {
+					notificationId: notification.id,
+					status: "delivered",
+				}),
+			);
+
+			expect(res.status).toBe(200);
+
+			const { entries } = await app.api.getActivityLog({ workflowId: "welcome" });
+			const statusEvent = entries.find((e) => e.event === "delivery.status_changed");
+			expect(statusEvent).toBeDefined();
+			expect(statusEvent?.channel).toBeNull();
 		});
 
 		it("returns 404 for non-existent notification", async () => {
