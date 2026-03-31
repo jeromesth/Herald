@@ -60,7 +60,7 @@ function wrapStep(workflowMeta: WorkflowMeta, step: ActionStep, ctx: HeraldConte
 		conditions: undefined,
 		conditionMode: undefined,
 		handler: async (context: StepContext): Promise<StepResult> => {
-			const transactionId = resolveTransactionId(ctx, workflowMeta.workflowId);
+			const transactionId = typeof context.payload._transactionId === "string" ? context.payload._transactionId : undefined;
 
 			if (!stepConditionsPass(step.conditions, context, step.conditionMode)) {
 				void emitEvent(ctx, {
@@ -243,13 +243,6 @@ async function runAfterPreferenceHooks(
 			}
 		}
 	}
-}
-
-function resolveTransactionId(ctx: HeraldContext, workflowId: string): string | undefined {
-	for (const [txId, wfId] of ctx.transactionWorkflowMap) {
-		if (wfId === workflowId) return txId;
-	}
-	return undefined;
 }
 
 function isChannelStep(stepType: string): stepType is ChannelType {
