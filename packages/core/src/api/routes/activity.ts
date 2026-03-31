@@ -56,7 +56,7 @@ export const activityRoutes = [
 				sortBy: { field: "createdAt", direction: "asc" },
 			});
 
-			return jsonResponse({ entries });
+			return jsonResponse({ entries, totalCount: entries.length });
 		},
 	},
 	{
