@@ -37,14 +37,24 @@ export const activityRoutes = [
 	{
 		method: "GET",
 		pattern: "/activity/:transactionId",
-		handler: async (_request: Request, ctx: HeraldContext, params: Record<string, string>) => {
+		handler: async (request: Request, ctx: HeraldContext, params: Record<string, string>) => {
+			const url = new URL(request.url);
+			const rawLimit = Number.parseInt(url.searchParams.get("limit") ?? "100", 10);
+			const rawOffset = Number.parseInt(url.searchParams.get("offset") ?? "0", 10);
+			const limitParam = Number.isNaN(rawLimit) ? 100 : rawLimit;
+			const offsetParam = Number.isNaN(rawOffset) ? 0 : rawOffset;
+
 			const { entries, totalCount } = await queryActivityLog(ctx, {
 				transactionId: params.transactionId,
-				limit: 100,
+				limit: limitParam,
+				offset: offsetParam,
 				sortDirection: "asc",
 			});
 
-			return jsonResponse({ entries, totalCount });
+			const limit = Math.min(Math.max(limitParam, 1), 100);
+			const offset = Math.max(offsetParam, 0);
+
+			return jsonResponse({ entries, totalCount, hasMore: offset + limit < totalCount });
 		},
 	},
 	{
