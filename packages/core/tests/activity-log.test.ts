@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { memoryAdapter } from "../src/adapters/database/memory.js";
 import { memoryWorkflowAdapter } from "../src/adapters/workflow/memory.js";
+import type { ChannelProvider, ChannelProviderMessage, ChannelProviderResult } from "../src/channels/provider.js";
 import { herald } from "../src/core/herald.js";
 import type { ActivityLogRecord } from "../src/types/activity.js";
 import type { Herald, NotificationWorkflow } from "../src/types/index.js";
@@ -226,6 +227,55 @@ describe("Activity Log", () => {
 			expect(page1.length).toBe(2);
 			expect(page2.length).toBeGreaterThan(0);
 			expect(page1[0]?.id).not.toBe(page2[0]?.id);
+		});
+
+		it("records notification.failed when provider returns failed status", async () => {
+			const failingProvider: ChannelProvider = {
+				providerId: "failing-email",
+				channelType: "email",
+				async send(_message: ChannelProviderMessage): Promise<ChannelProviderResult> {
+					return { messageId: "msg-fail-1", status: "failed", error: "SMTP connection refused" };
+				},
+			};
+
+			const emailWorkflow: NotificationWorkflow = {
+				id: "fail-email",
+				name: "Failing Email",
+				steps: [
+					{
+						stepId: "send-email",
+						type: "email",
+						handler: async () => ({ subject: "Hi", body: "Hello!" }),
+					},
+				],
+			};
+
+			const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+			app = herald({
+				database: memoryAdapter(),
+				workflow: memoryWorkflowAdapter(),
+				workflows: [emailWorkflow],
+				providers: [failingProvider],
+				activityLog: true,
+			});
+
+			await app.api.upsertSubscriber({ externalId: "user-1", email: "u@test.com" });
+			const { transactionId } = await app.api.trigger({ workflowId: "fail-email", to: "user-1", payload: {} });
+
+			const { entries } = await app.api.getActivityLog({ transactionId });
+			const events = entries.map((e) => e.event);
+
+			expect(events).toContain("notification.failed");
+			expect(events).not.toContain("notification.sent");
+
+			const failedEntry = entries.find((e) => e.event === "notification.failed") as ActivityLogRecord;
+			expect(failedEntry).toBeDefined();
+			expect(failedEntry.channel).toBe("email");
+			expect(failedEntry.detail?.messageId).toBe("msg-fail-1");
+			expect(failedEntry.detail?.error).toBe("SMTP connection refused");
+
+			consoleSpy.mockRestore();
 		});
 	});
 
