@@ -42,6 +42,7 @@ export async function queryActivityLog(
 		event?: string;
 		limit?: number;
 		offset?: number;
+		sortDirection?: "asc" | "desc";
 	},
 ): Promise<{ entries: ActivityLogRecord[]; totalCount: number }> {
 	const where: { field: string; value: unknown }[] = [];
@@ -68,7 +69,7 @@ export async function queryActivityLog(
 			where: where.length > 0 ? where : undefined,
 			limit,
 			offset,
-			sortBy: { field: "createdAt", direction: "desc" },
+			sortBy: { field: "createdAt", direction: filters.sortDirection ?? "desc" },
 		}),
 		ctx.db.count({ model: "activityLog", where: where.length > 0 ? where : undefined }),
 	]);

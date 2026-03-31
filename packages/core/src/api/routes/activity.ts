@@ -1,5 +1,5 @@
+import { queryActivityLog } from "../../core/activity.js";
 import { emitEvent } from "../../core/emit-event.js";
-import type { ActivityLogRecord } from "../../types/activity.js";
 import type { HeraldContext, NotificationRecord } from "../../types/config.js";
 import { CHANNEL_TYPES, type ChannelType, type DeliveryStatus } from "../../types/workflow.js";
 import { HTTPError, jsonResponse, parseJsonBody } from "../router.js";
@@ -14,30 +14,18 @@ export const activityRoutes = [
 			const url = new URL(request.url);
 			const rawLimit = Number.parseInt(url.searchParams.get("limit") ?? "50", 10);
 			const rawOffset = Number.parseInt(url.searchParams.get("offset") ?? "0", 10);
-			const limit = Number.isNaN(rawLimit) ? 50 : Math.min(Math.max(rawLimit, 1), 100);
-			const offset = Number.isNaN(rawOffset) ? 0 : Math.max(rawOffset, 0);
-			const transactionId = url.searchParams.get("transactionId") ?? undefined;
-			const workflowId = url.searchParams.get("workflowId") ?? undefined;
-			const subscriberId = url.searchParams.get("subscriberId") ?? undefined;
-			const event = url.searchParams.get("event") ?? undefined;
 
-			const where: { field: string; value: unknown }[] = [];
+			const { entries, totalCount } = await queryActivityLog(ctx, {
+				transactionId: url.searchParams.get("transactionId") ?? undefined,
+				workflowId: url.searchParams.get("workflowId") ?? undefined,
+				subscriberId: url.searchParams.get("subscriberId") ?? undefined,
+				event: url.searchParams.get("event") ?? undefined,
+				limit: Number.isNaN(rawLimit) ? 50 : rawLimit,
+				offset: Number.isNaN(rawOffset) ? 0 : rawOffset,
+			});
 
-			if (transactionId) where.push({ field: "transactionId", value: transactionId });
-			if (workflowId) where.push({ field: "workflowId", value: workflowId });
-			if (subscriberId) where.push({ field: "subscriberId", value: subscriberId });
-			if (event) where.push({ field: "event", value: event });
-
-			const [entries, totalCount] = await Promise.all([
-				ctx.db.findMany<ActivityLogRecord>({
-					model: "activityLog",
-					where: where.length > 0 ? where : undefined,
-					limit,
-					offset,
-					sortBy: { field: "createdAt", direction: "desc" },
-				}),
-				ctx.db.count({ model: "activityLog", where: where.length > 0 ? where : undefined }),
-			]);
+			const limit = Math.min(Math.max(Number.isNaN(rawLimit) ? 50 : rawLimit, 1), 100);
+			const offset = Math.max(Number.isNaN(rawOffset) ? 0 : rawOffset, 0);
 
 			return jsonResponse({
 				entries,
@@ -50,13 +38,13 @@ export const activityRoutes = [
 		method: "GET",
 		pattern: "/activity/:transactionId",
 		handler: async (_request: Request, ctx: HeraldContext, params: Record<string, string>) => {
-			const entries = await ctx.db.findMany<ActivityLogRecord>({
-				model: "activityLog",
-				where: [{ field: "transactionId", value: params.transactionId }],
-				sortBy: { field: "createdAt", direction: "asc" },
+			const { entries, totalCount } = await queryActivityLog(ctx, {
+				transactionId: params.transactionId,
+				limit: 100,
+				sortDirection: "asc",
 			});
 
-			return jsonResponse({ entries, totalCount: entries.length });
+			return jsonResponse({ entries, totalCount });
 		},
 	},
 	{
