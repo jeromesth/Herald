@@ -249,7 +249,7 @@ export interface HeraldContext {
 	sse?: SSEManager;
 	/** Precomputed map of workflow ID → channels that are readOnly. Computed once at init. */
 	readOnlyChannels: Record<string, Partial<Record<ChannelType, boolean>>>;
-	/** Whether activity logging is enabled. */
+	/** Whether activity logging is enabled. Defaults to false when `HeraldOptions.activityLog` is omitted. */
 	activityLog: boolean;
 }
 

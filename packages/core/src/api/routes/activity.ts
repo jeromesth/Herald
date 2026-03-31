@@ -73,6 +73,7 @@ export const activityRoutes = [
 			if (!body.status || !VALID_DELIVERY_STATUSES.has(body.status)) {
 				throw new HTTPError(400, `status must be one of: ${[...VALID_DELIVERY_STATUSES].join(", ")}`);
 			}
+			const validatedStatus = body.status as DeliveryStatus;
 
 			const notification = await ctx.db.findOne<NotificationRecord>({
 				model: "notification",
@@ -83,7 +84,7 @@ export const activityRoutes = [
 				throw new HTTPError(404, `Notification "${body.notificationId}" not found`);
 			}
 
-			const transitionError = validateStatusTransition(notification.deliveryStatus, body.status);
+			const transitionError = validateStatusTransition(notification.deliveryStatus, validatedStatus);
 			if (transitionError) {
 				throw new HTTPError(422, transitionError);
 			}
@@ -91,7 +92,7 @@ export const activityRoutes = [
 			await ctx.db.update({
 				model: "notification",
 				where: [{ field: "id", value: body.notificationId }],
-				update: { deliveryStatus: body.status },
+				update: { deliveryStatus: validatedStatus },
 			});
 
 			await emitEvent(ctx, {
@@ -103,12 +104,12 @@ export const activityRoutes = [
 				detail: {
 					notificationId: body.notificationId,
 					previousStatus: notification.deliveryStatus,
-					newStatus: body.status,
+					newStatus: validatedStatus,
 					...body.detail,
 				},
 			});
 
-			return jsonResponse({ status: "updated", deliveryStatus: body.status as DeliveryStatus });
+			return jsonResponse({ status: "updated", deliveryStatus: validatedStatus });
 		},
 	},
 ];
