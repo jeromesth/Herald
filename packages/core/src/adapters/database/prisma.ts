@@ -49,7 +49,7 @@ export function prismaAdapter(prisma: PrismaClientLike, config: PrismaAdapterCon
 	const debugLog = config.debugLogs ? (op: string, args: unknown) => console.debug(`[herald/prisma] ${op}:`, args) : undefined;
 
 	function getModelDelegate(client: PrismaClientLike, model: string) {
-		const modelName = config.usePlural ? model : model;
+		const modelName = config.usePlural ? `${model}s` : model;
 		const delegate = client[modelName] as
 			| {
 					create: (args: unknown) => Promise<unknown>;
