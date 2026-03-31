@@ -1,3 +1,4 @@
+import { HeraldNotFoundError } from "../../errors.js";
 import type { HeraldContext } from "../../types/config.js";
 import { jsonResponse, parseJsonBody } from "../router.js";
 
@@ -190,7 +191,7 @@ export const topicRoutes = [
 					removed++;
 				} catch (error) {
 					// Skip "not found" errors — subscriber was not in topic
-					if (error instanceof Error && !error.message.includes("not found")) {
+					if (!(error instanceof HeraldNotFoundError)) {
 						throw error;
 					}
 				}
