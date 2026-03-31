@@ -1,7 +1,7 @@
 import { emitEvent } from "../../core/emit-event.js";
 import type { ActivityLogRecord } from "../../types/activity.js";
 import type { HeraldContext, NotificationRecord } from "../../types/config.js";
-import type { DeliveryStatus } from "../../types/workflow.js";
+import { CHANNEL_TYPES, type ChannelType, type DeliveryStatus } from "../../types/workflow.js";
 import { HTTPError, jsonResponse, parseJsonBody } from "../router.js";
 
 const VALID_DELIVERY_STATUSES = new Set(["queued", "sent", "delivered", "bounced", "failed"]);
@@ -96,7 +96,7 @@ export const activityRoutes = [
 				workflowId: notification.workflowId,
 				subscriberId: notification.subscriberId,
 				transactionId: notification.transactionId,
-				channel: notification.channel as import("../../types/workflow.js").ChannelType,
+				channel: (CHANNEL_TYPES as readonly string[]).includes(notification.channel) ? (notification.channel as ChannelType) : undefined,
 				detail: {
 					notificationId: body.notificationId,
 					previousStatus: notification.deliveryStatus,

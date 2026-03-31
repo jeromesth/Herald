@@ -2,6 +2,7 @@ import { createRouter } from "../api/router.js";
 import { InAppProvider } from "../channels/in-app.js";
 import { ChannelRegistry } from "../channels/provider.js";
 import { coreSchema, mergeSchemas } from "../db/schema.js";
+import { HeraldNotFoundError } from "../errors.js";
 import { SSEManager } from "../realtime/sse.js";
 import { HandlebarsEngine } from "../templates/engine.js";
 import { LayoutRegistry } from "../templates/layouts.js";
@@ -15,6 +16,7 @@ import type {
 	PreferenceRecord,
 	SubscriberRecord,
 } from "../types/config.js";
+import { CHANNEL_TYPES, type ChannelType } from "../types/workflow.js";
 import { queryActivityLog } from "./activity.js";
 import { emitEvent } from "./emit-event.js";
 import { initializePlugins } from "./plugins.js";
@@ -431,7 +433,7 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 			});
 
 			if (!notification) {
-				throw new (await import("../errors.js")).HeraldNotFoundError("notification", `Notification "${args.notificationId}" not found`);
+				throw new HeraldNotFoundError("notification", `Notification "${args.notificationId}" not found`);
 			}
 
 			await db.update({
@@ -445,7 +447,7 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 				workflowId: notification.workflowId,
 				subscriberId: notification.subscriberId,
 				transactionId: notification.transactionId,
-				channel: notification.channel as import("../types/workflow.js").ChannelType,
+				channel: (CHANNEL_TYPES as readonly string[]).includes(notification.channel) ? (notification.channel as ChannelType) : undefined,
 				detail: {
 					notificationId: args.notificationId,
 					previousStatus: notification.deliveryStatus,
