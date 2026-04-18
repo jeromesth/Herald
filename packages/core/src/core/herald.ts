@@ -16,7 +16,7 @@ import type {
 	PreferenceRecord,
 	SubscriberRecord,
 } from "../types/config.js";
-import { CHANNEL_TYPES, type ChannelType } from "../types/workflow.js";
+import { asChannelType } from "../types/workflow.js";
 import { queryActivityLog, validateStatusTransition } from "./activity.js";
 import { emitEvent } from "./emit-event.js";
 import { initializePlugins } from "./plugins.js";
@@ -450,7 +450,7 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 				workflowId: notification.workflowId,
 				subscriberId: notification.subscriberId,
 				transactionId: notification.transactionId,
-				channel: (CHANNEL_TYPES as readonly string[]).includes(notification.channel) ? (notification.channel as ChannelType) : undefined,
+				channel: asChannelType(notification.channel),
 				detail: {
 					notificationId: args.notificationId,
 					previousStatus: notification.deliveryStatus,

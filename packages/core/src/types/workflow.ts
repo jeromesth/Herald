@@ -9,6 +9,15 @@ export const CHANNEL_TYPES = ["in_app", "email", "sms", "push", "chat", "webhook
 export type ChannelType = (typeof CHANNEL_TYPES)[number];
 
 /**
+ * Type guard + narrower for channel strings originating from untyped sources
+ * (DB rows, external APIs). Returns the narrowed ChannelType or undefined.
+ */
+export function asChannelType(value: string | null | undefined): ChannelType | undefined {
+	if (value == null) return undefined;
+	return (CHANNEL_TYPES as readonly string[]).includes(value) ? (value as ChannelType) : undefined;
+}
+
+/**
  * Message delivery status — tracks the lifecycle of a sent message.
  */
 export type DeliveryStatus = "queued" | "sent" | "delivered" | "bounced" | "failed";
