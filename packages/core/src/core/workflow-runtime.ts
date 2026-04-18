@@ -15,6 +15,7 @@ import {
 	type WorkflowStep,
 } from "../types/workflow.js";
 import { conditionsPass, resolvePath } from "./conditions.js";
+import { emitEvent } from "./emit-event.js";
 import type { WorkflowMeta } from "./preferences.js";
 import { normalizePreferenceRecord, preferenceGate } from "./preferences.js";
 import { sendThroughProvider } from "./send.js";
@@ -55,13 +56,27 @@ function wrapStep(workflowMeta: WorkflowMeta, step: ActionStep, ctx: HeraldConte
 	return {
 		...step,
 		handler: async (context: StepContext): Promise<StepResult> => {
-			if (!stepConditionsPass(step.conditions, context, step.conditionMode)) {
-				return { body: "" };
-			}
+			const transactionId = typeof context.payload._transactionId === "string" ? context.payload._transactionId : undefined;
+
+			void emitEvent(ctx, {
+				event: "workflow.step.started",
+				workflowId: workflowMeta.workflowId,
+				transactionId,
+				stepId: step.stepId,
+				subscriberId: context.subscriber.id,
+				channel: isChannelStep(step.type) ? step.type : undefined,
+			});
 
 			const result = await originalHandler(context);
 
 			if (!isChannelStep(step.type)) {
+				void emitEvent(ctx, {
+					event: "workflow.step.completed",
+					workflowId: workflowMeta.workflowId,
+					transactionId,
+					stepId: step.stepId,
+					subscriberId: context.subscriber.id,
+				});
 				return result;
 			}
 
@@ -143,6 +158,15 @@ function wrapStep(workflowMeta: WorkflowMeta, step: ActionStep, ctx: HeraldConte
 
 				if (!gateResult.allowed) {
 					console.info(`[herald] Workflow "${workflowMeta.workflowId}" step "${step.stepId}": delivery blocked — ${gateResult.reason}`);
+					void emitEvent(ctx, {
+						event: "notification.blocked",
+						workflowId: workflowMeta.workflowId,
+						transactionId,
+						stepId: step.stepId,
+						subscriberId: subscriber.id,
+						channel: step.type,
+						detail: { reason: gateResult.reason },
+					});
 					return result;
 				}
 			}
@@ -163,11 +187,23 @@ function wrapStep(workflowMeta: WorkflowMeta, step: ActionStep, ctx: HeraldConte
 				body: result.body ?? "",
 				actionUrl: result.actionUrl,
 				layoutId: typeof result.data?.layoutId === "string" ? result.data.layoutId : undefined,
+				workflowId: workflowMeta.workflowId,
+				transactionId,
 				data: {
 					...result.data,
 					workflowId: workflowMeta.workflowId,
+					transactionId,
 					payload: context.payload,
 				},
+			});
+
+			void emitEvent(ctx, {
+				event: "workflow.step.completed",
+				workflowId: workflowMeta.workflowId,
+				transactionId,
+				stepId: step.stepId,
+				subscriberId: subscriber.id,
+				channel: step.type,
 			});
 
 			return result;

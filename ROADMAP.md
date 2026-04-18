@@ -86,12 +86,34 @@ Priority: **Medium** | Comparable: Knock PreferenceSet, Novu Preferences
 
 Priority: **Medium** | Comparable: Novu Activity Feed, Knock Message Events
 
-- [ ] **Activity log** — track all notification lifecycle events
-- [ ] **Delivery tracking** — sent, delivered, bounced, failed status per message
+- [x] **Activity log** — track all notification lifecycle events (11 event types across workflow, step, notification, preference, and delivery)
+- [x] **Delivery tracking** — sent, delivered, bounced, failed status per message with `updateDeliveryStatus` API
+- [x] **Webhook events** — emit webhooks for notification lifecycle events with HMAC-SHA256 signing, event filtering, and custom headers
 - [ ] **Engagement tracking** — seen, read, clicked, archived events
-- [ ] **Webhook events** — emit webhooks for notification lifecycle events
 - [ ] **Metrics endpoint** — expose notification metrics for monitoring
 - [ ] **Integration tests** — real database integration tests using testcontainers/docker for Postgres, Redis, etc.
+- [ ] **Activity log partitioning validation** — run the partitioning guide ([docs/guides/activity-log-partitioning.md](docs/guides/activity-log-partitioning.md)) against real PostgreSQL and MySQL instances using testcontainers. Validate that Herald's adapters read/write correctly against partitioned tables, confirm query plans use partition pruning, and add a `pruneActivityLog({ olderThan })` REST endpoint + API method for retention management. Update the guide with any corrections found during testing.
+
+## v0.6.5 — Plugin System Improvements & Observability Extraction
+
+Priority: **Medium** | Prerequisite for extractable observability
+
+The observability system (v0.6) is currently in core, gated behind `activityLog: true`. It should be extractable into a standalone plugin (`@herald/plugin-observability`), but the current plugin hook surface is too narrow — only 6 hooks exist, while the activity system fires at 11 distinct lifecycle points. This phase closes that gap.
+
+**Phase 1 — Generalized event bus hook:**
+
+- [ ] **Add `onEvent` plugin hook** — a catch-all lifecycle hook that fires at every point `emitEvent` currently fires. Signature: `onEvent(event: ActivityEventInput) => Promise<void>`. This gives plugins visibility into all 11 event types without needing a discrete hook for each.
+- [ ] **Add missing granular hooks** — `onStepStart`, `onStepComplete`, `onSendFailure` for plugins that need to intercept specific lifecycle points without subscribing to the full event bus.
+- [ ] **Document plugin hook matrix** — map every lifecycle point to its available hooks so plugin authors know exactly what they can observe/intercept.
+
+**Phase 2 — Extract observability to plugin:**
+
+- [ ] **Create `@herald/plugin-observability`** — move `recordActivity`, `queryActivityLog`, `emitWebhookEvent`, and `emitEvent` into a plugin that uses the `onEvent` hook.
+- [ ] **Move activity routes to plugin endpoints** — `/activity`, `/activity/:transactionId`, and `/delivery-status` routes registered via `plugin.endpoints` instead of core router.
+- [ ] **Move activityLog schema to plugin schema** — table definition provided via `plugin.schema` and merged at init.
+- [ ] **Move `updateDeliveryStatus` out of core API** — expose as a plugin-provided helper or endpoint rather than a `HeraldAPI` method.
+- [ ] **Preserve backward compatibility** — `activityLog: true` in `HeraldOptions` should auto-register the plugin so existing users don't break.
+- [ ] **Tests** — verify the plugin provides identical behavior to the current core implementation.
 
 ## v0.7 — Multi-Channel Expansion
 
@@ -141,7 +163,8 @@ These features are candidates for the plugin system rather than core:
 | Plugin | Description | Priority |
 |--------|-------------|----------|
 | **workflow-kit** | Visual workflow editor UI — developers define steps in code, non-developers configure them via a drag-and-drop React component. Inspired by Inngest Workflow Kit and Novu Framework: code-first workflow definitions with a visual layer for editing steps, conditions, delays, and channel routing without redeploying. Ships as `@herald/workflow-kit` (React) with a headless `@herald/workflow-kit-core` for other frameworks. | **High** |
-| **analytics** | Notification delivery and engagement analytics | Medium |
+| **observability** | Activity log, delivery tracking, and webhook events — currently in core (v0.6), planned extraction in v0.6.5 | **High** |
+| **analytics** | Notification delivery and engagement analytics, builds on observability plugin events | Medium |
 | **audit-log** | Full audit trail of all notification operations | Medium |
 | **rate-limiter** | Advanced per-subscriber rate limiting | Medium |
 | **ab-testing** | A/B test notification content and channels | Low |

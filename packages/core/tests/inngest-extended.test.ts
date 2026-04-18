@@ -197,6 +197,58 @@ describe("inngestAdapter — extended", () => {
 		expect(adapter.adapterId).toBe("inngest");
 	});
 
+	it("threads transactionId into step handler payload as _transactionId", async () => {
+		const client = createMockInngestClient();
+		const adapter = inngestAdapter({ client });
+
+		let capturedPayload: Record<string, unknown> | undefined;
+
+		const captureWorkflow: NotificationWorkflow = {
+			id: "capture",
+			name: "Capture",
+			steps: [
+				{
+					stepId: "send-email",
+					type: "email",
+					handler: async ({ payload }) => {
+						capturedPayload = payload;
+						return { subject: "Hi", body: "Hello" };
+					},
+				},
+			],
+		};
+
+		adapter.registerWorkflow(captureWorkflow);
+
+		const handlerFn = client.createFunction.mock.calls[0][2];
+		const mockStep = {
+			run: vi.fn().mockImplementation(async (_id: string, fn: () => Promise<unknown>) => fn()),
+			sleep: vi.fn().mockResolvedValue(undefined),
+			sleepUntil: vi.fn().mockResolvedValue(undefined),
+			sendEvent: vi.fn().mockResolvedValue(undefined),
+			waitForEvent: vi.fn().mockResolvedValue(null),
+		};
+
+		await handlerFn({
+			event: {
+				name: "herald/workflow.capture",
+				data: {
+					workflowId: "capture",
+					recipients: ["user-1"],
+					payload: { greeting: "hi" },
+					transactionId: "tx-abc-123",
+				},
+			},
+			step: mockStep,
+			runId: "run-1",
+		});
+
+		expect(capturedPayload).toBeDefined();
+		expect(capturedPayload?._transactionId).toBe("tx-abc-123");
+		// User payload must be preserved alongside the system-injected transactionId
+		expect(capturedPayload?.greeting).toBe("hi");
+	});
+
 	it("executes workflow handler with all step types", async () => {
 		const client = createMockInngestClient();
 		const adapter = inngestAdapter({ client });

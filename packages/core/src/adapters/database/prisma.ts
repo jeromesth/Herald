@@ -24,6 +24,11 @@ export interface PrismaAdapterConfig {
 
 	/**
 	 * Use plural model names (e.g., "subscribers" instead of "subscriber").
+	 * Pluralization is a simple "append 's'" — it maps Herald's model names
+	 * to `subscribers`, `notifications`, `topics`, `topicSubscribers`,
+	 * `preferences`, `channels`, `activityLogs`. If your Prisma schema uses
+	 * irregular names, leave this off and rename your schema models to match
+	 * Herald's singular defaults.
 	 * @default false
 	 */
 	usePlural?: boolean;
@@ -49,7 +54,7 @@ export function prismaAdapter(prisma: PrismaClientLike, config: PrismaAdapterCon
 	const debugLog = config.debugLogs ? (op: string, args: unknown) => console.debug(`[herald/prisma] ${op}:`, args) : undefined;
 
 	function getModelDelegate(client: PrismaClientLike, model: string) {
-		const modelName = config.usePlural ? model : model;
+		const modelName = config.usePlural ? `${model}s` : model;
 		const delegate = client[modelName] as
 			| {
 					create: (args: unknown) => Promise<unknown>;

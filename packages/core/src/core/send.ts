@@ -3,6 +3,7 @@ import { renderEmail } from "../templates/layouts.js";
 import type { TemplateContext } from "../templates/types.js";
 import type { HeraldContext } from "../types/config.js";
 import type { ChannelType } from "../types/workflow.js";
+import { emitEvent } from "./emit-event.js";
 import { resolveSubscriberByAnyId } from "./subscriber.js";
 
 export interface ProviderSendArgs {
@@ -13,6 +14,8 @@ export interface ProviderSendArgs {
 	body: string;
 	actionUrl?: string;
 	layoutId?: string;
+	workflowId?: string;
+	transactionId?: string;
 	data?: Record<string, unknown>;
 }
 
@@ -143,6 +146,14 @@ export async function sendThroughProvider(
 		message.body = ctx.templateEngine.render(message.body, templateContext);
 	}
 
+	void emitEvent(ctx, {
+		event: "notification.queued",
+		subscriberId: message.subscriberId,
+		channel: message.channel,
+		workflowId: message.workflowId,
+		transactionId: message.transactionId,
+	});
+
 	const result = await provider.send({
 		subscriberId: message.subscriberId,
 		to: message.to,
@@ -154,6 +165,23 @@ export async function sendThroughProvider(
 
 	if (result.status === "failed") {
 		console.error(`[herald] Provider "${provider.providerId}" failed to send to ${message.to}: ${result.error ?? "unknown error"}`);
+		void emitEvent(ctx, {
+			event: "notification.failed",
+			subscriberId: message.subscriberId,
+			channel: message.channel,
+			workflowId: message.workflowId,
+			transactionId: message.transactionId,
+			detail: { messageId: result.messageId, error: result.error },
+		});
+	} else {
+		void emitEvent(ctx, {
+			event: "notification.sent",
+			subscriberId: message.subscriberId,
+			channel: message.channel,
+			workflowId: message.workflowId,
+			transactionId: message.transactionId,
+			detail: { messageId: result.messageId, status: result.status },
+		});
 	}
 
 	// Run afterSend hooks — errors are logged but do not propagate since delivery already succeeded

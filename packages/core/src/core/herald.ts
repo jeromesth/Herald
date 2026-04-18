@@ -2,6 +2,7 @@ import { createRouter } from "../api/router.js";
 import { InAppProvider } from "../channels/in-app.js";
 import { ChannelRegistry } from "../channels/provider.js";
 import { coreSchema, mergeSchemas } from "../db/schema.js";
+import { HeraldNotFoundError, HeraldValidationError } from "../errors.js";
 import { SSEManager } from "../realtime/sse.js";
 import { HandlebarsEngine } from "../templates/engine.js";
 import { LayoutRegistry } from "../templates/layouts.js";
@@ -15,6 +16,9 @@ import type {
 	PreferenceRecord,
 	SubscriberRecord,
 } from "../types/config.js";
+import { asChannelType } from "../types/workflow.js";
+import { queryActivityLog, validateStatusTransition } from "./activity.js";
+import { emitEvent } from "./emit-event.js";
 import { initializePlugins } from "./plugins.js";
 import {
 	buildReadOnlyChannels,
@@ -111,6 +115,7 @@ export function herald(options: HeraldOptions): Herald {
 		throttleState: new Map(),
 		sse,
 		readOnlyChannels: buildReadOnlyChannels(options.workflows),
+		activityLog: options.activityLog === true,
 	};
 
 	const pluginsReady = initializePlugins(ctx, options.plugins);
@@ -158,8 +163,21 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 					}
 				}
 
+				void emitEvent(ctx, {
+					event: "workflow.triggered",
+					workflowId: args.workflowId,
+					transactionId,
+					detail: { to: args.to },
+				});
+
 				await workflow.trigger({
 					...args,
+					transactionId,
+				});
+
+				void emitEvent(ctx, {
+					event: "workflow.dispatched",
+					workflowId: args.workflowId,
 					transactionId,
 				});
 
@@ -282,13 +300,11 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 					break;
 			}
 
-			for (const id of args.ids) {
-				await db.update({
-					model: "notification",
-					where: [{ field: "id", value: id }],
-					update: updates,
-				});
-			}
+			await db.updateMany({
+				model: "notification",
+				where: [{ field: "id", value: args.ids, operator: "in" }],
+				update: updates,
+			});
 		},
 
 		async getPreferences(subscriberId) {
@@ -399,6 +415,48 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 				subscriber: args.subscriber,
 				payload: args.payload,
 				app: { name: ctx.options.appName },
+			});
+		},
+
+		async getActivityLog(args) {
+			await pluginsReady;
+			return queryActivityLog(ctx, args);
+		},
+
+		async updateDeliveryStatus(args) {
+			await pluginsReady;
+			const notification = await db.findOne<NotificationRecord>({
+				model: "notification",
+				where: [{ field: "id", value: args.notificationId }],
+			});
+
+			if (!notification) {
+				throw new HeraldNotFoundError("notification", `Notification "${args.notificationId}" not found`);
+			}
+
+			const transitionError = validateStatusTransition(notification.deliveryStatus, args.status);
+			if (transitionError) {
+				throw new HeraldValidationError(transitionError);
+			}
+
+			await db.update({
+				model: "notification",
+				where: [{ field: "id", value: args.notificationId }],
+				update: { deliveryStatus: args.status },
+			});
+
+			void emitEvent(ctx, {
+				event: "notification.status_changed",
+				workflowId: notification.workflowId,
+				subscriberId: notification.subscriberId,
+				transactionId: notification.transactionId,
+				channel: asChannelType(notification.channel),
+				detail: {
+					notificationId: args.notificationId,
+					previousStatus: notification.deliveryStatus,
+					newStatus: args.status,
+					...args.detail,
+				},
 			});
 		},
 	};

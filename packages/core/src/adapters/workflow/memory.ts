@@ -58,7 +58,7 @@ export function memoryWorkflowAdapter(heraldCtx?: HeraldContext): WorkflowAdapte
 		async trigger(args: TriggerArgs): Promise<TriggerResult> {
 			const transactionId = args.transactionId ?? crypto.randomUUID();
 			const recipients = Array.isArray(args.to) ? args.to : [args.to];
-			const handlerPayload = { ...args.payload };
+			const handlerPayload = { ...args.payload, _transactionId: transactionId };
 
 			events.push({
 				workflowId: args.workflowId,

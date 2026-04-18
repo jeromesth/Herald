@@ -83,15 +83,19 @@ export class SSEManager {
 		const connections = this.connections.get(subscriberId);
 		if (!connections) return;
 
+		const stale: SSEConnection[] = [];
 		for (const conn of connections) {
 			try {
 				this.sendToController(conn.controller, event);
 			} catch (err) {
-				connections.delete(conn);
+				stale.push(conn);
 				if (!(err instanceof TypeError)) {
 					console.error(`[herald] SSE emit failed for subscriber ${subscriberId}:`, err);
 				}
 			}
+		}
+		for (const conn of stale) {
+			connections.delete(conn);
 		}
 
 		// Clean up empty subscriber entries

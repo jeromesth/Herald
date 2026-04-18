@@ -88,3 +88,11 @@ export type {
 } from "../templates/layouts.js";
 
 export type { SSEEvent } from "../realtime/sse.js";
+
+export type {
+	ActivityEventType,
+	ActivityLogRecord,
+	ActivityEventInput,
+	WebhookConfig,
+	WebhookEventPayload,
+} from "./activity.js";
