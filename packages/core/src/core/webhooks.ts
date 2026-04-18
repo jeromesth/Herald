@@ -1,4 +1,4 @@
-import type { ActivityEventInput, WebhookConfig, WebhookEventPayload } from "../types/activity.js";
+import type { ActivityEventInput, ActivityEventType, WebhookConfig, WebhookEventPayload } from "../types/activity.js";
 import type { HeraldContext } from "../types/config.js";
 
 /**
@@ -32,9 +32,9 @@ export async function emitWebhookEvent(ctx: HeraldContext, input: ActivityEventI
 	);
 }
 
-function shouldSendToWebhook(webhook: WebhookConfig, event: string): boolean {
+function shouldSendToWebhook(webhook: WebhookConfig, event: ActivityEventType): boolean {
 	if (!webhook.events || webhook.events.length === 0) return true;
-	return (webhook.events as string[]).includes(event);
+	return webhook.events.includes(event);
 }
 
 async function deliverWebhook(webhook: WebhookConfig, body: string, payload: WebhookEventPayload): Promise<void> {
