@@ -174,6 +174,72 @@ describe("Webhook Events", () => {
 		expect(requestInit.headers["X-Herald-Signature"]).toMatch(/^sha256=[a-f0-9]+$/);
 	});
 
+	it("retries webhook delivery on 5xx response up to maxAttempts", async () => {
+		fetchSpy
+			.mockResolvedValueOnce(new Response("oops", { status: 500 }))
+			.mockResolvedValueOnce(new Response("oops", { status: 503 }))
+			.mockResolvedValueOnce(new Response("ok", { status: 200 }));
+
+		const webhooks: WebhookConfig[] = [
+			{
+				url: "https://hooks.example.com/retry",
+				events: ["workflow.triggered"],
+				retry: { maxAttempts: 3, initialDelayMs: 5 },
+			},
+		];
+
+		app = herald({
+			database: memoryAdapter(),
+			workflow: memoryWorkflowAdapter(),
+			workflows: [testWorkflow],
+			webhooks,
+		});
+
+		const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+		await app.api.upsertSubscriber({ externalId: "user-1", email: "u@test.com" });
+		await app.api.trigger({ workflowId: "welcome", to: "user-1", payload: {} });
+
+		// Wait long enough for retries (5ms + 10ms) plus a margin
+		await new Promise((r) => setTimeout(r, 150));
+
+		const retryCalls = fetchSpy.mock.calls.filter((call: unknown[]) => call[0] === "https://hooks.example.com/retry");
+		expect(retryCalls).toHaveLength(3);
+
+		consoleSpy.mockRestore();
+	});
+
+	it("gives up after maxAttempts on persistent failures", async () => {
+		fetchSpy.mockResolvedValue(new Response("nope", { status: 500 }));
+
+		const webhooks: WebhookConfig[] = [
+			{
+				url: "https://hooks.example.com/dead",
+				events: ["workflow.triggered"],
+				retry: { maxAttempts: 2, initialDelayMs: 5 },
+			},
+		];
+
+		app = herald({
+			database: memoryAdapter(),
+			workflow: memoryWorkflowAdapter(),
+			workflows: [testWorkflow],
+			webhooks,
+		});
+
+		const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+		await app.api.upsertSubscriber({ externalId: "user-1", email: "u@test.com" });
+		await app.api.trigger({ workflowId: "welcome", to: "user-1", payload: {} });
+
+		await new Promise((r) => setTimeout(r, 150));
+
+		const calls = fetchSpy.mock.calls.filter((call: unknown[]) => call[0] === "https://hooks.example.com/dead");
+		expect(calls).toHaveLength(2);
+
+		consoleSpy.mockRestore();
+	});
+
 	it("does not throw when webhook delivery fails", async () => {
 		fetchSpy.mockRejectedValue(new Error("Network error"));
 

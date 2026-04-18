@@ -66,6 +66,16 @@ export interface ActivityEventInput {
 }
 
 /**
+ * Webhook retry policy for transient delivery failures.
+ */
+export interface WebhookRetryConfig {
+	/** Total delivery attempts, including the first. Minimum 1. @default 1 */
+	maxAttempts: number;
+	/** Initial backoff in ms; doubles after each failed attempt. @default 500 */
+	initialDelayMs?: number;
+}
+
+/**
  * Webhook endpoint configuration.
  */
 export interface WebhookConfig {
@@ -77,6 +87,8 @@ export interface WebhookConfig {
 	events?: ActivityEventType[];
 	/** Custom headers to include in webhook requests. */
 	headers?: Record<string, string>;
+	/** Retry policy for transient failures (network error or 5xx). */
+	retry?: WebhookRetryConfig;
 }
 
 /**

@@ -38,33 +38,45 @@ function shouldSendToWebhook(webhook: WebhookConfig, event: string): boolean {
 }
 
 async function deliverWebhook(webhook: WebhookConfig, body: string, payload: WebhookEventPayload): Promise<void> {
-	try {
-		const headers: Record<string, string> = {
-			"Content-Type": "application/json",
-			...webhook.headers,
-		};
+	const maxAttempts = Math.max(1, webhook.retry?.maxAttempts ?? 1);
+	const initialDelayMs = webhook.retry?.initialDelayMs ?? 500;
 
-		if (webhook.secret) {
-			// Sign `${timestamp}.${body}` so consumers can reject replayed payloads
-			// outside an acceptable clock-skew window.
-			const timestamp = Math.floor(Date.now() / 1000).toString();
-			const signature = await computeHmacSignature(webhook.secret, `${timestamp}.${body}`);
-			headers["X-Herald-Timestamp"] = timestamp;
-			headers["X-Herald-Signature"] = signature;
+	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+		try {
+			const headers: Record<string, string> = {
+				"Content-Type": "application/json",
+				...webhook.headers,
+			};
+
+			if (webhook.secret) {
+				// Sign `${timestamp}.${body}` so consumers can reject replayed payloads
+				// outside an acceptable clock-skew window.
+				const timestamp = Math.floor(Date.now() / 1000).toString();
+				const signature = await computeHmacSignature(webhook.secret, `${timestamp}.${body}`);
+				headers["X-Herald-Timestamp"] = timestamp;
+				headers["X-Herald-Signature"] = signature;
+			}
+
+			const response = await fetch(webhook.url, {
+				method: "POST",
+				headers,
+				body,
+				signal: AbortSignal.timeout(10_000),
+			});
+
+			if (response.ok) return;
+
+			console.error(`[herald] Webhook delivery failed to ${webhook.url}: HTTP ${response.status} (attempt ${attempt}/${maxAttempts})`);
+			// Only retry on 5xx — 4xx responses are the consumer's choice to reject.
+			if (response.status < 500 || attempt === maxAttempts) return;
+		} catch (error) {
+			console.error(`[herald] Webhook delivery failed to ${webhook.url} (attempt ${attempt}/${maxAttempts}):`, error);
+			if (attempt === maxAttempts) return;
 		}
 
-		const response = await fetch(webhook.url, {
-			method: "POST",
-			headers,
-			body,
-			signal: AbortSignal.timeout(10_000),
-		});
-
-		if (!response.ok) {
-			console.error(`[herald] Webhook delivery failed to ${webhook.url}: HTTP ${response.status}`);
-		}
-	} catch (error) {
-		console.error(`[herald] Webhook delivery failed to ${webhook.url}:`, error);
+		// Exponential backoff between attempts.
+		const delay = initialDelayMs * 2 ** (attempt - 1);
+		await new Promise((r) => setTimeout(r, delay));
 	}
 }
 
