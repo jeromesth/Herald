@@ -24,6 +24,11 @@ export interface PrismaAdapterConfig {
 
 	/**
 	 * Use plural model names (e.g., "subscribers" instead of "subscriber").
+	 * Pluralization is a simple "append 's'" — it maps Herald's model names
+	 * to `subscribers`, `notifications`, `topics`, `topicSubscribers`,
+	 * `preferences`, `channels`, `activityLogs`. If your Prisma schema uses
+	 * irregular names, leave this off and rename your schema models to match
+	 * Herald's singular defaults.
 	 * @default false
 	 */
 	usePlural?: boolean;
