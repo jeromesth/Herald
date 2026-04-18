@@ -6,6 +6,11 @@ import { HTTPError, jsonResponse, parseJsonBody } from "../router.js";
 
 const VALID_DELIVERY_STATUSES = new Set(["queued", "sent", "delivered", "bounced", "failed"]);
 
+// Default page sizes are intentionally different per route:
+// - /activity (global timeline) defaults to 50 for cheap list-style browsing
+// - /activity/:transactionId (single-trace view) defaults to 100 because a
+//   single workflow run typically emits a handful of events and we'd like the
+//   whole trace on one page when possible. Both cap at 100.
 export const activityRoutes = [
 	{
 		method: "GET",
