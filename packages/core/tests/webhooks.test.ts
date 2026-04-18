@@ -11,6 +11,11 @@ const testWorkflow: NotificationWorkflow = {
 	steps: [{ stepId: "send-in-app", type: "in_app", handler: async () => ({ body: "Hello!" }) }],
 };
 
+// Yield the event loop so fire-and-forget webhook deliveries complete.
+async function flushWebhooks() {
+	await new Promise((r) => setTimeout(r, 20));
+}
+
 describe("Webhook Events", () => {
 	let app: Herald;
 	let fetchSpy: ReturnType<typeof vi.fn>;
@@ -37,6 +42,7 @@ describe("Webhook Events", () => {
 
 		await app.api.upsertSubscriber({ externalId: "user-1", email: "u@test.com" });
 		await app.api.trigger({ workflowId: "welcome", to: "user-1", payload: {} });
+		await flushWebhooks();
 
 		// Should have called fetch multiple times for different events
 		expect(fetchSpy).toHaveBeenCalled();
@@ -63,6 +69,7 @@ describe("Webhook Events", () => {
 
 		await app.api.upsertSubscriber({ externalId: "user-1", email: "u@test.com" });
 		await app.api.trigger({ workflowId: "welcome", to: "user-1", payload: {} });
+		await flushWebhooks();
 
 		const calls = fetchSpy.mock.calls;
 		const payloads: WebhookEventPayload[] = calls
@@ -92,6 +99,7 @@ describe("Webhook Events", () => {
 
 		await app.api.upsertSubscriber({ externalId: "user-1", email: "u@test.com" });
 		await app.api.trigger({ workflowId: "welcome", to: "user-1", payload: {} });
+		await flushWebhooks();
 
 		const matchedCall = fetchSpy.mock.calls.find((call: unknown[]) => call[0] === "https://hooks.example.com/herald");
 		expect(matchedCall).toBeDefined();
@@ -118,6 +126,7 @@ describe("Webhook Events", () => {
 
 		await app.api.upsertSubscriber({ externalId: "user-1", email: "u@test.com" });
 		await app.api.trigger({ workflowId: "welcome", to: "user-1", payload: {} });
+		await flushWebhooks();
 
 		const matchedCall = fetchSpy.mock.calls.find((call: unknown[]) => call[0] === "https://hooks.example.com/herald");
 		expect(matchedCall).toBeDefined();
@@ -164,10 +173,41 @@ describe("Webhook Events", () => {
 
 		await app.api.upsertSubscriber({ externalId: "user-1", email: "u@test.com" });
 		await app.api.trigger({ workflowId: "welcome", to: "user-1", payload: {} });
+		await flushWebhooks();
 
 		const urls = fetchSpy.mock.calls.map((call: unknown[]) => call[0]);
 		expect(urls).toContain("https://hooks1.example.com/herald");
 		expect(urls).toContain("https://hooks2.example.com/herald");
+	});
+
+	it("does not block api.trigger on slow webhook delivery", async () => {
+		// Webhook that takes 2s to respond — should NOT block trigger from resolving.
+		let resolveSlow: (value: Response) => void = () => {};
+		const slowPromise = new Promise<Response>((resolve) => {
+			resolveSlow = resolve;
+		});
+		fetchSpy.mockReturnValue(slowPromise);
+
+		const webhooks: WebhookConfig[] = [{ url: "https://hooks.example.com/slow" }];
+
+		app = herald({
+			database: memoryAdapter(),
+			workflow: memoryWorkflowAdapter(),
+			workflows: [testWorkflow],
+			webhooks,
+		});
+
+		await app.api.upsertSubscriber({ externalId: "user-1", email: "u@test.com" });
+
+		const start = Date.now();
+		await app.api.trigger({ workflowId: "welcome", to: "user-1", payload: {} });
+		const elapsed = Date.now() - start;
+
+		// trigger must resolve quickly even though webhook is still pending
+		expect(elapsed).toBeLessThan(500);
+
+		// cleanup
+		resolveSlow(new Response("ok", { status: 200 }));
 	});
 
 	it("logs error and continues when webhook returns non-200 response", async () => {

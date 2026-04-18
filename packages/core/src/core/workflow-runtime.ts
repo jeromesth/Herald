@@ -197,7 +197,7 @@ function wrapStep(workflowMeta: WorkflowMeta, step: ActionStep, ctx: HeraldConte
 				},
 			});
 
-			await emitEvent(ctx, {
+			void emitEvent(ctx, {
 				event: "workflow.step.completed",
 				workflowId: workflowMeta.workflowId,
 				transactionId,

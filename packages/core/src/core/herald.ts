@@ -163,7 +163,7 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 					}
 				}
 
-				await emitEvent(ctx, {
+				void emitEvent(ctx, {
 					event: "workflow.triggered",
 					workflowId: args.workflowId,
 					transactionId,
@@ -445,7 +445,7 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 				update: { deliveryStatus: args.status },
 			});
 
-			await emitEvent(ctx, {
+			void emitEvent(ctx, {
 				event: "notification.status_changed",
 				workflowId: notification.workflowId,
 				subscriberId: notification.subscriberId,

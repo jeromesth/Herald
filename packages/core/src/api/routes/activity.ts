@@ -95,7 +95,7 @@ export const activityRoutes = [
 				update: { deliveryStatus: validatedStatus },
 			});
 
-			await emitEvent(ctx, {
+			void emitEvent(ctx, {
 				event: "notification.status_changed",
 				workflowId: notification.workflowId,
 				subscriberId: notification.subscriberId,
