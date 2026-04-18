@@ -16,6 +16,14 @@ export function memoryAdapter(): DatabaseAdapter {
 		return store.get(model)!;
 	}
 
+	// Normalize Date → number so comparison operators work without coercing strings.
+	// Returns undefined when the operand can't participate in a numeric comparison.
+	function toComparable(v: unknown): number | undefined {
+		if (typeof v === "number") return v;
+		if (v instanceof Date) return v.getTime();
+		return undefined;
+	}
+
 	function matchesWhere(record: Record<string, unknown>, where: Where[]): boolean {
 		const evaluateClause = (clause: Where): boolean => {
 			const value = record[clause.field];
@@ -26,14 +34,26 @@ export function memoryAdapter(): DatabaseAdapter {
 					return value === clause.value;
 				case "ne":
 					return value !== clause.value;
-				case "lt":
-					return typeof value === "number" && typeof clause.value === "number" && value < clause.value;
-				case "lte":
-					return typeof value === "number" && typeof clause.value === "number" && value <= clause.value;
-				case "gt":
-					return typeof value === "number" && typeof clause.value === "number" && value > clause.value;
-				case "gte":
-					return typeof value === "number" && typeof clause.value === "number" && value >= clause.value;
+				case "lt": {
+					const a = toComparable(value);
+					const b = toComparable(clause.value);
+					return a !== undefined && b !== undefined && a < b;
+				}
+				case "lte": {
+					const a = toComparable(value);
+					const b = toComparable(clause.value);
+					return a !== undefined && b !== undefined && a <= b;
+				}
+				case "gt": {
+					const a = toComparable(value);
+					const b = toComparable(clause.value);
+					return a !== undefined && b !== undefined && a > b;
+				}
+				case "gte": {
+					const a = toComparable(value);
+					const b = toComparable(clause.value);
+					return a !== undefined && b !== undefined && a >= b;
+				}
 				case "in":
 					return (clause.value as unknown[]).includes(value);
 				case "not_in":
