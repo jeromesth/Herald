@@ -108,6 +108,44 @@ describe("Webhook Events", () => {
 		expect(requestInit.headers["X-Custom-Header"]).toBe("test-value");
 	});
 
+	it("includes a timestamp header and signs timestamp.body for replay protection", async () => {
+		const webhooks: WebhookConfig[] = [
+			{
+				url: "https://hooks.example.com/herald",
+				secret: "test-secret",
+				events: ["workflow.triggered"],
+			},
+		];
+
+		app = herald({
+			database: memoryAdapter(),
+			workflow: memoryWorkflowAdapter(),
+			workflows: [testWorkflow],
+			webhooks,
+		});
+
+		await app.api.upsertSubscriber({ externalId: "user-1", email: "u@test.com" });
+		await app.api.trigger({ workflowId: "welcome", to: "user-1", payload: {} });
+		await flushWebhooks();
+
+		const matchedCall = fetchSpy.mock.calls.find((call: unknown[]) => call[0] === "https://hooks.example.com/herald");
+		expect(matchedCall).toBeDefined();
+
+		const requestInit = (matchedCall as unknown[])[1] as { headers: Record<string, string>; body: string };
+		const timestamp = requestInit.headers["X-Herald-Timestamp"];
+		expect(timestamp).toBeDefined();
+		expect(timestamp).toMatch(/^\d+$/);
+
+		// Verify the signature matches HMAC_SHA256(secret, `${timestamp}.${body}`)
+		const encoder = new TextEncoder();
+		const key = await crypto.subtle.importKey("raw", encoder.encode("test-secret"), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+		const signed = await crypto.subtle.sign("HMAC", key, encoder.encode(`${timestamp}.${requestInit.body}`));
+		const expected = `sha256=${Array.from(new Uint8Array(signed))
+			.map((b) => b.toString(16).padStart(2, "0"))
+			.join("")}`;
+		expect(requestInit.headers["X-Herald-Signature"]).toBe(expected);
+	});
+
 	it("includes HMAC signature when secret is configured", async () => {
 		const webhooks: WebhookConfig[] = [
 			{

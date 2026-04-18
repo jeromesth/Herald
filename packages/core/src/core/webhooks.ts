@@ -45,7 +45,11 @@ async function deliverWebhook(webhook: WebhookConfig, body: string, payload: Web
 		};
 
 		if (webhook.secret) {
-			const signature = await computeHmacSignature(webhook.secret, body);
+			// Sign `${timestamp}.${body}` so consumers can reject replayed payloads
+			// outside an acceptable clock-skew window.
+			const timestamp = Math.floor(Date.now() / 1000).toString();
+			const signature = await computeHmacSignature(webhook.secret, `${timestamp}.${body}`);
+			headers["X-Herald-Timestamp"] = timestamp;
 			headers["X-Herald-Signature"] = signature;
 		}
 
