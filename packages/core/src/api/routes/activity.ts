@@ -1,7 +1,7 @@
 import { queryActivityLog, validateStatusTransition } from "../../core/activity.js";
 import { emitEvent } from "../../core/emit-event.js";
 import type { HeraldContext, NotificationRecord } from "../../types/config.js";
-import { asChannelType, type DeliveryStatus } from "../../types/workflow.js";
+import { type DeliveryStatus, asChannelType } from "../../types/workflow.js";
 import { HTTPError, jsonResponse, parseJsonBody } from "../router.js";
 
 const VALID_DELIVERY_STATUSES = new Set(["queued", "sent", "delivered", "bounced", "failed"]);
