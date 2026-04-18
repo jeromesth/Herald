@@ -21,7 +21,9 @@ const VALID_TRANSITIONS: Record<string, Set<DeliveryStatus>> = {
  */
 export function validateStatusTransition(from: string, to: string): string | undefined {
 	const allowed = VALID_TRANSITIONS[from];
-	if (!allowed) return undefined; // unknown current status — allow transition
+	if (!allowed) {
+		return `Invalid status transition: unknown current status "${from}". Known statuses: ${Object.keys(VALID_TRANSITIONS).join(", ")}`;
+	}
 	if (!allowed.has(to as DeliveryStatus)) {
 		return `Invalid status transition: "${from}" → "${to}". Allowed transitions from "${from}": ${allowed.size > 0 ? [...allowed].join(", ") : "none (terminal state)"}`;
 	}

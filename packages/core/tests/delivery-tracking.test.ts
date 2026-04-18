@@ -111,6 +111,28 @@ describe("Delivery Tracking", () => {
 		expect(statusEvent?.channel).toBeNull();
 	});
 
+	it("rejects transitions from an unknown (corrupted) current status", async () => {
+		await app.api.upsertSubscriber({ externalId: "user-1", email: "u@test.com" });
+		await app.api.trigger({ workflowId: "welcome", to: "user-1", payload: {} });
+
+		const { notifications } = await app.api.getNotifications({ subscriberId: "user-1" });
+		const notification = notifications[0] as NotificationRecord;
+
+		// Simulate a poisoned DB row with a deliveryStatus not in the known state machine
+		await app.$context.db.update({
+			model: "notification",
+			where: [{ field: "id", value: notification.id }],
+			update: { deliveryStatus: "garbage_status" },
+		});
+
+		await expect(
+			app.api.updateDeliveryStatus({
+				notificationId: notification.id,
+				status: "delivered",
+			}),
+		).rejects.toThrow(/unknown current status/i);
+	});
+
 	it("rejects invalid status transitions", async () => {
 		await app.api.upsertSubscriber({ externalId: "user-1", email: "u@test.com" });
 		await app.api.trigger({ workflowId: "welcome", to: "user-1", payload: {} });
