@@ -191,8 +191,11 @@ const MAX_BODY_SIZE = 1024 * 1024;
 
 export async function parseJsonBody<T = Record<string, unknown>>(request: Request): Promise<T> {
 	const contentLength = request.headers.get("content-length");
-	if (contentLength && Number.parseInt(contentLength, 10) > MAX_BODY_SIZE) {
-		throw new HTTPError(413, "Request body too large");
+	if (contentLength) {
+		const parsed = Number.parseInt(contentLength, 10);
+		if (Number.isNaN(parsed) || parsed > MAX_BODY_SIZE) {
+			throw new HTTPError(413, "Request body too large");
+		}
 	}
 
 	const text = await request.text();

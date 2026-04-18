@@ -108,15 +108,13 @@ export const notificationRoutes = [
 					break;
 			}
 
-			for (const id of body.ids) {
-				await ctx.db.update({
-					model: "notification",
-					where: [{ field: "id", value: id }],
-					update: updates,
-				});
-			}
+			const count = await ctx.db.updateMany({
+				model: "notification",
+				where: [{ field: "id", value: body.ids, operator: "in" }],
+				update: updates,
+			});
 
-			return jsonResponse({ status: "updated", count: body.ids.length });
+			return jsonResponse({ status: "updated", count });
 		},
 	},
 	{

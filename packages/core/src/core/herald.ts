@@ -300,13 +300,11 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 					break;
 			}
 
-			for (const id of args.ids) {
-				await db.update({
-					model: "notification",
-					where: [{ field: "id", value: id }],
-					update: updates,
-				});
-			}
+			await db.updateMany({
+				model: "notification",
+				where: [{ field: "id", value: args.ids, operator: "in" }],
+				update: updates,
+			});
 		},
 
 		async getPreferences(subscriberId) {
