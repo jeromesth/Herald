@@ -342,7 +342,9 @@ export function postgresWorkflowAdapter(config: PostgresWorkflowConfig): Postgre
 				return;
 			}
 
-			const handlerPayload = { ...job.payload };
+			// System-injected _transactionId wins over any user-supplied value to
+			// keep observability events reliably linked to the originating trigger.
+			const handlerPayload = { ...job.payload, _transactionId: job.transaction_id };
 
 			// Flatten steps into a mutable queue for branch support.
 			// Resume from current_step (supports crash recovery).

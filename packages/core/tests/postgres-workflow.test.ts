@@ -455,6 +455,39 @@ describe("postgres workflow adapter — durability & crash recovery", () => {
 		expect(handlers[2]).toHaveBeenCalledTimes(1);
 	});
 
+	it("threads transaction_id into step handler payload as _transactionId", async () => {
+		let capturedPayload: Record<string, unknown> | undefined;
+		const handler = vi.fn().mockImplementation(async (ctx: { payload: Record<string, unknown> }) => {
+			capturedPayload = ctx.payload;
+			return { subject: "Hi", body: "Hello" };
+		});
+
+		const pool = createExecutionMockPool({
+			jobRows: [
+				makeJobRow({
+					workflow_id: "tx-wf",
+					transaction_id: "tx-xyz-789",
+					payload: { greeting: "hi" },
+				}),
+			],
+		});
+
+		const adapter = postgresWorkflowAdapter({ pool, autoMigrate: false, pollInterval: 50 });
+		adapter.registerWorkflow({
+			id: "tx-wf",
+			name: "Tx WF",
+			steps: [{ stepId: "email-1", type: "email", handler }],
+		});
+
+		await adapter.start();
+		await new Promise((r) => setTimeout(r, 200));
+		await adapter.stop();
+
+		expect(handler).toHaveBeenCalled();
+		expect(capturedPayload?._transactionId).toBe("tx-xyz-789");
+		expect(capturedPayload?.greeting).toBe("hi");
+	});
+
 	it("completes immediately when current_step exceeds total steps", async () => {
 		const handler = vi.fn().mockResolvedValue({ subject: "X", body: "X" });
 		const pool = createExecutionMockPool({

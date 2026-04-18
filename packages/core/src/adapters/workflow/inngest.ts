@@ -144,8 +144,11 @@ export function inngestAdapter(config: InngestAdapterConfig): WorkflowAdapter {
 				async ({ event, step }) => {
 					const payload = (event.data.payload ?? {}) as Record<string, unknown>;
 					const recipients = event.data.recipients as string[];
+					const transactionId = event.data.transactionId as string | undefined;
 
-					const handlerPayload = { ...payload };
+					// System-injected _transactionId wins over any user-supplied value to
+					// keep observability events reliably linked to the originating trigger.
+					const handlerPayload = { ...payload, _transactionId: transactionId };
 
 					// Execute workflow steps for each recipient
 					for (const subscriberId of recipients) {
