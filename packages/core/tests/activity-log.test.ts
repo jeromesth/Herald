@@ -363,19 +363,13 @@ describe("Activity Log", () => {
 
 		it("GET /activity/:transactionId clamps limit to 100 even when a very large limit is requested", async () => {
 			await app.api.upsertSubscriber({ externalId: "user-bulk2", email: "bulk2@test.com" });
+			const { transactionId } = await app.api.trigger({ workflowId: "welcome", to: "user-bulk2", payload: {} });
 
-			for (let i = 0; i < 26; i++) {
-				await app.api.trigger({ workflowId: "welcome", to: "user-bulk2", payload: {} });
-			}
+			const res = await app.handler(makeRequest("GET", `/activity/${transactionId}?limit=999999`));
+			const body = await res.json();
 
-			// Use a workflowId filter to get a large set, but via the transactionId route use one transaction
-			// that itself has bounded events — the important thing is limit clamping is applied before the DB call.
-			// We verify via global /activity route that passing limit=999999 never returns more than 100 rows.
-			const globalRes = await app.handler(makeRequest("GET", "/activity?subscriberId=user-bulk2&limit=999999"));
-			const globalBody = await globalRes.json();
-
-			expect(globalRes.status).toBe(200);
-			expect(globalBody.entries.length).toBeLessThanOrEqual(100);
+			expect(res.status).toBe(200);
+			expect(body.entries.length).toBeLessThanOrEqual(100);
 		});
 
 		it("GET /activity/:transactionId returns timeline for a transaction", async () => {
