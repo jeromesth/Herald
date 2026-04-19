@@ -2,7 +2,7 @@
 
 This document outlines planned features and the development roadmap for Herald. Items are organized by priority and category, with references to comparable features in Novu and Knock.app.
 
-## v0.1 — Foundation (Current)
+## v0.1 — Foundation `COMPLETE`
 
 - [x] Core `herald()` configuration with single config pattern
 - [x] Database adapter interface + Prisma adapter
@@ -13,7 +13,7 @@ This document outlines planned features and the development roadmap for Herald. 
 - [x] In-memory adapters for testing
 - [x] Full test suite
 
-## v0.2 — Channel Delivery
+## v0.2 — Channel Delivery `COMPLETE`
 
 Priority: **High** | Comparable: Novu Integrations, Knock Channels
 
@@ -23,7 +23,7 @@ Priority: **High** | Comparable: Novu Integrations, Knock Channels
 - [x] **Template rendering** — Handlebars-style template engine for notification content
 - [x] **Email layouts** — reusable HTML email layouts with variable interpolation
 
-## v0.2.5 — Postgres Workflow Engine
+## v0.2.5 — Postgres Workflow Engine `COMPLETE`
 
 Priority: **High** | Unique to Herald — zero-dependency workflow execution
 
@@ -69,7 +69,16 @@ Priority: **High** | Unique to Herald
 - [ ] **Kysely database adapter** — `heraldjs/kysely`
 - [ ] **MongoDB adapter** — `heraldjs/mongo`
 
-## v0.5 — Advanced Preferences
+## @herald/react-email — React Email Plugin `COMPLETE`
+
+Priority: **High** | Shipped as a standalone package
+
+- [x] **`reactEmailPlugin()`** — Herald plugin that registers the pass-through React Email layout
+- [x] **`renderReactEmail()`** — async helper that renders a React Email component to HTML (with a plain-text fallback by default) in the exact shape a Herald email step handler should return
+- [x] **`defineEmailTemplate()`** — helper for defining strongly-typed email templates; accepts a `Component`, `subject`, and optional `preview`, returns a typed `EmailTemplate` for use with `renderReactEmail()`
+- [x] **`reactEmailLayout`** — pass-through layout that delivers React-rendered HTML untouched (bypasses Herald's default HTML wrapper); exported alongside `REACT_EMAIL_LAYOUT_ID`
+
+## v0.5 — Advanced Preferences `COMPLETE`
 
 Priority: **Medium** | Comparable: Knock PreferenceSet, Novu Preferences
 
@@ -82,7 +91,7 @@ Priority: **Medium** | Comparable: Knock PreferenceSet, Novu Preferences
 - [x] **Bulk preference API** — batch update up to 100 subscribers via `PUT /preferences/bulk`
 - [x] **Refactor `preferenceGate` to chain-of-responsibility** — Replaced the monolithic `preferenceGate()` with an ordered array of 13 named `PreferenceCheck` functions (`criticalBypass`, `operatorEnforced`, `readOnlyChannel`, `channelKillSwitch`, `workflowPreference`, `categoryPreference`, `purposePreference`, `workflowConditions`, `authorChannelDefault`, `defaultWorkflow`, `defaultPurpose`, `defaultCategory`, `defaultChannelPref`). Each check returns `PreferenceGateResult | null`; `preferenceGate()` loops until the first non-null result or defaults to allow. All checks are individually exported for isolated testing. Originally discussed in PR #18.
 
-## v0.6 — Observability & Analytics
+## v0.6 — Observability & Analytics (Current)
 
 Priority: **Medium** | Comparable: Novu Activity Feed, Knock Message Events
 
@@ -197,7 +206,8 @@ Features mapped across Herald, Novu, and Knock.app:
 | Template engine | v0.2 | Yes | Yes |
 | Multi-tenancy | v0.9 | Yes | Yes |
 | i18n | v0.9 | Yes | Yes |
-| React components | v0.8 | Yes | Yes |
+| React Email templates | Shipped | Yes | Yes |
+| React inbox components | v0.8 | Yes | Yes |
 | Visual workflow editor | Plugin | Yes (Workflow Kit) | No |
 | Self-hosted | v0.1 | Partial | No |
 | Bring your own DB | v0.1 | No | No |
