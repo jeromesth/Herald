@@ -215,6 +215,27 @@ describe("upstashWorkflowAdapter", () => {
 			const response = await handler.handler(request);
 			expect(response.status).toBe(500);
 		});
+
+		it("handler 500 response hides real error message and returns generic message", async () => {
+			const adapter = upstashWorkflowAdapter({ token: "test-token" });
+			adapter.registerWorkflow(createTestWorkflow());
+
+			// biome-ignore lint/style/noNonNullAssertion: handler is always defined after registerWorkflow
+			const handler = adapter.getHandler()!;
+			// Invalid JSON causes request.json() to throw with a real error message
+			const request = new Request("http://localhost/api/herald", {
+				method: "POST",
+				body: "not valid json: secret-db-password",
+				headers: { "Content-Type": "application/json" },
+			});
+
+			const response = await handler.handler(request);
+			expect(response.status).toBe(500);
+
+			const body = await response.json();
+			expect(body.error).toBe("Internal server error");
+			expect(body.error).not.toContain("secret-db-password");
+		});
 	});
 
 	describe("step execution", () => {

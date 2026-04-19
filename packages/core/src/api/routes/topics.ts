@@ -60,8 +60,10 @@ export const topicRoutes = [
 		pattern: "/topics",
 		handler: async (request: Request, ctx: HeraldContext) => {
 			const url = new URL(request.url);
-			const limit = Number.parseInt(url.searchParams.get("limit") ?? "50", 10);
-			const offset = Number.parseInt(url.searchParams.get("offset") ?? "0", 10);
+			const rawLimit = Number.parseInt(url.searchParams.get("limit") ?? "20", 10);
+			const limit = Math.min(Math.max(Number.isNaN(rawLimit) ? 20 : rawLimit, 1), 200);
+			const rawOffset = Number.parseInt(url.searchParams.get("offset") ?? "0", 10);
+			const offset = Math.max(Number.isNaN(rawOffset) ? 0 : rawOffset, 0);
 
 			const topics = await ctx.db.findMany<TopicRecord>({
 				model: "topic",

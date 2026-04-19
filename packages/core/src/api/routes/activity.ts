@@ -20,17 +20,17 @@ export const activityRoutes = [
 			const rawLimit = Number.parseInt(url.searchParams.get("limit") ?? "50", 10);
 			const rawOffset = Number.parseInt(url.searchParams.get("offset") ?? "0", 10);
 
+			const limit = Math.min(Math.max(Number.isNaN(rawLimit) ? 50 : rawLimit, 1), 100);
+			const offset = Math.max(Number.isNaN(rawOffset) ? 0 : rawOffset, 0);
+
 			const { entries, totalCount } = await queryActivityLog(ctx, {
 				transactionId: url.searchParams.get("transactionId") ?? undefined,
 				workflowId: url.searchParams.get("workflowId") ?? undefined,
 				subscriberId: url.searchParams.get("subscriberId") ?? undefined,
 				event: url.searchParams.get("event") ?? undefined,
-				limit: Number.isNaN(rawLimit) ? 50 : rawLimit,
-				offset: Number.isNaN(rawOffset) ? 0 : rawOffset,
+				limit,
+				offset,
 			});
-
-			const limit = Math.min(Math.max(Number.isNaN(rawLimit) ? 50 : rawLimit, 1), 100);
-			const offset = Math.max(Number.isNaN(rawOffset) ? 0 : rawOffset, 0);
 
 			return jsonResponse({
 				entries,
@@ -46,18 +46,16 @@ export const activityRoutes = [
 			const url = new URL(request.url);
 			const rawLimit = Number.parseInt(url.searchParams.get("limit") ?? "100", 10);
 			const rawOffset = Number.parseInt(url.searchParams.get("offset") ?? "0", 10);
-			const limitParam = Number.isNaN(rawLimit) ? 100 : rawLimit;
-			const offsetParam = Number.isNaN(rawOffset) ? 0 : rawOffset;
+
+			const limit = Math.min(Math.max(Number.isNaN(rawLimit) ? 100 : rawLimit, 1), 100);
+			const offset = Math.max(Number.isNaN(rawOffset) ? 0 : rawOffset, 0);
 
 			const { entries, totalCount } = await queryActivityLog(ctx, {
 				transactionId: params.transactionId,
-				limit: limitParam,
-				offset: offsetParam,
+				limit,
+				offset,
 				sortDirection: "asc",
 			});
-
-			const limit = Math.min(Math.max(limitParam, 1), 100);
-			const offset = Math.max(offsetParam, 0);
 
 			return jsonResponse({ entries, totalCount, hasMore: offset + limit < totalCount });
 		},

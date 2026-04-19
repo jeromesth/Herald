@@ -346,6 +346,32 @@ describe("Activity Log", () => {
 			expect(body.hasMore).toBe(true);
 		});
 
+		it("GET /activity clamps limit to 100 even when a very large limit is requested", async () => {
+			await app.api.upsertSubscriber({ externalId: "user-bulk", email: "bulk@test.com" });
+
+			// Trigger enough times to produce >100 activity log entries (each trigger produces ~4 events)
+			for (let i = 0; i < 26; i++) {
+				await app.api.trigger({ workflowId: "welcome", to: "user-bulk", payload: {} });
+			}
+
+			const res = await app.handler(makeRequest("GET", "/activity?limit=999999"));
+			const body = await res.json();
+
+			expect(res.status).toBe(200);
+			expect(body.entries.length).toBeLessThanOrEqual(100);
+		});
+
+		it("GET /activity/:transactionId clamps limit to 100 even when a very large limit is requested", async () => {
+			await app.api.upsertSubscriber({ externalId: "user-bulk2", email: "bulk2@test.com" });
+			const { transactionId } = await app.api.trigger({ workflowId: "welcome", to: "user-bulk2", payload: {} });
+
+			const res = await app.handler(makeRequest("GET", `/activity/${transactionId}?limit=999999`));
+			const body = await res.json();
+
+			expect(res.status).toBe(200);
+			expect(body.entries.length).toBeLessThanOrEqual(100);
+		});
+
 		it("GET /activity/:transactionId returns timeline for a transaction", async () => {
 			await app.api.upsertSubscriber({ externalId: "user-1", email: "u@test.com" });
 			const { transactionId } = await app.api.trigger({ workflowId: "welcome", to: "user-1", payload: {} });

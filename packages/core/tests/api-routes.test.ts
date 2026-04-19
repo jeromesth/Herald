@@ -209,6 +209,45 @@ describe("API Routes — extended coverage", () => {
 			const res = await app.handler(makeRequest("GET", "/notifications/user-1?seen=true&archived=false"));
 			expect(res.status).toBe(200);
 		});
+
+		it("returns 200 OK when offset is not a number", async () => {
+			await app.api.upsertSubscriber({ externalId: "user-1" });
+			const res = await app.handler(makeRequest("GET", "/notifications/user-1?offset=notanumber"));
+			expect(res.status).toBe(200);
+			const body = await json(res);
+			expect(body.notifications).toBeDefined();
+			expect(Array.isArray(body.notifications)).toBe(true);
+		});
+
+		it("caps the effective limit at 200 even when more records exist", async () => {
+			await app.api.upsertSubscriber({ externalId: "user-cap" });
+			const subscriber = await app.api.getSubscriber("user-cap");
+
+			// Seed 201 notifications
+			for (let i = 0; i < 201; i++) {
+				await app.$context.db.create({
+					model: "notification",
+					data: {
+						id: crypto.randomUUID(),
+						subscriberId: subscriber?.id,
+						workflowId: "test",
+						channel: "in_app",
+						body: `Notification ${i}`,
+						read: false,
+						seen: false,
+						archived: false,
+						deliveryStatus: "delivered",
+						transactionId: `tx-cap-${i}`,
+						createdAt: new Date(),
+					},
+				});
+			}
+
+			const res = await app.handler(makeRequest("GET", "/notifications/user-cap?limit=999999"));
+			expect(res.status).toBe(200);
+			const body = await json(res);
+			expect(body.notifications.length).toBeLessThanOrEqual(200);
+		});
 	});
 
 	describe("GET /notifications/:subscriberId/count", () => {
@@ -412,6 +451,26 @@ describe("API Routes — extended coverage", () => {
 			expect(res.status).toBe(200);
 			const body = await json(res);
 			expect(body.topics).toHaveLength(2);
+		});
+
+		it("returns 200 OK when offset is not a number", async () => {
+			const res = await app.handler(makeRequest("GET", "/topics?offset=notanumber"));
+			expect(res.status).toBe(200);
+			const body = await json(res);
+			expect(body.topics).toBeDefined();
+			expect(Array.isArray(body.topics)).toBe(true);
+		});
+
+		it("caps the effective limit at 200 even when more records exist", async () => {
+			// Seed 201 topics
+			for (let i = 0; i < 201; i++) {
+				await app.handler(makeRequest("POST", "/topics", { key: `cap-topic-${i}`, name: `Cap Topic ${i}` }));
+			}
+
+			const res = await app.handler(makeRequest("GET", "/topics?limit=999999"));
+			expect(res.status).toBe(200);
+			const body = await json(res);
+			expect(body.topics.length).toBeLessThanOrEqual(200);
 		});
 	});
 

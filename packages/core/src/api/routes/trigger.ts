@@ -2,6 +2,10 @@ import type { HeraldContext } from "../../types/config.js";
 import type { HeraldPlugin } from "../../types/plugin.js";
 import { jsonResponse, parseJsonBody } from "../router.js";
 
+// Herald is a headless library — these endpoints are intentionally unauthenticated.
+// Callers must wrap herald().handler with their own auth middleware before exposing
+// it to the internet. See README for an example.
+
 type PluginHooks = NonNullable<HeraldPlugin["hooks"]>;
 type HookArgs<K extends keyof PluginHooks> = PluginHooks[K] extends ((a: infer A) => unknown) | undefined ? A : never;
 

@@ -8,7 +8,11 @@ import { type TemplateContext, renderTemplate } from "./engine.js";
 export interface EmailLayout {
 	/** Unique layout identifier. */
 	id: string;
-	/** HTML template with a {{{ content }}} slot for the body. */
+	/**
+	 * HTML template with a {{{ content }}} slot for the body.
+	 * WARNING: {{{ }}} triple-stache in body templates skips HTML escaping.
+	 * Never use {{{ payload.X }}} with untrusted user-controlled content — use {{ }} instead.
+	 */
 	html: string;
 	/** Optional plain-text template with a {{ content }} slot. */
 	text?: string;
