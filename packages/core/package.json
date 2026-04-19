@@ -1,6 +1,6 @@
 {
 	"name": "heraldjs",
-	"version": "0.5.0",
+	"version": "0.6.0",
 	"description": "Open-source headless notification system for TypeScript. Build notification workflows on your own infrastructure.",
 	"type": "module",
 	"main": "./dist/index.mjs",

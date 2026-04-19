@@ -5,16 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.6.0] - 2026-04-19
+
+### Added
+- **Activity log** — tracks all notification lifecycle events (11 event types: workflow triggered/completed/failed, step started/completed/failed, notification sent/delivered/bounced/failed, preference blocked). Accessible via `GET /activity` and `GET /activity/:transactionId`.
+- **Delivery tracking** — `sent`, `delivered`, `bounced`, `failed` status per message with `updateDeliveryStatus` API.
+- **Webhook events** — emit webhooks for notification lifecycle events with HMAC-SHA256 signing, event filtering, and custom headers.
+- **`@herald/react-email` plugin** — strongly-typed React Email integration. `reactEmailPlugin()`, `renderReactEmail()`, `defineEmailTemplate()`, `reactEmailLayout`.
 
 ### Fixed
-- **Type resolution broken for consumers**: `package.json` exports declared `.d.mts` files but tsup was emitting `.d.ts`. Under `moduleResolution: "bundler"` (the declared config) this silently broke type imports for anyone installing the package. Exports map and `types` field updated to reference the actual `.d.ts` files tsup produces; `tsup.config.ts` cleaned up accordingly.
+- **Type resolution broken for consumers**: `package.json` exports declared `.d.mts` files but tsup was emitting `.d.ts`. Under `moduleResolution: "bundler"` this silently broke type imports. Exports map and `types` field now reference the actual `.d.ts` files tsup produces.
+- **DoS: uncapped `?limit=` in list endpoints** — notifications, topics, and activity routes now cap at 200/100 respectively; activity route was clamping after the DB call rather than before.
+- **DoS: `?offset=` NaN not guarded** — `parseInt("abc")` returns `NaN`; notifications and topics routes now default to 0.
+- **Upstash adapter leaked internal error message in 500 responses** — now logs real error server-side and returns generic `"Internal server error"`.
+- **`@react-email/render` peer dep too loose** — `>=0.0.15` allowed the incompatible `0.x` async-render API; tightened to `>=1.0.0`.
+- **`heraldjs` peer dep in react-email used `workspace:*`** — doesn't rewrite on `npm publish`; changed to `>=0.5.0`.
 
 ### Changed
-- **BREAKING (pre-1.0)**: npm scope renamed from `@herald/core` to `heraldjs`. Update imports and install commands accordingly. The `@herald` scope was unavailable on npm.
+- **BREAKING (pre-1.0)**: npm package renamed from `@herald/core` to `heraldjs`. Update your install command and all imports. Sub-path imports follow the same pattern: `heraldjs/prisma`, `heraldjs/inngest`, etc.
 - LICENSE copyright holder updated to full legal name.
-- `package.json`: canonical `repository` URL, added `homepage`, `bugs`, `author`, `sideEffects: false` for better tree-shaking and discoverability on npm.
-- `prepack`/`postpack` scripts copy root README.md and LICENSE into the package directory during publish so consumers see correct content on npm.
+- `package.json`: canonical `repository` URL, `homepage`, `bugs`, `author`, `sideEffects: false`.
+- `prepack`/`postpack` scripts copy root README.md and LICENSE into the package during publish.
+
+### Security
+- **Trigger endpoint auth**: `herald().handler` is intentionally unauthenticated — Herald is a headless library. Callers must add their own auth middleware before exposing the handler in production. This is now documented in `trigger.ts` and the README.
+- **Template triple-stache XSS**: `{{{ }}}` in Handlebars body templates skips HTML escaping. Using `{{{ payload.X }}}` with untrusted user input is an XSS vector in email. Warning added to `EmailLayout` JSDoc.
 
 ## [0.5.0] - 2026-03-30
 
