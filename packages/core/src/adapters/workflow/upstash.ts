@@ -246,8 +246,11 @@ export function upstashWorkflowAdapter(config: UpstashWorkflowConfig): WorkflowA
 							headers: { "Content-Type": "application/json" },
 						});
 					} catch (error) {
-						const message = error instanceof Error ? error.message : "Internal server error";
-						return new Response(JSON.stringify({ error: message }), { status: 500, headers: { "Content-Type": "application/json" } });
+						console.error("[herald/upstash] handler error:", error);
+						return new Response(JSON.stringify({ error: "Internal server error" }), {
+							status: 500,
+							headers: { "Content-Type": "application/json" },
+						});
 					}
 				},
 			};
