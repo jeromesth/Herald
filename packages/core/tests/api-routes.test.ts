@@ -210,6 +210,15 @@ describe("API Routes — extended coverage", () => {
 			expect(res.status).toBe(200);
 		});
 
+		it("returns 200 OK when offset is not a number", async () => {
+			await app.api.upsertSubscriber({ externalId: "user-1" });
+			const res = await app.handler(makeRequest("GET", "/notifications/user-1?offset=notanumber"));
+			expect(res.status).toBe(200);
+			const body = await json(res);
+			expect(body.notifications).toBeDefined();
+			expect(Array.isArray(body.notifications)).toBe(true);
+		});
+
 		it("caps the effective limit at 200 even when more records exist", async () => {
 			await app.api.upsertSubscriber({ externalId: "user-cap" });
 			const subscriber = await app.api.getSubscriber("user-cap");
@@ -442,6 +451,14 @@ describe("API Routes — extended coverage", () => {
 			expect(res.status).toBe(200);
 			const body = await json(res);
 			expect(body.topics).toHaveLength(2);
+		});
+
+		it("returns 200 OK when offset is not a number", async () => {
+			const res = await app.handler(makeRequest("GET", "/topics?offset=notanumber"));
+			expect(res.status).toBe(200);
+			const body = await json(res);
+			expect(body.topics).toBeDefined();
+			expect(Array.isArray(body.topics)).toBe(true);
 		});
 
 		it("clamps an oversized limit to 200", async () => {
