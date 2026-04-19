@@ -6,7 +6,7 @@
  *
  * @example
  * ```ts
- * import { upstashWorkflowAdapter } from "@herald/core/upstash";
+ * import { upstashWorkflowAdapter } from "heraldjs/upstash";
  *
  * const workflow = upstashWorkflowAdapter({
  *   token: process.env.QSTASH_TOKEN,

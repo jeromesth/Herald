@@ -1,54 +1,54 @@
 {
-	"name": "@herald/core",
+	"name": "heraldjs",
 	"version": "0.5.0",
 	"description": "Open-source headless notification system for TypeScript. Build notification workflows on your own infrastructure.",
 	"type": "module",
 	"main": "./dist/index.mjs",
 	"module": "./dist/index.mjs",
-	"types": "./dist/index.d.mts",
+	"types": "./dist/index.d.ts",
 	"exports": {
 		".": {
-			"types": "./dist/index.d.mts",
+			"types": "./dist/index.d.ts",
 			"default": "./dist/index.mjs"
 		},
 		"./prisma": {
-			"types": "./dist/adapters/database/prisma.d.mts",
+			"types": "./dist/adapters/database/prisma.d.ts",
 			"default": "./dist/adapters/database/prisma.mjs"
 		},
 		"./inngest": {
-			"types": "./dist/adapters/workflow/inngest.d.mts",
+			"types": "./dist/adapters/workflow/inngest.d.ts",
 			"default": "./dist/adapters/workflow/inngest.mjs"
 		},
 		"./postgres": {
-			"types": "./dist/adapters/workflow/postgres.d.mts",
+			"types": "./dist/adapters/workflow/postgres.d.ts",
 			"default": "./dist/adapters/workflow/postgres.mjs"
 		},
 		"./drizzle": {
-			"types": "./dist/adapters/database/drizzle.d.mts",
+			"types": "./dist/adapters/database/drizzle.d.ts",
 			"default": "./dist/adapters/database/drizzle.mjs"
 		},
 		"./upstash": {
-			"types": "./dist/adapters/workflow/upstash.d.mts",
+			"types": "./dist/adapters/workflow/upstash.d.ts",
 			"default": "./dist/adapters/workflow/upstash.mjs"
 		},
 		"./memory": {
-			"types": "./dist/adapters/memory.d.mts",
+			"types": "./dist/adapters/memory.d.ts",
 			"default": "./dist/adapters/memory.mjs"
 		},
 		"./api": {
-			"types": "./dist/api/index.d.mts",
+			"types": "./dist/api/index.d.ts",
 			"default": "./dist/api/index.mjs"
 		},
 		"./channels": {
-			"types": "./dist/channels/index.d.mts",
+			"types": "./dist/channels/index.d.ts",
 			"default": "./dist/channels/index.mjs"
 		},
 		"./channels/email": {
-			"types": "./dist/channels/email/index.d.mts",
+			"types": "./dist/channels/email/index.d.ts",
 			"default": "./dist/channels/email/index.mjs"
 		},
 		"./templates": {
-			"types": "./dist/templates/index.d.mts",
+			"types": "./dist/templates/index.d.ts",
 			"default": "./dist/templates/index.mjs"
 		}
 	},
@@ -58,7 +58,9 @@
 		"dev": "tsup --watch",
 		"typecheck": "tsc --noEmit",
 		"test": "vitest run",
-		"clean": "rm -rf dist"
+		"clean": "rm -rf dist",
+		"prepack": "cp ../../README.md ./README.md && cp ../../LICENSE ./LICENSE",
+		"postpack": "rm -f ./README.md ./LICENSE"
 	},
 	"dependencies": {
 		"zod": "^3.24.0"
@@ -117,8 +119,15 @@
 		"templates"
 	],
 	"license": "MIT",
+	"author": "Jerome St-Hilaire",
+	"homepage": "https://github.com/jeromesth/herald#readme",
+	"bugs": {
+		"url": "https://github.com/jeromesth/herald/issues"
+	},
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/jeromesth/herald"
-	}
+		"url": "git+https://github.com/jeromesth/herald.git",
+		"directory": "packages/core"
+	},
+	"sideEffects": false
 }

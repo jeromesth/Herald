@@ -6,7 +6,7 @@
  *
  * @example
  * ```ts
- * import { postgresWorkflowAdapter } from "@herald/core/postgres";
+ * import { postgresWorkflowAdapter } from "heraldjs/postgres";
  *
  * const workflow = postgresWorkflowAdapter({
  *   connectionString: process.env.DATABASE_URL,

@@ -6,7 +6,7 @@
  *
  * @example
  * ```ts
- * import { heraldSchema } from "@herald/core/drizzle";
+ * import { heraldSchema } from "heraldjs/drizzle";
  * import { drizzle } from "drizzle-orm/node-postgres";
  *
  * const db = drizzle(pool, { schema: heraldSchema });

@@ -20,5 +20,5 @@ export default defineConfig({
 	clean: true,
 	treeshake: true,
 	splitting: true,
-	outExtension: () => ({ js: ".mjs", dts: ".d.mts" }),
+	outExtension: () => ({ js: ".mjs" }),
 });
