@@ -1,0 +1,44 @@
+{
+	"name": "@herald/react-email",
+	"version": "0.1.0",
+	"description": "React Email integration for Herald — strongly-typed email templates authored as React components.",
+	"type": "module",
+	"main": "./dist/index.mjs",
+	"module": "./dist/index.mjs",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.mjs"
+		}
+	},
+	"files": ["dist", "README.md", "LICENSE"],
+	"scripts": {
+		"build": "tsup",
+		"dev": "tsup --watch",
+		"typecheck": "tsc --noEmit",
+		"test": "vitest run",
+		"clean": "rm -rf dist"
+	},
+	"peerDependencies": {
+		"@herald/core": "workspace:*",
+		"@react-email/render": ">=0.0.15",
+		"react": ">=18"
+	},
+	"devDependencies": {
+		"@herald/core": "workspace:*",
+		"@react-email/render": "^1.0.0",
+		"@types/react": "^19.0.0",
+		"react": "^19.0.0",
+		"react-dom": "^19.0.0",
+		"tsup": "^8.4.0",
+		"typescript": "^5.7.0"
+	},
+	"keywords": ["herald", "react-email", "email", "templates", "notifications", "typescript", "plugin"],
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/jeromesth/herald",
+		"directory": "packages/react-email"
+	}
+}
