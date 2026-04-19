@@ -57,15 +57,15 @@ importers:
 
   packages/react-email:
     devDependencies:
+      '@jeromesth/herald':
+        specifier: workspace:*
+        version: link:../core
       '@react-email/render':
         specifier: ^1.0.0
         version: 1.4.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       '@types/react':
         specifier: ^19.0.0
         version: 19.2.14
-      heraldjs:
-        specifier: workspace:*
-        version: link:../core
       react:
         specifier: ^19.0.0
         version: 19.2.5

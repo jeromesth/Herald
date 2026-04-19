@@ -4,7 +4,7 @@
 		"jsx": "react-jsx",
 		"baseUrl": ".",
 		"paths": {
-			"heraldjs": ["../core/src/index.ts"]
+			"@jeromesth/herald": ["../core/src/index.ts"]
 		}
 	},
 	"include": ["src/**/*", "tests/**/*"]

@@ -1,5 +1,5 @@
-import type { HeraldPlugin } from "heraldjs";
-import type { HeraldContext } from "heraldjs";
+import type { HeraldPlugin } from "@jeromesth/herald";
+import type { HeraldContext } from "@jeromesth/herald";
 import { reactEmailLayout } from "./layout.js";
 
 /**
@@ -12,7 +12,7 @@ import { reactEmailLayout } from "./layout.js";
  *
  * @example
  * ```ts
- * import { herald } from "heraldjs";
+ * import { herald } from "@jeromesth/herald";
  * import { reactEmailPlugin } from "@herald/react-email";
  *
  * const app = herald({

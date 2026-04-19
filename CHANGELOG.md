@@ -19,10 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **DoS: `?offset=` NaN not guarded** — `parseInt("abc")` returns `NaN`; notifications and topics routes now default to 0.
 - **Upstash adapter leaked internal error message in 500 responses** — now logs real error server-side and returns generic `"Internal server error"`.
 - **`@react-email/render` peer dep too loose** — `>=0.0.15` allowed the incompatible `0.x` async-render API; tightened to `>=1.0.0`.
-- **`heraldjs` peer dep in react-email used `workspace:*`** — doesn't rewrite on `npm publish`; changed to `>=0.5.0`.
+- **`@jeromesth/herald` peer dep in react-email used `workspace:*`** — doesn't rewrite on `npm publish`; changed to `>=0.5.0`.
 
 ### Changed
-- **BREAKING (pre-1.0)**: npm package renamed from `@herald/core` to `heraldjs`. Update your install command and all imports. Sub-path imports follow the same pattern: `heraldjs/prisma`, `heraldjs/inngest`, etc.
+- **BREAKING (pre-1.0)**: npm package renamed from `@herald/core` to `@jeromesth/herald`. Update your install command and all imports. Sub-path imports follow the same pattern: `@jeromesth/herald/prisma`, `@jeromesth/herald/inngest`, etc.
 - LICENSE copyright holder updated to full legal name.
 - `package.json`: canonical `repository` URL, `homepage`, `bugs`, `author`, `sideEffects: false`.
 - `prepack`/`postpack` scripts copy root README.md and LICENSE into the package during publish.

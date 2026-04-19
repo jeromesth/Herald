@@ -26,9 +26,9 @@ pnpm add inngest
 Before:
 
 ```ts
-import { herald } from "heraldjs";
-import { prismaAdapter } from "heraldjs/prisma";
-import { postgresWorkflowAdapter } from "heraldjs/postgres-workflow";
+import { herald } from "@jeromesth/herald";
+import { prismaAdapter } from "@jeromesth/herald/prisma";
+import { postgresWorkflowAdapter } from "@jeromesth/herald/postgres-workflow";
 
 const app = herald({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
@@ -40,9 +40,9 @@ const app = herald({
 After:
 
 ```ts
-import { herald } from "heraldjs";
-import { prismaAdapter } from "heraldjs/prisma";
-import { inngestAdapter } from "heraldjs/inngest";
+import { herald } from "@jeromesth/herald";
+import { prismaAdapter } from "@jeromesth/herald/prisma";
+import { inngestAdapter } from "@jeromesth/herald/inngest";
 import { Inngest } from "inngest";
 
 const inngest = new Inngest({ id: "my-app" });

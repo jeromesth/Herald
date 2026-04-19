@@ -38,9 +38,9 @@ import { wrapWorkflow } from "./workflow-runtime.js";
  *
  * @example
  * ```ts
- * import { herald } from "heraldjs";
- * import { prismaAdapter } from "heraldjs/prisma";
- * import { inngestAdapter } from "heraldjs/inngest";
+ * import { herald } from "@jeromesth/herald";
+ * import { prismaAdapter } from "@jeromesth/herald/prisma";
+ * import { inngestAdapter } from "@jeromesth/herald/inngest";
  *
  * const notifications = herald({
  *   database: prismaAdapter(prisma),

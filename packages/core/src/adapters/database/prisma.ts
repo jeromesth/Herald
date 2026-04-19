@@ -7,7 +7,7 @@
  * @example
  * ```ts
  * import { PrismaClient } from "@prisma/client";
- * import { prismaAdapter } from "heraldjs/prisma";
+ * import { prismaAdapter } from "@jeromesth/herald/prisma";
  *
  * const prisma = new PrismaClient();
  * const adapter = prismaAdapter(prisma, { provider: "postgresql" });

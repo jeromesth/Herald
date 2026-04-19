@@ -7,7 +7,7 @@
  * @example
  * ```ts
  * import { Inngest } from "inngest";
- * import { inngestAdapter } from "heraldjs/inngest";
+ * import { inngestAdapter } from "@jeromesth/herald/inngest";
  *
  * const inngest = new Inngest({ id: "my-app" });
  * const workflow = inngestAdapter({ client: inngest });
