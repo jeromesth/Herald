@@ -9,7 +9,7 @@ Herald uses pnpm workspaces with a single package:
 
 ```
 packages/
-  core/              # @herald/core — the entire system
+  core/              # heraldjs — the entire system
     src/
       adapters/      # Database & workflow adapter implementations
       api/           # REST API router and route handlers

@@ -1,5 +1,5 @@
 {
-	"name": "@herald/monorepo",
+	"name": "@heraldjs/monorepo",
 	"private": true,
 	"description": "Open-source headless notification system for TypeScript",
 	"scripts": {

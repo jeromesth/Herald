@@ -10,6 +10,6 @@ export default defineConfig({
 	clean: true,
 	treeshake: true,
 	splitting: false,
-	external: ["react", "react-dom", "@react-email/render", "@herald/core"],
+	external: ["react", "react-dom", "@react-email/render", "heraldjs"],
 	outExtension: () => ({ js: ".mjs" }),
 });

@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **Type resolution broken for consumers**: `package.json` exports declared `.d.mts` files but tsup was emitting `.d.ts`. Under `moduleResolution: "bundler"` (the declared config) this silently broke type imports for anyone installing the package. Exports map and `types` field updated to reference the actual `.d.ts` files tsup produces; `tsup.config.ts` cleaned up accordingly.
+
+### Changed
+- **BREAKING (pre-1.0)**: npm scope renamed from `@herald/core` to `heraldjs`. Update imports and install commands accordingly. The `@herald` scope was unavailable on npm.
+- LICENSE copyright holder updated to full legal name.
+- `package.json`: canonical `repository` URL, added `homepage`, `bugs`, `author`, `sideEffects: false` for better tree-shaking and discoverability on npm.
+- `prepack`/`postpack` scripts copy root README.md and LICENSE into the package directory during publish so consumers see correct content on npm.
+
 ## [0.5.0] - 2026-03-30
 
 ### Added

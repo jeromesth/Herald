@@ -18,7 +18,7 @@ pnpm typecheck      # TypeScript type checking
 
 ```
 herald/                          # pnpm monorepo
-├── packages/core/               # @herald/core — the main library
+├── packages/core/               # heraldjs — the main library
 │   ├── src/
 │   │   ├── index.ts             # Public exports
 │   │   ├── core/                # Core logic

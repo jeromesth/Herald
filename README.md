@@ -39,7 +39,7 @@ Think of it as the **better-auth for notifications**: one config file, bring you
 
 ```bash
 # Core library
-pnpm add @herald/core
+pnpm add heraldjs
 
 # Pick your database adapter
 pnpm add @prisma/client
@@ -54,9 +54,9 @@ Herald follows the same single-config pattern as [better-auth](https://github.co
 
 ```typescript
 // lib/notifications.ts
-import { herald } from "@herald/core";
-import { prismaAdapter } from "@herald/core/prisma";
-import { inngestAdapter } from "@herald/core/inngest";
+import { herald } from "heraldjs";
+import { prismaAdapter } from "heraldjs/prisma";
+import { inngestAdapter } from "heraldjs/inngest";
 import { PrismaClient } from "@prisma/client";
 import { Inngest } from "inngest";
 
@@ -236,11 +236,11 @@ Herald uses a generic database adapter interface (same pattern as better-auth). 
 
 | Adapter | Import | Status |
 |---------|--------|--------|
-| **Prisma** | `@herald/core/prisma` | Available |
-| **Drizzle** | `@herald/core/drizzle` | Available |
-| **Kysely** | `@herald/core/kysely` | Planned |
-| **MikroORM** | `@herald/core/mikro-orm` | Planned |
-| **MongoDB** | `@herald/core/mongo` | Planned |
+| **Prisma** | `heraldjs/prisma` | Available |
+| **Drizzle** | `heraldjs/drizzle` | Available |
+| **Kysely** | `heraldjs/kysely` | Planned |
+| **MikroORM** | `heraldjs/mikro-orm` | Planned |
+| **MongoDB** | `heraldjs/mongo` | Planned |
 
 ### Workflow Adapters
 
@@ -248,11 +248,11 @@ Herald delegates workflow execution to your preferred engine:
 
 | Adapter | Import | Status |
 |---------|--------|--------|
-| **Inngest** | `@herald/core/inngest` | Available |
-| **Postgres** | `@herald/core/postgres` | Available |
-| **Upstash Workflow** | `@herald/core/upstash` | Available |
-| **Temporal** | `@herald/core/temporal` | Planned |
-| **Trigger.dev** | `@herald/core/trigger` | Planned |
+| **Inngest** | `heraldjs/inngest` | Available |
+| **Postgres** | `heraldjs/postgres` | Available |
+| **Upstash Workflow** | `heraldjs/upstash` | Available |
+| **Temporal** | `heraldjs/temporal` | Planned |
+| **Trigger.dev** | `heraldjs/trigger` | Planned |
 
 ## Database Schema
 
@@ -277,8 +277,8 @@ Herald supports a plugin system inspired by better-auth. Plugins can:
 - **Inject context** — add custom data to the Herald context
 
 ```typescript
-import { herald } from "@herald/core";
-import type { HeraldPlugin } from "@herald/core";
+import { herald } from "heraldjs";
+import type { HeraldPlugin } from "heraldjs";
 
 const analyticsPlugin: HeraldPlugin = {
   id: "analytics",

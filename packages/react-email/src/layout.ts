@@ -1,4 +1,4 @@
-import type { EmailLayout } from "@herald/core";
+import type { EmailLayout } from "heraldjs";
 
 /**
  * Layout id reserved for React Email templates.

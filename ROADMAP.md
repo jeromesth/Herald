@@ -62,12 +62,12 @@ Priority: **High** | Comparable: Novu Digest/Delay, Knock Function Steps
 
 Priority: **High** | Unique to Herald
 
-- [x] **Drizzle database adapter** — `@herald/core/drizzle`
-- [x] **Postgres workflow adapter** — `@herald/core/postgres` (see v0.2.5)
-- [x] **Upstash Workflow adapter** — `@herald/core/upstash`
-- [ ] **Trigger.dev adapter** — `@herald/core/trigger`
-- [ ] **Kysely database adapter** — `@herald/core/kysely`
-- [ ] **MongoDB adapter** — `@herald/core/mongo`
+- [x] **Drizzle database adapter** — `heraldjs/drizzle`
+- [x] **Postgres workflow adapter** — `heraldjs/postgres` (see v0.2.5)
+- [x] **Upstash Workflow adapter** — `heraldjs/upstash`
+- [ ] **Trigger.dev adapter** — `heraldjs/trigger`
+- [ ] **Kysely database adapter** — `heraldjs/kysely`
+- [ ] **MongoDB adapter** — `heraldjs/mongo`
 
 ## v0.5 — Advanced Preferences
 
@@ -98,7 +98,7 @@ Priority: **Medium** | Comparable: Novu Activity Feed, Knock Message Events
 
 Priority: **Medium** | Prerequisite for extractable observability
 
-The observability system (v0.6) is currently in core, gated behind `activityLog: true`. It should be extractable into a standalone plugin (`@herald/plugin-observability`), but the current plugin hook surface is too narrow — only 6 hooks exist, while the activity system fires at 11 distinct lifecycle points. This phase closes that gap.
+The observability system (v0.6) is currently in core, gated behind `activityLog: true`. It should be extractable into a standalone plugin (`@heraldjs/plugin-observability`), but the current plugin hook surface is too narrow — only 6 hooks exist, while the activity system fires at 11 distinct lifecycle points. This phase closes that gap.
 
 **Phase 1 — Generalized event bus hook:**
 
@@ -108,7 +108,7 @@ The observability system (v0.6) is currently in core, gated behind `activityLog:
 
 **Phase 2 — Extract observability to plugin:**
 
-- [ ] **Create `@herald/plugin-observability`** — move `recordActivity`, `queryActivityLog`, `emitWebhookEvent`, and `emitEvent` into a plugin that uses the `onEvent` hook.
+- [ ] **Create `@heraldjs/plugin-observability`** — move `recordActivity`, `queryActivityLog`, `emitWebhookEvent`, and `emitEvent` into a plugin that uses the `onEvent` hook.
 - [ ] **Move activity routes to plugin endpoints** — `/activity`, `/activity/:transactionId`, and `/delivery-status` routes registered via `plugin.endpoints` instead of core router.
 - [ ] **Move activityLog schema to plugin schema** — table definition provided via `plugin.schema` and merged at init.
 - [ ] **Move `updateDeliveryStatus` out of core API** — expose as a plugin-provided helper or endpoint rather than a `HeraldAPI` method.
@@ -162,7 +162,7 @@ These features are candidates for the plugin system rather than core:
 
 | Plugin | Description | Priority |
 |--------|-------------|----------|
-| **workflow-kit** | Visual workflow editor UI — developers define steps in code, non-developers configure them via a drag-and-drop React component. Inspired by Inngest Workflow Kit and Novu Framework: code-first workflow definitions with a visual layer for editing steps, conditions, delays, and channel routing without redeploying. Ships as `@herald/workflow-kit` (React) with a headless `@herald/workflow-kit-core` for other frameworks. | **High** |
+| **workflow-kit** | Visual workflow editor UI — developers define steps in code, non-developers configure them via a drag-and-drop React component. Inspired by Inngest Workflow Kit and Novu Framework: code-first workflow definitions with a visual layer for editing steps, conditions, delays, and channel routing without redeploying. Ships as `@heraldjs/workflow-kit` (React) with a headless `@heraldjs/workflow-kit-core` for other frameworks. | **High** |
 | **observability** | Activity log, delivery tracking, and webhook events — currently in core (v0.6), planned extraction in v0.6.5 | **High** |
 | **analytics** | Notification delivery and engagement analytics, builds on observability plugin events | Medium |
 | **audit-log** | Full audit trail of all notification operations | Medium |
