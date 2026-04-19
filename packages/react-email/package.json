@@ -21,7 +21,7 @@
 		"clean": "rm -rf dist"
 	},
 	"peerDependencies": {
-		"heraldjs": "workspace:*",
+		"heraldjs": ">=0.5.0",
 		"@react-email/render": ">=0.0.15",
 		"react": ">=18"
 	},
