@@ -7,7 +7,8 @@ export const notificationRoutes = [
 		pattern: "/notifications/:subscriberId",
 		handler: async (request: Request, ctx: HeraldContext, params: Record<string, string>) => {
 			const url = new URL(request.url);
-			const limit = Number.parseInt(url.searchParams.get("limit") ?? "20", 10);
+			const rawLimit = Number.parseInt(url.searchParams.get("limit") ?? "20", 10);
+			const limit = Math.min(Math.max(Number.isNaN(rawLimit) ? 20 : rawLimit, 1), 200);
 			const offset = Number.parseInt(url.searchParams.get("offset") ?? "0", 10);
 			const read = url.searchParams.has("read") ? url.searchParams.get("read") !== "false" : undefined;
 			const seen = url.searchParams.has("seen") ? url.searchParams.get("seen") !== "false" : undefined;

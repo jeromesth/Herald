@@ -209,6 +209,36 @@ describe("API Routes — extended coverage", () => {
 			const res = await app.handler(makeRequest("GET", "/notifications/user-1?seen=true&archived=false"));
 			expect(res.status).toBe(200);
 		});
+
+		it("caps the effective limit at 200 even when more records exist", async () => {
+			await app.api.upsertSubscriber({ externalId: "user-cap" });
+			const subscriber = await app.api.getSubscriber("user-cap");
+
+			// Seed 201 notifications
+			for (let i = 0; i < 201; i++) {
+				await app.$context.db.create({
+					model: "notification",
+					data: {
+						id: crypto.randomUUID(),
+						subscriberId: subscriber?.id,
+						workflowId: "test",
+						channel: "in_app",
+						body: `Notification ${i}`,
+						read: false,
+						seen: false,
+						archived: false,
+						deliveryStatus: "delivered",
+						transactionId: `tx-cap-${i}`,
+						createdAt: new Date(),
+					},
+				});
+			}
+
+			const res = await app.handler(makeRequest("GET", "/notifications/user-cap?limit=999999"));
+			expect(res.status).toBe(200);
+			const body = await json(res);
+			expect(body.notifications.length).toBeLessThanOrEqual(200);
+		});
 	});
 
 	describe("GET /notifications/:subscriberId/count", () => {
@@ -412,6 +442,34 @@ describe("API Routes — extended coverage", () => {
 			expect(res.status).toBe(200);
 			const body = await json(res);
 			expect(body.topics).toHaveLength(2);
+		});
+
+		it("clamps an oversized limit to 200", async () => {
+			const res = await app.handler(makeRequest("GET", "/topics?limit=999999"));
+			expect(res.status).toBe(200);
+			// The actual DB query must have been issued with limit <= 200.
+			// We verify this indirectly: the response must succeed and the route
+			// must not have forwarded 999999 to the adapter (memory adapter would
+			// return everything, but we confirm the cap is applied by checking that
+			// the resolved limit used in the query is ≤ 200 — tested via the
+			// recorded query or by seeding >200 records in integration tests).
+			// For the unit-level cap test, assert the route returns 200 OK and
+			// does NOT blow up; the full cap assertion is validated with seeded data
+			// in the integration helper below.
+			const body = await json(res);
+			expect(body.topics).toBeDefined();
+		});
+
+		it("caps the effective limit at 200 even when more records exist", async () => {
+			// Seed 201 topics
+			for (let i = 0; i < 201; i++) {
+				await app.handler(makeRequest("POST", "/topics", { key: `cap-topic-${i}`, name: `Cap Topic ${i}` }));
+			}
+
+			const res = await app.handler(makeRequest("GET", "/topics?limit=999999"));
+			expect(res.status).toBe(200);
+			const body = await json(res);
+			expect(body.topics.length).toBeLessThanOrEqual(200);
 		});
 	});
 
