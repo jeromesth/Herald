@@ -131,6 +131,8 @@ export const DELETE = notifications.handler;
 app.all("/api/notifications/*", (req) => notifications.handler(req));
 ```
 
+> **Note:** `herald().handler` has no built-in authentication. Add your auth middleware before mounting it in production.
+
 ### Trigger Notifications
 
 ```typescript
