@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **`onEvent` plugin hook** — catch-all lifecycle hook that fires at every `emitEvent` site. Plugins receive the full `ActivityEventInput` for any of the 11 lifecycle events.
+- **Granular plugin hooks** — `onStepStart`, `onStepComplete`, and `onSendFailure` for plugins that only care about specific lifecycle points without subscribing to the full event bus.
+- **`observabilityPlugin()`** — first-party plugin that owns activity log persistence, webhook delivery, and the `/activity`, `/activity/:transactionId`, and `/delivery-status` HTTP endpoints. Auto-registered when `activityLog: true` or `webhooks` is configured. Exported as `observabilityPlugin` and `OBSERVABILITY_PLUGIN_ID`.
+- **Plugin endpoint route params** — `PluginEndpoint.handler` now receives `params: Record<string, string>` so plugin routes can use `:placeholder` patterns.
+- **Hook matrix doc** — `docs/guides/plugin-hooks.md` maps every lifecycle point to its hooks.
+
+### Changed
+- **Activity log schema and routes moved to the observability plugin.** `coreSchema` no longer contains `activityLog`; the table is contributed via `plugin.schema` and merged at init. The `/activity*` and `/delivery-status` routes are now plugin endpoints.
+- **`emitEvent` simplified** — now only fans out to plugin `onEvent` hooks. Activity-log and webhook side effects live in the observability plugin.
+- **Back-compat preserved** — `HeraldOptions.activityLog: true` and `HeraldOptions.webhooks` continue to work transparently via auto-registration. `HeraldAPI.getActivityLog` and `HeraldAPI.updateDeliveryStatus` remain on the public API.
+
 ## [0.6.0] - 2026-04-19
 
 ### Added

@@ -3,6 +3,7 @@ import { InAppProvider } from "../channels/in-app.js";
 import { ChannelRegistry } from "../channels/provider.js";
 import { coreSchema, mergeSchemas } from "../db/schema.js";
 import { HeraldNotFoundError, HeraldValidationError } from "../errors.js";
+import { OBSERVABILITY_PLUGIN_ID, observabilityPlugin } from "../plugins/observability/index.js";
 import { SSEManager } from "../realtime/sse.js";
 import { HandlebarsEngine } from "../templates/engine.js";
 import { LayoutRegistry } from "../templates/layouts.js";
@@ -16,6 +17,7 @@ import type {
 	PreferenceRecord,
 	SubscriberRecord,
 } from "../types/config.js";
+import type { HeraldPlugin } from "../types/plugin.js";
 import { asChannelType } from "../types/workflow.js";
 import { queryActivityLog, validateStatusTransition } from "./activity.js";
 import { emitEvent } from "./emit-event.js";
@@ -56,8 +58,19 @@ import { wrapWorkflow } from "./workflow-runtime.js";
  * app.all("/api/notifications/*", notifications.handler);
  * ```
  */
-export function herald(options: HeraldOptions): Herald {
-	const generateId = options.advanced?.generateId ?? (() => crypto.randomUUID());
+export function herald(rawOptions: HeraldOptions): Herald {
+	const generateId = rawOptions.advanced?.generateId ?? (() => crypto.randomUUID());
+
+	// Auto-register the observability plugin when activityLog or webhooks are
+	// configured. This preserves the v0.6 surface (`activityLog: true`) while
+	// the implementation has moved into a plugin. If a user already added the
+	// plugin manually, skip auto-registration to avoid duplicate ids.
+	const userPlugins = rawOptions.plugins ?? [];
+	const hasObservabilityNeed = rawOptions.activityLog === true || (rawOptions.webhooks?.length ?? 0) > 0;
+	const observabilityAlreadyRegistered = userPlugins.some((p) => p.id === OBSERVABILITY_PLUGIN_ID);
+	const resolvedPlugins: HeraldPlugin[] =
+		hasObservabilityNeed && !observabilityAlreadyRegistered ? [...userPlugins, observabilityPlugin()] : userPlugins;
+	const options: HeraldOptions = { ...rawOptions, plugins: resolvedPlugins };
 
 	// Set up channel registry
 	const channels = new ChannelRegistry();

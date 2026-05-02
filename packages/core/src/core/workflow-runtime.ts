@@ -58,13 +58,22 @@ function wrapStep(workflowMeta: WorkflowMeta, step: ActionStep, ctx: HeraldConte
 		handler: async (context: StepContext): Promise<StepResult> => {
 			const transactionId = typeof context.payload._transactionId === "string" ? context.payload._transactionId : undefined;
 
+			const stepChannel = isChannelStep(step.type) ? step.type : undefined;
+
 			void emitEvent(ctx, {
 				event: "workflow.step.started",
 				workflowId: workflowMeta.workflowId,
 				transactionId,
 				stepId: step.stepId,
 				subscriberId: context.subscriber.id,
-				channel: isChannelStep(step.type) ? step.type : undefined,
+				channel: stepChannel,
+			});
+			await runStepLifecycleHooks(ctx, "onStepStart", {
+				workflowId: workflowMeta.workflowId,
+				stepId: step.stepId,
+				transactionId,
+				subscriberId: context.subscriber.id,
+				channel: stepChannel,
 			});
 
 			const result = await originalHandler(context);
@@ -75,6 +84,12 @@ function wrapStep(workflowMeta: WorkflowMeta, step: ActionStep, ctx: HeraldConte
 					workflowId: workflowMeta.workflowId,
 					transactionId,
 					stepId: step.stepId,
+					subscriberId: context.subscriber.id,
+				});
+				await runStepLifecycleHooks(ctx, "onStepComplete", {
+					workflowId: workflowMeta.workflowId,
+					stepId: step.stepId,
+					transactionId,
 					subscriberId: context.subscriber.id,
 				});
 				return result;
@@ -205,10 +220,35 @@ function wrapStep(workflowMeta: WorkflowMeta, step: ActionStep, ctx: HeraldConte
 				subscriberId: subscriber.id,
 				channel: step.type,
 			});
+			await runStepLifecycleHooks(ctx, "onStepComplete", {
+				workflowId: workflowMeta.workflowId,
+				stepId: step.stepId,
+				transactionId,
+				subscriberId: subscriber.id,
+				channel: step.type,
+			});
 
 			return result;
 		},
 	};
+}
+
+async function runStepLifecycleHooks(
+	ctx: HeraldContext,
+	hookName: "onStepStart" | "onStepComplete",
+	args: { workflowId: string; stepId: string; transactionId?: string; subscriberId: string; channel?: ChannelType },
+): Promise<void> {
+	const plugins = ctx.options.plugins;
+	if (!plugins) return;
+	for (const plugin of plugins) {
+		const hook = plugin.hooks?.[hookName];
+		if (!hook) continue;
+		try {
+			await hook(args);
+		} catch (error) {
+			console.error(`[herald] Plugin "${plugin.id}" ${hookName} hook threw for step "${args.stepId}":`, error);
+		}
+	}
 }
 
 async function runAfterPreferenceHooks(

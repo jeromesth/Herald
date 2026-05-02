@@ -103,7 +103,7 @@ Priority: **Medium** | Comparable: Novu Activity Feed, Knock Message Events
 - [ ] **Integration tests** — real database integration tests using testcontainers/docker for Postgres, Redis, etc.
 - [ ] **Activity log partitioning validation** — run the partitioning guide ([docs/guides/activity-log-partitioning.md](docs/guides/activity-log-partitioning.md)) against real PostgreSQL and MySQL instances using testcontainers. Validate that Herald's adapters read/write correctly against partitioned tables, confirm query plans use partition pruning, and add a `pruneActivityLog({ olderThan })` REST endpoint + API method for retention management. Update the guide with any corrections found during testing.
 
-## v0.6.5 — Plugin System Improvements & Observability Extraction
+## v0.6.5 — Plugin System Improvements & Observability Extraction `COMPLETE`
 
 Priority: **Medium** | Prerequisite for extractable observability
 
@@ -111,18 +111,17 @@ The observability system (v0.6) is currently in core, gated behind `activityLog:
 
 **Phase 1 — Generalized event bus hook:**
 
-- [ ] **Add `onEvent` plugin hook** — a catch-all lifecycle hook that fires at every point `emitEvent` currently fires. Signature: `onEvent(event: ActivityEventInput) => Promise<void>`. This gives plugins visibility into all 11 event types without needing a discrete hook for each.
-- [ ] **Add missing granular hooks** — `onStepStart`, `onStepComplete`, `onSendFailure` for plugins that need to intercept specific lifecycle points without subscribing to the full event bus.
-- [ ] **Document plugin hook matrix** — map every lifecycle point to its available hooks so plugin authors know exactly what they can observe/intercept.
+- [x] **Add `onEvent` plugin hook** — a catch-all lifecycle hook that fires at every point `emitEvent` currently fires. Signature: `onEvent(event: ActivityEventInput) => Promise<void>`. This gives plugins visibility into all 11 event types without needing a discrete hook for each.
+- [x] **Add missing granular hooks** — `onStepStart`, `onStepComplete`, `onSendFailure` for plugins that need to intercept specific lifecycle points without subscribing to the full event bus.
+- [x] **Document plugin hook matrix** — map every lifecycle point to its available hooks so plugin authors know exactly what they can observe/intercept. See [docs/guides/plugin-hooks.md](docs/guides/plugin-hooks.md).
 
 **Phase 2 — Extract observability to plugin:**
 
-- [ ] **Create `@@jeromesth/herald/plugin-observability`** — move `recordActivity`, `queryActivityLog`, `emitWebhookEvent`, and `emitEvent` into a plugin that uses the `onEvent` hook.
-- [ ] **Move activity routes to plugin endpoints** — `/activity`, `/activity/:transactionId`, and `/delivery-status` routes registered via `plugin.endpoints` instead of core router.
-- [ ] **Move activityLog schema to plugin schema** — table definition provided via `plugin.schema` and merged at init.
-- [ ] **Move `updateDeliveryStatus` out of core API** — expose as a plugin-provided helper or endpoint rather than a `HeraldAPI` method.
-- [ ] **Preserve backward compatibility** — `activityLog: true` in `HeraldOptions` should auto-register the plugin so existing users don't break.
-- [ ] **Tests** — verify the plugin provides identical behavior to the current core implementation.
+- [x] **Create `observabilityPlugin()`** — moved `recordActivity`, `queryActivityLog`, `emitWebhookEvent` consumption into a plugin that uses the `onEvent` hook. Exported from `@jeromesth/herald` as `observabilityPlugin` / `OBSERVABILITY_PLUGIN_ID`.
+- [x] **Move activity routes to plugin endpoints** — `/activity`, `/activity/:transactionId`, and `/delivery-status` routes registered via `plugin.endpoints` instead of core router. Plugin endpoints now receive route params.
+- [x] **Move activityLog schema to plugin schema** — table definition provided via `plugin.schema` and merged at init.
+- [x] **Preserve backward compatibility** — `activityLog: true` or `webhooks` set in `HeraldOptions` auto-registers the plugin so existing users don't break. `HeraldAPI.getActivityLog` and `HeraldAPI.updateDeliveryStatus` remain on the core API surface and continue to work.
+- [x] **Tests** — added `tests/plugin-hooks.test.ts` (12 tests) and `tests/observability-plugin.test.ts` (12 tests) verifying parity with the prior core implementation.
 
 ## v0.7 — Multi-Channel Expansion
 

@@ -1,8 +1,9 @@
+import { HTTPError, jsonResponse, parseJsonBody } from "../../api/router.js";
 import { queryActivityLog, validateStatusTransition } from "../../core/activity.js";
 import { emitEvent } from "../../core/emit-event.js";
 import type { HeraldContext, NotificationRecord } from "../../types/config.js";
+import type { PluginEndpoint } from "../../types/plugin.js";
 import { type DeliveryStatus, asChannelType } from "../../types/workflow.js";
-import { HTTPError, jsonResponse, parseJsonBody } from "../router.js";
 
 const VALID_DELIVERY_STATUSES = new Set(["queued", "sent", "delivered", "bounced", "failed"]);
 
@@ -11,10 +12,10 @@ const VALID_DELIVERY_STATUSES = new Set(["queued", "sent", "delivered", "bounced
 // - /activity/:transactionId (single-trace view) defaults to 100 because a
 //   single workflow run typically emits a handful of events and we'd like the
 //   whole trace on one page when possible. Both cap at 100.
-export const activityRoutes = [
-	{
+export const observabilityEndpoints: Record<string, PluginEndpoint> = {
+	listActivity: {
 		method: "GET",
-		pattern: "/activity",
+		path: "/activity",
 		handler: async (request: Request, ctx: HeraldContext) => {
 			const url = new URL(request.url);
 			const rawLimit = Number.parseInt(url.searchParams.get("limit") ?? "50", 10);
@@ -39,9 +40,10 @@ export const activityRoutes = [
 			});
 		},
 	},
-	{
+
+	getActivityByTransaction: {
 		method: "GET",
-		pattern: "/activity/:transactionId",
+		path: "/activity/:transactionId",
 		handler: async (request: Request, ctx: HeraldContext, params: Record<string, string>) => {
 			const url = new URL(request.url);
 			const rawLimit = Number.parseInt(url.searchParams.get("limit") ?? "100", 10);
@@ -60,9 +62,10 @@ export const activityRoutes = [
 			return jsonResponse({ entries, totalCount, hasMore: offset + limit < totalCount });
 		},
 	},
-	{
+
+	updateDeliveryStatus: {
 		method: "POST",
-		pattern: "/delivery-status",
+		path: "/delivery-status",
 		handler: async (request: Request, ctx: HeraldContext) => {
 			const body = await parseJsonBody<{
 				notificationId: string;
@@ -115,4 +118,4 @@ export const activityRoutes = [
 			return jsonResponse({ status: "updated", deliveryStatus: validatedStatus });
 		},
 	},
-];
+};

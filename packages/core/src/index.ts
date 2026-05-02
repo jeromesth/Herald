@@ -21,6 +21,7 @@ export {
 export { emitEvent } from "./core/emit-event.js";
 export { recordActivity, queryActivityLog } from "./core/activity.js";
 export { ACTIVITY_EVENT_TYPES } from "./types/activity.js";
+export { observabilityPlugin, OBSERVABILITY_PLUGIN_ID } from "./plugins/observability/index.js";
 
 // Errors
 export {
