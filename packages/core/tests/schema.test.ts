@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { coreSchema, mergeSchemas } from "../src/db/schema.js";
+import { observabilitySchema } from "../src/plugins/observability/schema.js";
 
 describe("coreSchema", () => {
 	it("defines all required core tables", () => {
@@ -44,24 +45,36 @@ describe("coreSchema", () => {
 		expect(ref?.onDelete).toBe("cascade");
 	});
 
-	it("activityLog table exists with required fields", () => {
-		expect(coreSchema.activityLog).toBeDefined();
-		const fields = coreSchema.activityLog?.fields;
-		expect(fields.id).toBeDefined();
-		expect(fields.transactionId).toBeDefined();
-		expect(fields.workflowId).toBeDefined();
-		expect(fields.subscriberId).toBeDefined();
-		expect(fields.event).toBeDefined();
-		expect(fields.createdAt).toBeDefined();
+	it("does not include activityLog in core (now owned by observability plugin)", () => {
+		expect(coreSchema.activityLog).toBeUndefined();
+	});
+});
+
+describe("observability plugin schema", () => {
+	it("contributes activityLog table with required fields", () => {
+		expect(observabilitySchema.activityLog).toBeDefined();
+		const fields = observabilitySchema.activityLog?.fields;
+		expect(fields?.id).toBeDefined();
+		expect(fields?.transactionId).toBeDefined();
+		expect(fields?.workflowId).toBeDefined();
+		expect(fields?.subscriberId).toBeDefined();
+		expect(fields?.event).toBeDefined();
+		expect(fields?.createdAt).toBeDefined();
 	});
 
-	it("activityLog has indexes on query and sort fields", () => {
-		const fields = coreSchema.activityLog?.fields;
-		expect(fields.transactionId?.index).toBe(true);
-		expect(fields.workflowId?.index).toBe(true);
-		expect(fields.subscriberId?.index).toBe(true);
-		expect(fields.event?.index).toBe(true);
-		expect(fields.createdAt?.index).toBe(true);
+	it("indexes activityLog query and sort fields", () => {
+		const fields = observabilitySchema.activityLog?.fields;
+		expect(fields?.transactionId?.index).toBe(true);
+		expect(fields?.workflowId?.index).toBe(true);
+		expect(fields?.subscriberId?.index).toBe(true);
+		expect(fields?.event?.index).toBe(true);
+		expect(fields?.createdAt?.index).toBe(true);
+	});
+
+	it("merges activityLog into the full schema when registered", () => {
+		const merged = mergeSchemas(coreSchema, observabilitySchema);
+		expect(merged.activityLog).toBeDefined();
+		expect(merged.activityLog?.fields.event?.index).toBe(true);
 	});
 });
 

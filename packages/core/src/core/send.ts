@@ -173,6 +173,28 @@ export async function sendThroughProvider(
 			transactionId: message.transactionId,
 			detail: { messageId: result.messageId, error: result.error },
 		});
+
+		if (ctx.options.plugins) {
+			for (const plugin of ctx.options.plugins) {
+				if (plugin.hooks?.onSendFailure) {
+					try {
+						await plugin.hooks.onSendFailure(
+							{
+								subscriberId: message.subscriberId,
+								channel: message.channel,
+								messageId: result.messageId,
+								error: result.error,
+								workflowId: message.workflowId,
+								transactionId: message.transactionId,
+							},
+							ctx,
+						);
+					} catch (hookError) {
+						console.error(`[herald] Plugin "${plugin.id}" onSendFailure hook threw:`, hookError);
+					}
+				}
+			}
+		}
 	} else {
 		void emitEvent(ctx, {
 			event: "notification.sent",

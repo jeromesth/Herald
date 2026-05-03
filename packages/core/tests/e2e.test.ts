@@ -594,6 +594,8 @@ describe("E2E: delivery status state machine", () => {
 		app = herald({
 			database: memoryAdapter(),
 			workflow: memoryWorkflowAdapter(),
+			// /delivery-status is provided by the observability plugin
+			activityLog: true,
 		});
 	});
 

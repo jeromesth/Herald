@@ -1,3 +1,4 @@
+import type { ActivityEventInput } from "./activity.js";
 import type { HeraldContext } from "./config.js";
 import type { HeraldPluginDBSchema } from "./schema.js";
 import type { ChannelType } from "./workflow.js";
@@ -72,6 +73,77 @@ export interface HeraldPlugin {
 			allowed: boolean;
 			reason: string;
 		}) => Promise<void>;
+
+		/**
+		 * Catch-all event hook — fires at every notification lifecycle event.
+		 *
+		 * This is the same surface as the internal event bus that powers
+		 * the activity log and webhook delivery. Plugins can subscribe to
+		 * any of the 11 ActivityEventType values without needing a discrete
+		 * hook for each.
+		 *
+		 * Receives the Herald context as the second argument so plugins can
+		 * read configuration, write to the database, etc. without juggling
+		 * closures.
+		 *
+		 * Errors thrown from this hook are logged and swallowed — the hook
+		 * runs on the critical delivery path and must never break it.
+		 */
+		onEvent?: (event: ActivityEventInput, ctx: HeraldContext) => Promise<void>;
+
+		/**
+		 * Fires when a workflow step begins execution, before its handler runs.
+		 * Equivalent to subscribing to `workflow.step.started` on `onEvent`,
+		 * but available as a granular hook for plugins that only care about
+		 * step lifecycle.
+		 *
+		 * Errors are logged and swallowed.
+		 */
+		onStepStart?: (
+			args: {
+				workflowId: string;
+				stepId: string;
+				transactionId?: string;
+				subscriberId: string;
+				channel?: ChannelType;
+			},
+			ctx: HeraldContext,
+		) => Promise<void>;
+
+		/**
+		 * Fires when a workflow step finishes execution.
+		 * Equivalent to subscribing to `workflow.step.completed` on `onEvent`.
+		 *
+		 * Errors are logged and swallowed.
+		 */
+		onStepComplete?: (
+			args: {
+				workflowId: string;
+				stepId: string;
+				transactionId?: string;
+				subscriberId: string;
+				channel?: ChannelType;
+			},
+			ctx: HeraldContext,
+		) => Promise<void>;
+
+		/**
+		 * Fires when a channel provider returns a failed delivery.
+		 * Plugins can use this to log, alert, or schedule remediation.
+		 *
+		 * Errors are logged and swallowed.
+		 */
+		onSendFailure?: (
+			args: {
+				subscriberId: string;
+				channel: ChannelType;
+				messageId: string;
+				error?: string;
+				workflowId?: string;
+				transactionId?: string;
+			},
+			ctx: HeraldContext,
+		) => Promise<void>;
 	};
 }
 
@@ -82,5 +154,5 @@ export interface PluginInitResult {
 export interface PluginEndpoint {
 	method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 	path: string;
-	handler: (request: Request, ctx: HeraldContext) => Promise<Response>;
+	handler: (request: Request, ctx: HeraldContext, params: Record<string, string>) => Promise<Response>;
 }
