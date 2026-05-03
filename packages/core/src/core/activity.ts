@@ -1,6 +1,8 @@
+import { HeraldNotFoundError, HeraldValidationError } from "../errors.js";
 import type { ActivityEventInput, ActivityLogRecord } from "../types/activity.js";
-import type { HeraldContext } from "../types/config.js";
-import type { DeliveryStatus } from "../types/workflow.js";
+import type { HeraldContext, NotificationRecord } from "../types/config.js";
+import { type DeliveryStatus, asChannelType } from "../types/workflow.js";
+import { emitEvent } from "./emit-event.js";
 
 /**
  * Valid delivery status transitions. Each key maps to the set of statuses
@@ -104,4 +106,53 @@ export async function queryActivityLog(
 	]);
 
 	return { entries, totalCount };
+}
+
+/**
+ * Update a notification's delivery status, validating the transition and
+ * emitting `notification.status_changed`. Used by both the `HeraldAPI`
+ * method and the observability plugin's `/delivery-status` route.
+ *
+ * Throws `HeraldNotFoundError` if the notification doesn't exist and
+ * `HeraldValidationError` if the transition is disallowed.
+ */
+export async function updateDeliveryStatusInternal(
+	ctx: HeraldContext,
+	args: { notificationId: string; status: DeliveryStatus; detail?: Record<string, unknown> },
+): Promise<{ previousStatus: string; newStatus: DeliveryStatus }> {
+	const notification = await ctx.db.findOne<NotificationRecord>({
+		model: "notification",
+		where: [{ field: "id", value: args.notificationId }],
+	});
+
+	if (!notification) {
+		throw new HeraldNotFoundError("notification", `Notification "${args.notificationId}" not found`);
+	}
+
+	const transitionError = validateStatusTransition(notification.deliveryStatus, args.status);
+	if (transitionError) {
+		throw new HeraldValidationError(transitionError);
+	}
+
+	await ctx.db.update({
+		model: "notification",
+		where: [{ field: "id", value: args.notificationId }],
+		update: { deliveryStatus: args.status },
+	});
+
+	void emitEvent(ctx, {
+		event: "notification.status_changed",
+		workflowId: notification.workflowId,
+		subscriberId: notification.subscriberId,
+		transactionId: notification.transactionId,
+		channel: asChannelType(notification.channel),
+		detail: {
+			notificationId: args.notificationId,
+			previousStatus: notification.deliveryStatus,
+			newStatus: args.status,
+			...args.detail,
+		},
+	});
+
+	return { previousStatus: notification.deliveryStatus, newStatus: args.status };
 }

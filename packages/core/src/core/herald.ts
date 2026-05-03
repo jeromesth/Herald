@@ -2,7 +2,6 @@ import { createRouter } from "../api/router.js";
 import { InAppProvider } from "../channels/in-app.js";
 import { ChannelRegistry } from "../channels/provider.js";
 import { coreSchema, mergeSchemas } from "../db/schema.js";
-import { HeraldNotFoundError, HeraldValidationError } from "../errors.js";
 import { OBSERVABILITY_PLUGIN_ID, observabilityPlugin } from "../plugins/observability/index.js";
 import { SSEManager } from "../realtime/sse.js";
 import { HandlebarsEngine } from "../templates/engine.js";
@@ -18,8 +17,7 @@ import type {
 	SubscriberRecord,
 } from "../types/config.js";
 import type { HeraldPlugin } from "../types/plugin.js";
-import { asChannelType } from "../types/workflow.js";
-import { queryActivityLog, validateStatusTransition } from "./activity.js";
+import { queryActivityLog, updateDeliveryStatusInternal } from "./activity.js";
 import { emitEvent } from "./emit-event.js";
 import { initializePlugins } from "./plugins.js";
 import {
@@ -65,11 +63,16 @@ export function herald(rawOptions: HeraldOptions): Herald {
 	// configured. This preserves the v0.6 surface (`activityLog: true`) while
 	// the implementation has moved into a plugin. If a user already added the
 	// plugin manually, skip auto-registration to avoid duplicate ids.
+	//
+	// The plugin is *prepended* so its `init` runs before user-plugin inits.
+	// That way, if a user plugin's init fires events, the observability plugin
+	// is already wired and records them. Plugin order has no effect on regular
+	// `onEvent` fan-out (it's concurrent via Promise.allSettled).
 	const userPlugins = rawOptions.plugins ?? [];
 	const hasObservabilityNeed = rawOptions.activityLog === true || (rawOptions.webhooks?.length ?? 0) > 0;
 	const observabilityAlreadyRegistered = userPlugins.some((p) => p.id === OBSERVABILITY_PLUGIN_ID);
 	const resolvedPlugins: HeraldPlugin[] =
-		hasObservabilityNeed && !observabilityAlreadyRegistered ? [...userPlugins, observabilityPlugin()] : userPlugins;
+		hasObservabilityNeed && !observabilityAlreadyRegistered ? [observabilityPlugin(), ...userPlugins] : userPlugins;
 	const options: HeraldOptions = { ...rawOptions, plugins: resolvedPlugins };
 
 	// Set up channel registry
@@ -438,39 +441,7 @@ function createAPI(ctx: HeraldContext, pluginsReady: Promise<void>): HeraldAPI {
 
 		async updateDeliveryStatus(args) {
 			await pluginsReady;
-			const notification = await db.findOne<NotificationRecord>({
-				model: "notification",
-				where: [{ field: "id", value: args.notificationId }],
-			});
-
-			if (!notification) {
-				throw new HeraldNotFoundError("notification", `Notification "${args.notificationId}" not found`);
-			}
-
-			const transitionError = validateStatusTransition(notification.deliveryStatus, args.status);
-			if (transitionError) {
-				throw new HeraldValidationError(transitionError);
-			}
-
-			await db.update({
-				model: "notification",
-				where: [{ field: "id", value: args.notificationId }],
-				update: { deliveryStatus: args.status },
-			});
-
-			void emitEvent(ctx, {
-				event: "notification.status_changed",
-				workflowId: notification.workflowId,
-				subscriberId: notification.subscriberId,
-				transactionId: notification.transactionId,
-				channel: asChannelType(notification.channel),
-				detail: {
-					notificationId: args.notificationId,
-					previousStatus: notification.deliveryStatus,
-					newStatus: args.status,
-					...args.detail,
-				},
-			});
+			await updateDeliveryStatusInternal(ctx, args);
 		},
 	};
 }

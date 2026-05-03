@@ -17,15 +17,14 @@ export async function emitEvent(ctx: HeraldContext, input: ActivityEventInput): 
 	if (!plugins || plugins.length === 0) return;
 
 	await Promise.allSettled(
-		plugins
-			.filter((plugin) => plugin.hooks?.onEvent)
-			.map(async (plugin) => {
-				try {
-					// biome-ignore lint/style/noNonNullAssertion: filtered above
-					await plugin.hooks!.onEvent!(input);
-				} catch (error) {
-					console.error(`[herald] Plugin "${plugin.id}" onEvent hook threw for event "${input.event}":`, error);
-				}
-			}),
+		plugins.map(async (plugin) => {
+			const onEvent = plugin.hooks?.onEvent;
+			if (!onEvent) return;
+			try {
+				await onEvent(input, ctx);
+			} catch (error) {
+				console.error(`[herald] Plugin "${plugin.id}" onEvent hook threw for event "${input.event}":`, error);
+			}
+		}),
 	);
 }

@@ -39,22 +39,14 @@ export const OBSERVABILITY_PLUGIN_ID = "herald-observability";
  * it manually.
  */
 export function observabilityPlugin(): HeraldPlugin {
-	// Each call creates a fresh closure so concurrent Herald instances don't share state.
-	let ctxRef: HeraldContext | undefined;
-
 	return {
 		id: OBSERVABILITY_PLUGIN_ID,
 		schema: observabilitySchema,
 		endpoints: observabilityEndpoints,
 		hooks: {
-			onEvent: async (event: ActivityEventInput) => {
-				if (!ctxRef) return;
-				await Promise.allSettled([recordActivity(ctxRef, event), emitWebhookEvent(ctxRef, event)]);
+			onEvent: async (event: ActivityEventInput, ctx: HeraldContext) => {
+				await Promise.allSettled([recordActivity(ctx, event), emitWebhookEvent(ctx, event)]);
 			},
-		},
-		init: async (ctx: HeraldContext) => {
-			ctxRef = ctx;
-			return undefined;
 		},
 	};
 }

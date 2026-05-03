@@ -146,23 +146,25 @@ describe("observability plugin", () => {
 			const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
 			vi.stubGlobal("fetch", fetchMock);
 
-			const app = herald({
-				database: memoryAdapter(),
-				workflow: memoryWorkflowAdapter(),
-				workflows: [inAppWorkflow],
-				webhooks: [{ url: "https://example.test/hook" }],
-			});
+			try {
+				const app = herald({
+					database: memoryAdapter(),
+					workflow: memoryWorkflowAdapter(),
+					workflows: [inAppWorkflow],
+					webhooks: [{ url: "https://example.test/hook" }],
+				});
 
-			await app.api.upsertSubscriber({ externalId: "u-1", email: "u@test.com" });
-			await app.api.trigger({ workflowId: "welcome", to: "u-1", payload: {} });
+				await app.api.upsertSubscriber({ externalId: "u-1", email: "u@test.com" });
+				await app.api.trigger({ workflowId: "welcome", to: "u-1", payload: {} });
 
-			expect(fetchMock).toHaveBeenCalled();
-			const firstCallBody = fetchMock.mock.calls[0]?.[1]?.body as string;
-			const parsed = JSON.parse(firstCallBody) as WebhookEventPayload;
-			expect(parsed.event).toBeDefined();
-			expect(parsed.data).toBeDefined();
-
-			vi.unstubAllGlobals();
+				expect(fetchMock).toHaveBeenCalled();
+				const firstCallBody = fetchMock.mock.calls[0]?.[1]?.body as string;
+				const parsed = JSON.parse(firstCallBody) as WebhookEventPayload;
+				expect(parsed.event).toBeDefined();
+				expect(parsed.data).toBeDefined();
+			} finally {
+				vi.unstubAllGlobals();
+			}
 		});
 
 		it("coexists with user-supplied plugins that subscribe to onEvent", async () => {

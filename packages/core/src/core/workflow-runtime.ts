@@ -244,7 +244,7 @@ async function runStepLifecycleHooks(
 		const hook = plugin.hooks?.[hookName];
 		if (!hook) continue;
 		try {
-			await hook(args);
+			await hook(args, ctx);
 		} catch (error) {
 			console.error(`[herald] Plugin "${plugin.id}" ${hookName} hook threw for step "${args.stepId}":`, error);
 		}

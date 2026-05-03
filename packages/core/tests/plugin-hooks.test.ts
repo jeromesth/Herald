@@ -116,6 +116,26 @@ describe("Plugin hooks — onEvent / onStepStart / onStepComplete / onSendFailur
 			consoleSpy.mockRestore();
 		});
 
+		it("passes HeraldContext as the second argument", async () => {
+			const onEvent = vi.fn<(event: ActivityEventInput, ctx: unknown) => Promise<void>>();
+			const plugin: HeraldPlugin = { id: "obs", hooks: { onEvent } };
+
+			app = herald({
+				database: memoryAdapter(),
+				workflow: memoryWorkflowAdapter(),
+				workflows: [inAppWorkflow],
+				plugins: [plugin],
+			});
+
+			await app.api.upsertSubscriber({ externalId: "user-1", email: "u@test.com" });
+			await app.api.trigger({ workflowId: "welcome", to: "user-1", payload: {} });
+
+			expect(onEvent).toHaveBeenCalled();
+			const ctxArg = onEvent.mock.calls[0]?.[1] as { db?: unknown; options?: unknown };
+			expect(ctxArg.db).toBeDefined();
+			expect(ctxArg.options).toBeDefined();
+		});
+
 		it("fans out to all plugins independently", async () => {
 			const a = vi.fn();
 			const b = vi.fn();
@@ -189,9 +209,9 @@ describe("Plugin hooks — onEvent / onStepStart / onStepComplete / onSendFailur
 			await app.api.upsertSubscriber({ externalId: "user-1", email: "u@test.com" });
 			await app.api.trigger({ workflowId: "noop", to: "user-1", payload: {} });
 
-			expect(onStepStart).toHaveBeenCalledWith(expect.objectContaining({ stepId: "compute", workflowId: "noop" }));
+			expect(onStepStart).toHaveBeenCalledWith(expect.objectContaining({ stepId: "compute", workflowId: "noop" }), expect.anything());
 			expect(onStepStart.mock.calls[0]?.[0]?.channel).toBeUndefined();
-			expect(onStepComplete).toHaveBeenCalledWith(expect.objectContaining({ stepId: "compute", workflowId: "noop" }));
+			expect(onStepComplete).toHaveBeenCalledWith(expect.objectContaining({ stepId: "compute", workflowId: "noop" }), expect.anything());
 			expect(onStepComplete.mock.calls[0]?.[0]?.channel).toBeUndefined();
 		});
 
@@ -267,6 +287,7 @@ describe("Plugin hooks — onEvent / onStepStart / onStepComplete / onSendFailur
 					error: "SMTP refused",
 					workflowId: "fail-email",
 				}),
+				expect.anything(),
 			);
 			consoleSpy.mockRestore();
 		});

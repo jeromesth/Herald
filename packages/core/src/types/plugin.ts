@@ -82,10 +82,14 @@ export interface HeraldPlugin {
 		 * any of the 11 ActivityEventType values without needing a discrete
 		 * hook for each.
 		 *
+		 * Receives the Herald context as the second argument so plugins can
+		 * read configuration, write to the database, etc. without juggling
+		 * closures.
+		 *
 		 * Errors thrown from this hook are logged and swallowed — the hook
 		 * runs on the critical delivery path and must never break it.
 		 */
-		onEvent?: (event: ActivityEventInput) => Promise<void>;
+		onEvent?: (event: ActivityEventInput, ctx: HeraldContext) => Promise<void>;
 
 		/**
 		 * Fires when a workflow step begins execution, before its handler runs.
@@ -95,13 +99,16 @@ export interface HeraldPlugin {
 		 *
 		 * Errors are logged and swallowed.
 		 */
-		onStepStart?: (args: {
-			workflowId: string;
-			stepId: string;
-			transactionId?: string;
-			subscriberId: string;
-			channel?: ChannelType;
-		}) => Promise<void>;
+		onStepStart?: (
+			args: {
+				workflowId: string;
+				stepId: string;
+				transactionId?: string;
+				subscriberId: string;
+				channel?: ChannelType;
+			},
+			ctx: HeraldContext,
+		) => Promise<void>;
 
 		/**
 		 * Fires when a workflow step finishes execution.
@@ -109,13 +116,16 @@ export interface HeraldPlugin {
 		 *
 		 * Errors are logged and swallowed.
 		 */
-		onStepComplete?: (args: {
-			workflowId: string;
-			stepId: string;
-			transactionId?: string;
-			subscriberId: string;
-			channel?: ChannelType;
-		}) => Promise<void>;
+		onStepComplete?: (
+			args: {
+				workflowId: string;
+				stepId: string;
+				transactionId?: string;
+				subscriberId: string;
+				channel?: ChannelType;
+			},
+			ctx: HeraldContext,
+		) => Promise<void>;
 
 		/**
 		 * Fires when a channel provider returns a failed delivery.
@@ -123,14 +133,17 @@ export interface HeraldPlugin {
 		 *
 		 * Errors are logged and swallowed.
 		 */
-		onSendFailure?: (args: {
-			subscriberId: string;
-			channel: ChannelType;
-			messageId: string;
-			error?: string;
-			workflowId?: string;
-			transactionId?: string;
-		}) => Promise<void>;
+		onSendFailure?: (
+			args: {
+				subscriberId: string;
+				channel: ChannelType;
+				messageId: string;
+				error?: string;
+				workflowId?: string;
+				transactionId?: string;
+			},
+			ctx: HeraldContext,
+		) => Promise<void>;
 	};
 }
 
